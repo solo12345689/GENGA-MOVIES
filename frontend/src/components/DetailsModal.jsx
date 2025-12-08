@@ -92,15 +92,39 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
                 }}>
                     <h2 style={{ fontSize: '2.5rem', marginBottom: '0.5rem', lineHeight: 1.1 }}>{item.title}</h2>
 
-                    <div style={{ display: 'flex', gap: '1rem', color: 'var(--text-muted)', marginBottom: '2rem', fontSize: '0.95rem', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '1rem', color: 'var(--text-muted)', marginBottom: '2rem', fontSize: '0.95rem', alignItems: 'center', flexWrap: 'wrap' }}>
                         <span style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '4px' }}>{item.year}</span>
-                        <span>{item.rating || 'N/A'}</span>
                         <span style={{ textTransform: 'capitalize', color: 'var(--primary)' }}>{item.type}</span>
                     </div>
 
-                    <p style={{ lineHeight: '1.7', marginBottom: '2.5rem', color: 'var(--text-dim)', fontSize: '1.05rem' }}>
-                        {item.plot || 'No plot available.'}
-                    </p>
+                    {item.plot ? (
+                        <p style={{ lineHeight: '1.7', marginBottom: '2.5rem', color: 'var(--text-dim)', fontSize: '1.05rem' }}>
+                            {item.plot}
+                        </p>
+                    ) : item.rating ? (
+                        <div style={{
+                            marginBottom: '2.5rem',
+                            padding: '1.5rem',
+                            background: 'rgba(251, 191, 36, 0.1)',
+                            border: '1px solid rgba(251, 191, 36, 0.2)',
+                            borderRadius: 'var(--radius-md)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '1rem'
+                        }}>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="#fbbf24">
+                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                            </svg>
+                            <div>
+                                <div style={{ fontSize: '1.8rem', fontWeight: '700', color: '#fbbf24' }}>{item.rating}</div>
+                                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>IMDB Rating</div>
+                            </div>
+                        </div>
+                    ) : (
+                        <p style={{ lineHeight: '1.7', marginBottom: '2.5rem', color: 'var(--text-dim)', fontSize: '1.05rem' }}>
+                            No plot or rating available.
+                        </p>
+                    )}
 
                     <div style={{ marginTop: 'auto' }}>
 

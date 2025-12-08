@@ -262,11 +262,44 @@ async def details(item_id: str):
         details_provider = search_instance.get_item_details(item)
         details_model = await details_provider.get_content_model()
         
+        # Extract IMDB rating if available
+        imdb_rating = None
+        imdb_rating_value = None
+        
+        # Try to get rating value from details_model first
+        if hasattr(details_model, 'imdbRatingValue'):
+            value = getattr(details_model, 'imdbRatingValue')
+            if value:
+                imdb_rating_value = float(value)
+                imdb_rating = f"{value}/10"
+                print(f"[DEBUG] Found rating in details_model.imdbRatingValue: {imdb_rating}")
+        
+        # Fallback: Try to get from resData
+        if not imdb_rating_value and hasattr(details_model, 'resData'):
+            resData = details_model.resData
+            if hasattr(resData, 'imdbRatingValue'):
+                value = getattr(resData, 'imdbRatingValue')
+                if value:
+                    imdb_rating_value = float(value)
+                    imdb_rating = f"{value}/10"
+                    print(f"[DEBUG] Found rating in resData.imdbRatingValue: {imdb_rating}")
+        
+        # Fallback: Try to get from the original search item
+        if not imdb_rating_value and hasattr(item, 'imdbRatingValue'):
+            value = getattr(item, 'imdbRatingValue')
+            if value:
+                imdb_rating_value = float(value)
+                imdb_rating = f"{value}/10"
+                print(f"[DEBUG] Found rating in item.imdbRatingValue: {imdb_rating}")
+        
+        print(f"[DEBUG] Final rating: {imdb_rating}, rating_value: {imdb_rating_value}")
+        
         response = {
             "title": getattr(details_model, 'title', getattr(item, 'title', 'Unknown')),
             "year": getattr(details_model, 'year', getattr(item, 'year', None)),
-            "plot": getattr(details_model, 'plot', "No plot available"),
-            "rating": getattr(details_model, 'rating', None),
+            "plot": getattr(details_model, 'plot', getattr(details_model, 'description', None)),
+            "rating": imdb_rating,
+            "rating_value": imdb_rating_value,
             "trailer": getattr(details_model, 'trailer', None),
             "type": item_type
         }
