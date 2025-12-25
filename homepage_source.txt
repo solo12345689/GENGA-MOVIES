@@ -1,0 +1,27 @@
+class Homepage(BaseContentProviderAndHelper):
+    """Content listings on landing page"""
+
+    _url = get_absolute_url(r"/wefeed-h5-bff/web/home")
+
+    def __init__(self, session: Session):
+        """Constructor `Homepage`
+
+        Args:
+            session (Session): MovieboxAPI request session
+        """
+        assert_instance(session, Session, "session")
+        self._session = session
+
+    async def get_content(self) -> dict:
+        """Landing page contents
+
+        Returns:
+            dict
+        """
+        content = await self._session.get_from_api(self._url)
+        return content
+
+    async def get_content_model(self) -> HomepageContentModel:
+        """Modelled version of the contents"""
+        content = await self.get_content()
+        return HomepageContentModel(**content)

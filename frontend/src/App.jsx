@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import SearchBar from './components/SearchBar';
 import MovieCard from './components/MovieCard';
 import DetailsModal from './components/DetailsModal';
+import WatchPage from './components/WatchPage';
 import './styles/index.css';
 
 // Auto-detect local server IP
@@ -112,11 +113,35 @@ function App() {
     const [selectedItem, setSelectedItem] = useState(null);
     const [detailsLoading, setDetailsLoading] = useState(false);
     const [downloadProgress, setDownloadProgress] = useState(null);
+    const [videoPlayerData, setVideoPlayerData] = useState(null); // { url, title }
+    const [homepageContent, setHomepageContent] = useState(null);
+    const [homepageLoading, setHomepageLoading] = useState(false);
 
     // Update localStorage when mode changes
     useEffect(() => {
         localStorage.setItem('moviebox_server_mode', serverMode);
     }, [serverMode]);
+
+    // Fetch homepage content on mount or server change
+    useEffect(() => {
+        const fetchHomepage = async () => {
+            if (!API_BASE) return;
+            setHomepageLoading(true);
+            try {
+                const res = await fetch(`${API_BASE}/api/homepage`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setHomepageContent(data.groups);
+                }
+            } catch (err) {
+                console.error("Failed to fetch homepage", err);
+            } finally {
+                setHomepageLoading(false);
+            }
+        };
+
+        fetchHomepage();
+    }, [API_BASE]);
 
     const toggleServer = () => {
         setServerMode(prev => prev === 'cloud' ? 'local' : 'cloud');
@@ -180,7 +205,11 @@ function App() {
         try {
             const res = await fetch(`${API_BASE}/api/details/${item.id}`);
             const details = await res.json();
-            setSelectedItem({ ...item, ...details });
+            setSelectedItem({
+                ...item,
+                ...details,
+                poster_url: details.poster_url || item.poster_url
+            });
         } catch (err) {
             console.error("Failed to get details", err);
         } finally {
@@ -214,32 +243,14 @@ function App() {
     };
 
     const handleStream = async (item, season = null, episode = null) => {
-        try {
-            let url = `${API_BASE}/api/stream?query=${encodeURIComponent(item.title)}`;
-            if (item.id) {
-                url += `&id=${encodeURIComponent(item.id)}`;
-            }
-            if (item.type) {
-                url += `&content_type=${encodeURIComponent(item.type)}`;
-            } else if (season) {
-                url += `&content_type=series`;
-            }
-
-            if (season && episode) {
-                url += `&season=${season}&episode=${episode}`;
-            }
-
-            // Always stream on server (laptop MPV)
-            await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-            alert('Streaming started on server (MPV)');
-        } catch (err) {
-            console.error("Stream failed", err);
-            alert("Failed to start stream");
-        }
+        // Instead of triggering MPV on backend, switch to local Watch Page
+        setVideoPlayerData({
+            item: item,
+            season: season,
+            episode: episode
+        });
     };
+
 
     return (
         <div className="app">
@@ -333,12 +344,53 @@ function App() {
                 </div>
 
                 {results.length === 0 && !loading && (
-                    <div style={{ textAlign: 'center', color: 'var(--text-muted)', marginTop: '4rem', padding: '2rem', border: '1px dashed var(--border-glass)', borderRadius: 'var(--radius-md)' }}>
-                        <p style={{ fontSize: '1.2rem' }}>Start by searching for a movie or TV show.</p>
-                        <p style={{ fontSize: '0.9rem', marginTop: '1rem', opacity: 0.7 }}>
-                            Connected to: {API_BASE}
-                        </p>
-                    </div>
+                    <>
+                        {homepageLoading ? (
+                            <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>
+                                <div className="spinner" style={{
+                                    width: '30px', height: '30px',
+                                    border: '2px solid rgba(255,255,255,0.1)',
+                                    borderTopColor: 'var(--primary)',
+                                    borderRadius: '50%',
+                                    animation: 'spin 1s linear infinite',
+                                    margin: '0 auto 1rem auto'
+                                }}></div>
+                                Loading trending content...
+                            </div>
+                        ) : homepageContent ? (
+                            <div style={{ paddingBottom: '4rem' }}>
+                                {homepageContent.map((group, index) => (
+                                    <div key={index} style={{ marginBottom: '3rem' }}>
+                                        <h2 style={{
+                                            marginBottom: '1.5rem',
+                                            paddingLeft: '1rem',
+                                            borderLeft: '4px solid var(--primary)',
+                                            fontSize: '1.5rem',
+                                            fontWeight: '600'
+                                        }}>
+                                            {group.title}
+                                        </h2>
+                                        <div className="movie-card-grid" style={{
+                                            display: 'grid',
+                                            gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+                                            gap: '2rem'
+                                        }}>
+                                            {group.items.map((item) => (
+                                                <MovieCard key={item.id} movie={item} onClick={handleItemClick} />
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div style={{ textAlign: 'center', color: 'var(--text-muted)', marginTop: '4rem', padding: '2rem', border: '1px dashed var(--border-glass)', borderRadius: 'var(--radius-md)' }}>
+                                <p style={{ fontSize: '1.2rem' }}>Start by searching for a movie or TV show.</p>
+                                <p style={{ fontSize: '0.9rem', marginTop: '1rem', opacity: 0.7 }}>
+                                    Connected to: {API_BASE}
+                                </p>
+                            </div>
+                        )}
+                    </>
                 )}
             </main>
 
@@ -361,6 +413,17 @@ function App() {
                     />
                 )
             }
+
+            {/* In-App Watch Page */}
+            {videoPlayerData && (
+                <WatchPage
+                    item={videoPlayerData.item}
+                    initialSeason={videoPlayerData.season}
+                    initialEpisode={videoPlayerData.episode}
+                    API_BASE={API_BASE}
+                    onBack={() => setVideoPlayerData(null)}
+                />
+            )}
 
             {
                 detailsLoading && (
@@ -426,6 +489,11 @@ function App() {
                                         else if ((url.match(/:/g) || []).length < 2) {
                                             // Check if there's a port (http: counts as one colon)
                                             url = url + ':8000';
+                                        }
+
+                                        // Remove trailing slash if present
+                                        if (url.endsWith('/')) {
+                                            url = url.slice(0, -1);
                                         }
 
                                         setLocalServerURL(url);

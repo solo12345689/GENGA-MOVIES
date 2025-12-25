@@ -1,0 +1,4 @@
+Status: 200
+Valid JSON. Keys: ['code', 'message', 'data']
+Data keys: ['topPickList', 'homeList', 'url', 'referer', 'allPlatform', 'banner', 'live', 'platformList', 'shareParam', 'operatingList']
+

@@ -836,3 +836,132 @@ Traceback (most recent call last):
     raise mapped_exc(message) from exc
 httpx.ConnectTimeout
 
+Stream error: Search yielded empty results. Try a different keyword.
+Traceback:
+Traceback (most recent call last):
+  File "C:\Users\akshi\.gemini\antigravity\scratch\moviebox_web_app\backend\api.py", line 677, in stream
+    results = await search_instance.get_content_model()
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\moviebox_api\core.py", line 192, in get_content_model
+    return SearchResultsModel(**contents)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\pydantic\main.py", line 250, in __init__
+    validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\moviebox_api\models.py", line 213, in validate_items
+    raise ZeroSearchResultsError("Search yielded empty results. Try a different keyword.")
+moviebox_api.exceptions.ZeroSearchResultsError: Search yielded empty results. Try a different keyword.
+
+Stream error: Search yielded empty results. Try a different keyword.
+Traceback:
+Traceback (most recent call last):
+  File "C:\Users\akshi\.gemini\antigravity\scratch\moviebox_web_app\backend\api.py", line 680, in stream
+    results = await search_instance.get_content_model()
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\moviebox_api\core.py", line 192, in get_content_model
+    return SearchResultsModel(**contents)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\pydantic\main.py", line 250, in __init__
+    validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\moviebox_api\models.py", line 213, in validate_items
+    raise ZeroSearchResultsError("Search yielded empty results. Try a different keyword.")
+moviebox_api.exceptions.ZeroSearchResultsError: Search yielded empty results. Try a different keyword.
+
+Stream error: 
+Traceback:
+Traceback (most recent call last):
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpx\_transports\default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpx\_transports\default.py", line 271, in __aiter__
+    async for part in self._httpcore_stream:
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpcore\_async\connection_pool.py", line 407, in __aiter__
+    raise exc from None
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpcore\_async\connection_pool.py", line 403, in __aiter__
+    async for part in self._stream:
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpcore\_async\http11.py", line 342, in __aiter__
+    raise exc
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpcore\_async\http11.py", line 334, in __aiter__
+    async for chunk in self._connection._receive_response_body(**kwargs):
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpcore\_async\http11.py", line 203, in _receive_response_body
+    event = await self._receive_event(timeout=timeout)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpcore\_async\http11.py", line 217, in _receive_event
+    data = await self._network_stream.read(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpcore\_backends\anyio.py", line 32, in read
+    with map_exceptions(exc_map):
+  File "C:\Program Files\Python311\Lib\contextlib.py", line 158, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpcore\_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ReadTimeout
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\akshi\.gemini\antigravity\scratch\moviebox_web_app\backend\api.py", line 681, in stream
+    results = await search_instance.get_content_model()
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\moviebox_api\core.py", line 191, in get_content_model
+    contents = await self.get_content()
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\moviebox_api\core.py", line 169, in get_content
+    contents = await self.session.post_to_api(url=self._url, json=self._create_payload())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\moviebox_api\requests.py", line 155, in post_to_api
+    response = await self.post(*args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\moviebox_api\requests.py", line 144, in post
+    await self.ensure_cookies_are_assigned()
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\moviebox_api\requests.py", line 166, in ensure_cookies_are_assigned
+    await self._fetch_app_info()
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\moviebox_api\requests.py", line 177, in _fetch_app_info
+    response = await self._client.get(url=self._moviebox_app_info_url)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpx\_client.py", line 1768, in get
+    return await self.request(
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpx\_client.py", line 1540, in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpx\_client.py", line 1643, in send
+    raise exc
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpx\_client.py", line 1637, in send
+    await response.aread()
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpx\_models.py", line 979, in aread
+    self._content = b"".join([part async for part in self.aiter_bytes()])
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpx\_models.py", line 979, in <listcomp>
+    self._content = b"".join([part async for part in self.aiter_bytes()])
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpx\_models.py", line 997, in aiter_bytes
+    async for raw_bytes in self.aiter_raw():
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpx\_models.py", line 1055, in aiter_raw
+    async for raw_stream_bytes in self.stream:
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpx\_client.py", line 176, in __aiter__
+    async for chunk in self._stream:
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpx\_transports\default.py", line 270, in __aiter__
+    with map_httpcore_exceptions():
+  File "C:\Program Files\Python311\Lib\contextlib.py", line 158, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpx\_transports\default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ReadTimeout
+
+Stream error: Search yielded empty results. Try a different keyword.
+Traceback:
+Traceback (most recent call last):
+  File "C:\Users\akshi\.gemini\antigravity\scratch\moviebox_web_app\backend\api.py", line 681, in stream
+    results = await search_instance.get_content_model()
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\moviebox_api\core.py", line 192, in get_content_model
+    return SearchResultsModel(**contents)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\pydantic\main.py", line 250, in __init__
+    validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\moviebox_api\models.py", line 213, in validate_items
+    raise ZeroSearchResultsError("Search yielded empty results. Try a different keyword.")
+moviebox_api.exceptions.ZeroSearchResultsError: Search yielded empty results. Try a different keyword.
+

@@ -59,34 +59,59 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
                     fontSize: '1.2rem'
                 }}>×</button>
 
-                {/* Poster Side */}
-                <div style={{
+                <div className="modal-poster-side" style={{
                     flex: '0 0 40%',
                     position: 'relative',
-                    minHeight: '300px'
+                    minHeight: '300px',
+                    height: 'auto'
                 }}>
-                    {item.poster_url ? (
-                        <img src={item.poster_url} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : (
-                        <div style={{ width: '100%', height: '100%', background: '#1a1a20', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>No Poster</div>
-                    )}
+                    {item.poster_url || item.poster ? (
+                        <img
+                            src={item.poster_url || item.poster}
+                            alt={item.title}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.style.display = 'none';
+                                // img -> gradient1 -> gradient2 -> placeholder
+                                e.target.nextSibling.nextSibling.nextSibling.style.display = 'flex';
+                            }}
+                        />
+                    ) : null}
                     <div style={{
                         position: 'absolute',
                         inset: 0,
-                        background: 'linear-gradient(to right, transparent 80%, var(--bg-surface) 100%)'
+                        background: 'linear-gradient(to right, transparent 80%, var(--bg-surface) 100%)',
+                        zIndex: 1
                     }}></div>
                     <div style={{
                         position: 'absolute',
                         inset: 0,
-                        background: 'linear-gradient(to top, var(--bg-surface) 0%, transparent 50%)'
+                        background: 'linear-gradient(to top, var(--bg-surface) 0%, transparent 50%)',
+                        zIndex: 1
                     }}></div>
+                    <div className="poster-placeholder" style={{
+                        width: '100%',
+                        height: '100%',
+                        display: (item.poster_url || item.poster) ? 'none' : 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--text-muted)',
+                        background: '#1a1a20',
+                        flexDirection: 'column',
+                        gap: '0.5rem',
+                        position: 'absolute',
+                        top: 0,
+                        left: 0
+                    }}>
+                        <span style={{ fontSize: '3rem' }}>🖼️</span>
+                        <span>No Poster</span>
+                    </div>
                 </div>
 
-                {/* Content Side */}
-                <div style={{
+                <div className="modal-details-side" style={{
                     flex: '1',
                     padding: '2.5rem',
-                    overflowY: 'auto',
                     display: 'flex',
                     flexDirection: 'column'
                 }}>
