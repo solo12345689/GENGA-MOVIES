@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect, Response
+from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect, Response, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Optional, Any
@@ -855,10 +855,10 @@ async def stream(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/proxy-stream")
-async def proxy_stream(url: str) -> StreamingResponse:
+async def proxy_stream(request: Request, url: str) -> StreamingResponse:
     """
     Proxy endpoint that streams video content with proper headers to bypass 403 Forbidden errors.
-    This version uses a persistent global client and properly manages the response lifecycle.
+    Supports Range headers for seeking and follows redirects.
     """
     try:
         # Extract headers from session
@@ -872,13 +872,19 @@ async def proxy_stream(url: str) -> StreamingResponse:
         if 'User-Agent' not in headers and 'user-agent' not in headers:
             headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         
+        # Forward Range header from client if present (Critical for seeking)
+        range_header = request.headers.get('range')
+        if range_header:
+            headers['Range'] = range_header
+
         # Stream the content from the source using the global client
-        # We manually enter the stream to peek at the headers
-        request = http_client.build_request("GET", url, headers=headers)
-        response = await http_client.send(request, stream=True)
+        # Enable follow_redirects to handle provider redirects (3xx)
+        req = http_client.build_request("GET", url, headers=headers)
+        response = await http_client.send(req, stream=True, follow_redirects=True)
         
         if response.status_code >= 400:
             await response.aclose()
+            # If upstream says 416 Range Not Satisfiable, helpful to know
             raise HTTPException(
                 status_code=response.status_code,
                 detail=f"Provider returned error: {response.status_code}"
@@ -886,10 +892,12 @@ async def proxy_stream(url: str) -> StreamingResponse:
             
         content_type = response.headers.get('content-type', 'video/mp4')
         content_length = response.headers.get('content-length')
+        content_range = response.headers.get('content-range') # Important for 206 responses
         
         async def generate():
             try:
-                async for chunk in response.aiter_bytes(chunk_size=1024 * 64): # Use larger chunks for video
+                # Use larger chunks for video streaming performance
+                async for chunk in response.aiter_bytes(chunk_size=1024 * 64):
                     yield chunk
             except Exception as stream_err:
                 print(f"[STREAM ERROR] Exception during proxy streaming: {stream_err}")
@@ -897,15 +905,19 @@ async def proxy_stream(url: str) -> StreamingResponse:
             finally:
                 await response.aclose()
         
+        # Construct response headers
         response_headers = {
-            'Accept-Ranges': 'bytes',
+            'Accept-Ranges': 'bytes', # Tell client we support seeking
             'Content-Type': content_type,
         }
         if content_length:
             response_headers['Content-Length'] = content_length
+        if content_range:
+            response_headers['Content-Range'] = content_range
             
         return StreamingResponse(
             generate(),
+            status_code=response.status_code, # Forward 206 or 200
             media_type=content_type,
             headers=response_headers
         )
