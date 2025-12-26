@@ -16,11 +16,6 @@ Before you begin, ensure you have the following installed:
 
 1.  **Python 3.8+**: For the backend server.
 2.  **Node.js 16+**: For the frontend development server.
-3.  **mpv Media Player**: Required for streaming functionality.
-    *   **Windows**: Download from [mpv.io](https://mpv.io/installation/) and ensure `mpv.exe` is in your system PATH.
-    *   **Linux/Mac**: Install via your package manager (e.g., `apt install mpv` or `brew install mpv`).
-
-## Installation
 
 ### 1. Backend Setup
 
