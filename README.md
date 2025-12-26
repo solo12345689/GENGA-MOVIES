@@ -93,6 +93,7 @@ The web application will be available at `http://localhost:5173`.
 -   `frontend/`: React frontend code.
     -   `src/components/`: Reusable UI components (MovieCard, SearchBar, DetailsModal).
     -   `src/styles/`: Global CSS and design system.
+
 ⚠️ Disclaimer
 
 This application does not host or own any media content.
