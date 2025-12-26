@@ -93,3 +93,17 @@ The web application will be available at `http://localhost:5173`.
 -   `frontend/`: React frontend code.
     -   `src/components/`: Reusable UI components (MovieCard, SearchBar, DetailsModal).
     -   `src/styles/`: Global CSS and design system.
+⚠️ Disclaimer
+
+This application does not host or own any media content.
+
+It is a technical demonstration project.
+
+The author does not encourage copyright infringement.
+
+Users are responsible for complying with applicable laws.
+
+🔐 License
+
+This project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0).
+See the LICENSE file for details.
