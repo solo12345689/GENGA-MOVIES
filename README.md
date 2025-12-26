@@ -6,7 +6,7 @@ A modern, cinematic web interface for searching, streaming, and downloading movi
 
 - **Cinematic UI**: A premium "Cinematic Dark" theme with glassmorphism effects and smooth animations.
 - **Unified Search**: Search across movies, TV series, and anime with a single powerful search bar.
-- **Streaming**: Instantly stream content using `mpv` player integration.
+- **Streaming**: Instantly stream content using  player integration.
 - **Downloading**: Download content directly to your local machine with progress tracking.
 - **Responsive Design**: Optimized for both desktop (laptops) and mobile devices.
 
