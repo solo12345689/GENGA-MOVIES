@@ -801,64 +801,28 @@ async def stream(
         if "referer" in headers_lower:
             cmd.append(f"--referrer={headers_lower['referer']}")
             
-        # Add other headers via http-header-fields
-        other_headers = []
-        allowed_headers = ["origin", "cookie", "authorization"]
-        
-        for k, v in headers.items():
-            if k.lower() in allowed_headers:
-                other_headers.append(f"{k}: {v}")
-        
-        if other_headers:
-            cmd.append(f"--http-header-fields={','.join(other_headers)}")
-        
-        # Log the command
-        print(f"[DEBUG] Launching MPV with command: {cmd}")
-        with open("stream_debug.log", "a", encoding="utf-8") as f:
-            f.write(f"Launching command: {cmd}\n")
-            f.write(f"URL: {media_file.url}\n")
-            f.write(f"Headers: {headers}\n")
- 
-        # Run non-blocking using subprocess.Popen (more reliable on Windows for GUI apps)
-        try:
-            cmd = [str(arg) for arg in cmd]
-            
-            # Popen is non-blocking - it starts the process and returns immediately
-            process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == 'win32' else 0
-            )
-            print(f"[SUCCESS] Launched MPV (PID: {process.pid}) for: {target_item.title}")
-        except Exception as launch_err:
-            error_msg = f"{type(launch_err).__name__}: {str(launch_err)}"
-            print(f"[CRITICAL] Failed to launch MPV: {error_msg}")
-            traceback.print_exc()
-            raise HTTPException(status_code=500, detail=f"Failed to launch MPV: {error_msg}")
-        
-        return {"status": "streaming", "message": f"Streaming {target_item.title}..."}
+        # Add Cookies if needed
+        if "cookie" in headers_lower:
+            cmd.append(f"--http-header-fields=Cookie: {headers_lower['cookie']}")
 
-    except HTTPException:
-        raise
+        # Auto-confirm selection if moviebox CLI prompts (though we are calling mpv directly now)
+        # But wait, this code launches MPV directly. Good.
+
+        print(f"Launching mpv: {' '.join(cmd)}")
+        subprocess.Popen(cmd)
+        
+        return {"status": "success", "message": "Streaming started locally"}
     except Exception as e:
-        error_details = traceback.format_exc()
-        with open("stream_error.log", "a") as f:
-            f.write(f"Stream error: {e}\n")
-            f.write(f"Traceback:\n{error_details}\n")
-        print(f"Stream error: {e}")
-        
-        # If mode is 'url', return a JSON error response instead of raising
-        if mode == "url":
-            return {"status": "error", "message": str(e), "details": error_details}
-        
+        print(f"Streaming error: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/proxy-stream")
-async def proxy_stream(request: Request, url: str) -> StreamingResponse:
+async def proxy_stream(url: str, request: Request):
     """
-    Proxy endpoint that streams video content with proper headers to bypass 403 Forbidden errors.
-    Supports Range headers for seeking and follows redirects.
+    Proxies a stream URL through the backend to bypass 403 Forbidden errors.
+    Supports range requests for seeking in video players.
     """
     try:
         # Extract headers from session
@@ -867,65 +831,56 @@ async def proxy_stream(request: Request, url: str) -> StreamingResponse:
             headers.update(session._headers)
         if hasattr(session, '_client') and hasattr(session._client, 'headers'):
             headers.update(session._client.headers)
-        
-        # Ensure we have a User-Agent
-        if 'User-Agent' not in headers and 'user-agent' not in headers:
-            headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        
-        # Forward Range header from client if present (Critical for seeking)
-        range_header = request.headers.get('range')
-        if range_header:
-            headers['Range'] = range_header
-
-        # Stream the content from the source using the global client
-        # Enable follow_redirects to handle provider redirects (3xx)
-        req = http_client.build_request("GET", url, headers=headers)
-        response = await http_client.send(req, stream=True, follow_redirects=True)
-        
-        if response.status_code >= 400:
-            await response.aclose()
-            # If upstream says 416 Range Not Satisfiable, helpful to know
-            raise HTTPException(
-                status_code=response.status_code,
-                detail=f"Provider returned error: {response.status_code}"
-            )
             
-        content_type = response.headers.get('content-type', 'video/mp4')
-        content_length = response.headers.get('content-length')
-        content_range = response.headers.get('content-range') # Important for 206 responses
-        
-        async def generate():
-            try:
-                # Use larger chunks for video streaming performance
-                async for chunk in response.aiter_bytes(chunk_size=1024 * 64):
+        # Ensure User-Agent is present
+        if 'User-Agent' not in headers and 'user-agent' not in headers:
+            headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+
+        # Forward Range header from the client request
+        client_range = request.headers.get('range')
+        if client_range:
+            headers['Range'] = client_range
+
+        # Define an async generator to stream the response
+        async def event_generator():
+            async with http_client.stream("GET", url, headers=headers) as source_response:
+                # Check for successful response
+                if source_response.status_code not in (200, 206):
+                    print(f"[PROXY ERROR] Source returned {source_response.status_code}")
+                    yield f"Error: Source returned {source_response.status_code}".encode()
+                    return
+
+                # Stream the content in chunks
+                async for chunk in source_response.aiter_bytes(chunk_size=1024 * 64):
                     yield chunk
-            except Exception as stream_err:
-                print(f"[STREAM ERROR] Exception during proxy streaming: {stream_err}")
-                traceback.print_exc()
-            finally:
-                await response.aclose()
-        
-        # Construct response headers
+
+        # Get content type and total size from source
+        async with http_client.stream("GET", url, headers=headers) as r:
+            content_type = r.headers.get("Content-Type", "video/mp4")
+            content_length = r.headers.get("Content-Length")
+            content_range = r.headers.get("Content-Range")
+            status_code = r.status_code
+
         response_headers = {
-            'Accept-Ranges': 'bytes', # Tell client we support seeking
-            'Content-Type': content_type,
+            "Content-Type": content_type,
+            "Accept-Ranges": "bytes",
+            "Access-Control-Allow-Origin": "*",
         }
         if content_length:
-            response_headers['Content-Length'] = content_length
+            response_headers["Content-Length"] = content_length
         if content_range:
-            response_headers['Content-Range'] = content_range
-            
+            response_headers["Content-Range"] = content_range
+
         return StreamingResponse(
-            generate(),
-            status_code=response.status_code, # Forward 206 or 200
-            media_type=content_type,
-            headers=response_headers
+            event_generator(),
+            status_code=status_code,
+            headers=response_headers,
+            media_type=content_type
         )
-            
-    except HTTPException:
-        raise
     except Exception as e:
-        print(f"Proxy stream setup error: {e}")
-        traceback.print_exc()
+        print(f"Proxy error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/health")
+async def health():
+    return {"status": "ok", "version": "1.1.0"}

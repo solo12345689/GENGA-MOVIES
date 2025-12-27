@@ -965,3 +965,85 @@ Traceback (most recent call last):
     raise ZeroSearchResultsError("Search yielded empty results. Try a different keyword.")
 moviebox_api.exceptions.ZeroSearchResultsError: Search yielded empty results. Try a different keyword.
 
+Stream error: 
+Traceback:
+Traceback (most recent call last):
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpx\_transports\default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpx\_transports\default.py", line 394, in handle_async_request
+    resp = await self._pool.handle_async_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpcore\_async\connection_pool.py", line 256, in handle_async_request
+    raise exc from None
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpcore\_async\connection_pool.py", line 236, in handle_async_request
+    response = await connection.handle_async_request(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpcore\_async\connection.py", line 101, in handle_async_request
+    raise exc
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpcore\_async\connection.py", line 78, in handle_async_request
+    stream = await self._connect(request)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpcore\_async\connection.py", line 124, in _connect
+    stream = await self._network_backend.connect_tcp(**kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpcore\_backends\auto.py", line 31, in connect_tcp
+    return await self._backend.connect_tcp(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpcore\_backends\anyio.py", line 113, in connect_tcp
+    with map_exceptions(exc_map):
+  File "C:\Program Files\Python311\Lib\contextlib.py", line 158, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpcore\_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ConnectTimeout
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\akshi\.gemini\antigravity\scratch\moviebox_web_app\backend\api.py", line 893, in stream
+    raise e
+  File "C:\Users\akshi\.gemini\antigravity\scratch\moviebox_web_app\backend\api.py", line 852, in stream
+    results = await search_instance.get_content_model()
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\moviebox_api\core.py", line 191, in get_content_model
+    contents = await self.get_content()
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\moviebox_api\core.py", line 169, in get_content
+    contents = await self.session.post_to_api(url=self._url, json=self._create_payload())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\moviebox_api\requests.py", line 155, in post_to_api
+    response = await self.post(*args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\moviebox_api\requests.py", line 144, in post
+    await self.ensure_cookies_are_assigned()
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\moviebox_api\requests.py", line 166, in ensure_cookies_are_assigned
+    await self._fetch_app_info()
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\moviebox_api\requests.py", line 177, in _fetch_app_info
+    response = await self._client.get(url=self._moviebox_app_info_url)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpx\_client.py", line 1768, in get
+    return await self.request(
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpx\_client.py", line 1540, in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpx\_client.py", line 1629, in send
+    response = await self._send_handling_auth(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpx\_client.py", line 1657, in _send_handling_auth
+    response = await self._send_handling_redirects(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpx\_client.py", line 1694, in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpx\_client.py", line 1730, in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpx\_transports\default.py", line 393, in handle_async_request
+    with map_httpcore_exceptions():
+  File "C:\Program Files\Python311\Lib\contextlib.py", line 158, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "C:\Users\akshi\AppData\Roaming\Python\Python311\site-packages\httpx\_transports\default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ConnectTimeout
+
