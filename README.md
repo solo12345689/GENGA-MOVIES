@@ -1,5 +1,5 @@
 # MovieBox Web App
-
+“MovieBox Web App provides a client-facing API that aggregates metadata, controls playback, and optionally proxies remote media streams without hosting, storing, or distributing any content.”
 A modern, cinematic web interface for searching, streaming, and downloading movies, TV series, and anime. Built with FastAPI and React.
 
 ## Features
