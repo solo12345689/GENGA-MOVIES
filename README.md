@@ -19,6 +19,57 @@ The API acts as a controller and proxy layer, connecting the app to an external 
 - **Downloading**: Download content directly to your local machine with progress tracking.
 - **Responsive Design**: Optimized for both desktop (laptops) and mobile devices.
 
+
+🧰 Tech Stack
+Backend
+
+FastAPI – High-performance Python web framework for building APIs
+
+Uvicorn – ASGI server for running the FastAPI application
+
+Requests – HTTP client for communicating with external APIs
+
+moviebox-api – External content aggregation API (metadata & stream links)
+
+Python 3.8+
+
+Frontend
+
+React – Component-based UI library
+
+Vite – Fast development build tool
+
+JavaScript (ES6+)
+
+HTML5 / CSS3
+
+Cinematic Dark UI with glassmorphism effects
+
+Media & Streaming
+
+MPV Player – External media player for streaming playback
+
+HTTP Proxy Streaming – Backend proxy endpoint to bypass CORS / 403 issues
+
+Range Request Support – Enables seeking in video streams
+
+API & Architecture
+
+OpenAPI / Swagger – Auto-generated API documentation
+
+RESTful API Design
+
+Controller & Proxy Layer (no media hosting or storage)
+
+Development & Tooling
+
+Node.js 16+
+
+npm
+
+Git
+
+
 ## Prerequisites
 
 Before you begin, ensure you have the following installed:
