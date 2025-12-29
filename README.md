@@ -3,6 +3,13 @@
 
 A modern, cinematic web interface for searching, streaming, and downloading movies, TV series, and anime. Built with FastAPI and React.
 
+To know more go to http://xxx.xxx.xx.xxx:8000/docs#
+
+This page is the OpenAPI (Swagger) documentation for the MovieBox Web App backend.
+It lists all available API endpoints used by the frontend to search content, fetch details, stream or download media, and proxy streams, along with their parameters and responses.
+The API acts as a controller and proxy layer, connecting the app to an external content API without hosting or storing any media itself.
+
+
 ## Features
 
 - **Cinematic UI**: A premium "Cinematic Dark" theme with glassmorphism effects and smooth animations.
