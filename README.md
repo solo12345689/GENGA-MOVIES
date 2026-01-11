@@ -119,7 +119,7 @@ cd backend
 python -m uvicorn main:app --host 0.0.0.0 --port 8080 --reload
 ```
 
-The backend API will be available at `http://localhost:8000`.
+The backend API will be available at `http://localhost:8080`.
 
 ### 2. Start the Frontend
 
