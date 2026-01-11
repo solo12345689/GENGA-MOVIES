@@ -1,0 +1,10 @@
+Log started
+Testing Details: https://aniwatch-api-3e2f.onrender.com/api/v2/hianime/anime/naruto-677
+Details Status: 200
+Details Keys: ['status', 'data']
+Successfully found anime data
+
+Testing Episodes: https://aniwatch-api-3e2f.onrender.com/api/v2/hianime/anime/naruto-677/episodes
+Episodes Status: 200
+Episodes Response Keys: ['status', 'data']
+Full response: {"status": 200, "data": {"totalEpisodes": 220, "episodes": [{"title": "Enter: Naruto Uzumaki!", "episodeId": "naruto-677?ep=12352", "number": 1, "isFiller": false}, {"title": "My Name is Konohamaru!", "episodeId": "naruto-677?ep=12353", "number": 2, "isFiller": false}, {"title": "Sasuke and Sakura: Friends or Foes?", "episodeId": "naruto-677?ep=12354", "number": 3, "isFiller": false}, {"title": "Pass or Fail: Survival Test", "episodeId": "naruto-677?ep=12355", "number": 4, "isFiller": false}, {"title": "You Failed! Kakashi's Final Decision", "episodeId": "naruto-677?ep=12356", "number": 5, "isFiller": false}, {"title": "A Dangerous Mission! Journey to the Land of Waves!", "episodeId": "naruto-677?ep=12357", "number": 6, "isFiller": false}, {"title": "The Assassin of the Mist!", "episodeId": "naruto-677?ep=12358", "number": 7, "isFiller": false}, {"title": "The Oath of Pain", "episodeId": "naruto-677?ep=12359", "number": 8, "isFiller": false}, {"title": "Kakashi: Sharingan Warrior", "ep

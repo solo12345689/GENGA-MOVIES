@@ -1,8 +1,52 @@
 import React from 'react';
 
-const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMode }) => {
+const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMode, API_BASE }) => {
     const [selectedSeason, setSelectedSeason] = React.useState(null);
     const [selectedEpisode, setSelectedEpisode] = React.useState(1);
+    const [animeEpisodes, setAnimeEpisodes] = React.useState([]);
+    const [episodesLoading, setEpisodesLoading] = React.useState(false);
+    const [selectedAnimeEp, setSelectedAnimeEp] = React.useState(null);
+
+    React.useEffect(() => {
+        if (item && item.animeEpisodes) {
+            setAnimeEpisodes(item.animeEpisodes);
+            if (item.animeEpisodes.length > 0) {
+                setSelectedAnimeEp(item.animeEpisodes[0]);
+            }
+            setEpisodesLoading(false);
+            return; // Skip fetch if data is already present
+        }
+
+        setAnimeEpisodes([]); // Clear previous episodes
+        setSelectedAnimeEp(null);
+
+        if (item && item.source === 'hianime') {
+            const fetchEpisodes = async () => {
+                setEpisodesLoading(true);
+                const url = `${API_BASE}/api/anime/episodes/${item.id}`;
+                console.log(`[DetailsModal] Fetching anime episodes: ${url}`);
+                try {
+                    const res = await fetch(url);
+                    const data = await res.json();
+                    if (data.status === 200 && data.data && data.data.episodes) {
+                        setAnimeEpisodes(data.data.episodes);
+                        if (data.data.episodes.length > 0) {
+                            setSelectedAnimeEp(data.data.episodes[0]);
+                        }
+                    } else {
+                        console.warn("[DetailsModal] HiAnime API returned status 200 but no episodes array", data);
+                        setAnimeEpisodes([]);
+                    }
+                } catch (err) {
+                    console.error("[DetailsModal] Failed to fetch anime episodes", err);
+                    setAnimeEpisodes([]);
+                } finally {
+                    setEpisodesLoading(false);
+                }
+            };
+            fetchEpisodes();
+        }
+    }, [item, API_BASE]);
 
     React.useEffect(() => {
         if (item && item.seasons && item.seasons.length > 0) {
@@ -13,12 +57,20 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
 
     if (!item) return null;
 
+    const [animeLanguage, setAnimeLanguage] = React.useState('sub');
+
     const handleStreamClick = () => {
-        if (item.type === 'series' || item.type === 'anime') {
+        if (item.type === 'series') {
             if (selectedSeason && selectedEpisode) {
                 onStream({ ...item, type: item.type }, selectedSeason.season_number, selectedEpisode);
             } else {
                 alert('Please select a season and episode');
+            }
+        } else if (item.type === 'anime' || item.source === 'hianime') {
+            if (selectedAnimeEp) {
+                onStream({ ...item, type: 'anime', episodeId: selectedAnimeEp.episodeId, episodeNo: selectedAnimeEp.number, language: animeLanguage });
+            } else {
+                alert('Please select an episode');
             }
         } else {
             onStream({ ...item, type: 'movie' });
@@ -66,17 +118,21 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
                     height: 'auto'
                 }}>
                     {item.poster_url || item.poster ? (
-                        <img
-                            src={item.poster_url || item.poster}
-                            alt={item.title}
-                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                            onError={(e) => {
-                                e.target.onerror = null;
-                                e.target.style.display = 'none';
-                                // img -> gradient1 -> gradient2 -> placeholder
-                                e.target.nextSibling.nextSibling.nextSibling.style.display = 'flex';
-                            }}
-                        />
+                        <div onClick={handleStreamClick} style={{ cursor: 'pointer', height: '100%', position: 'relative', zIndex: 0 }}>
+                            <img
+                                src={item.poster_url || item.poster}
+                                alt={item.title}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                onError={(e) => {
+                                    e.target.onerror = null;
+                                    e.target.style.display = 'none';
+                                    if (e.target.parentNode && e.target.parentNode.parentNode) {
+                                        const placeholder = e.target.parentNode.parentNode.querySelector('.poster-placeholder');
+                                        if (placeholder) placeholder.style.display = 'flex';
+                                    }
+                                }}
+                            />
+                        </div>
                     ) : null}
                     <div style={{
                         position: 'absolute',
@@ -119,7 +175,9 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
 
                     <div style={{ display: 'flex', gap: '1rem', color: 'var(--text-muted)', marginBottom: '2rem', fontSize: '0.95rem', alignItems: 'center', flexWrap: 'wrap' }}>
                         <span style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '4px' }}>{item.year}</span>
-                        <span style={{ textTransform: 'capitalize', color: 'var(--primary)' }}>{item.type}</span>
+                        <span style={{ textTransform: 'capitalize', color: 'var(--primary)' }}>
+                            {(item.type === 'anime' || (item.type === 'series' && (item.source === 'hianime' || (item.category && item.category.toString().toLowerCase().includes('anime')) || item.title.toLowerCase().includes('naruto')))) ? 'Anime' : item.type}
+                        </span>
                     </div>
 
                     {item.plot ? (
@@ -153,7 +211,7 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
 
                     <div style={{ marginTop: 'auto' }}>
 
-                        {(item.type === 'series' || item.type === 'anime') && (
+                        {item.source === 'moviebox' && item.type === 'series' && (
                             <div style={{ marginBottom: '2rem', background: 'var(--bg-glass-light)', padding: '1.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-glass)' }}>
                                 <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>Select Episode</h3>
                                 {item.seasons && item.seasons.length > 0 ? (
@@ -177,7 +235,6 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
                                                 ))}
                                             </select>
                                         </div>
-
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                             <label style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Episode</label>
                                             <select
@@ -202,6 +259,71 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
                             </div>
                         )}
 
+                        {item.source === 'hianime' && (
+                            <div style={{ marginBottom: '2rem', background: 'var(--bg-glass-light)', padding: '1.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-glass)' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                    <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Episodes</h3>
+
+                                    <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '4px' }}>
+                                        <button
+                                            onClick={() => setAnimeLanguage('sub')}
+                                            style={{
+                                                padding: '4px 12px', border: 'none', borderRadius: '6px', cursor: 'pointer',
+                                                background: animeLanguage === 'sub' ? 'var(--primary)' : 'transparent',
+                                                color: 'white', fontSize: '0.8rem', fontWeight: '600'
+                                            }}
+                                        >SUB</button>
+                                        <button
+                                            onClick={() => setAnimeLanguage('dub')}
+                                            style={{
+                                                padding: '4px 12px', border: 'none', borderRadius: '6px', cursor: 'pointer',
+                                                background: animeLanguage === 'dub' ? 'var(--primary)' : 'transparent',
+                                                color: 'white', fontSize: '0.8rem', fontWeight: '600'
+                                            }}
+                                        >DUB</button>
+                                    </div>
+                                </div>
+                                {episodesLoading ? (
+                                    <div style={{ textAlign: 'center', padding: '1rem' }}>
+                                        <div className="spinner" style={{ width: '20px', height: '20px', border: '2px solid rgba(255,255,255,0.1)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto' }}></div>
+                                    </div>
+                                ) : animeEpisodes.length > 0 ? (
+                                    <div style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(auto-fill, minmax(60px, 1fr))',
+                                        gap: '0.5rem',
+                                        maxHeight: '200px',
+                                        overflowY: 'auto',
+                                        padding: '0.5rem'
+                                    }}>
+                                        {animeEpisodes.map(ep => (
+                                            <button
+                                                key={ep.episodeId}
+                                                onClick={() => setSelectedAnimeEp(ep)}
+                                                style={{
+                                                    padding: '0.8rem 0.5rem',
+                                                    borderRadius: '8px',
+                                                    border: '1px solid ' + (selectedAnimeEp?.episodeId === ep.episodeId ? 'var(--primary)' : 'var(--border-glass)'),
+                                                    background: selectedAnimeEp?.episodeId === ep.episodeId ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
+                                                    color: 'white',
+                                                    cursor: 'pointer',
+                                                    fontSize: '0.9rem',
+                                                    transition: 'all 0.2s ease',
+                                                    textAlign: 'center'
+                                                }}
+                                            >
+                                                {ep.number}
+                                            </button>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: 0 }}>
+                                        No episodes found.
+                                    </p>
+                                )}
+                            </div>
+                        )}
+
                         {/* Show buttons only if serverMode is 'local' */}
                         {serverMode === 'local' ? (
                             <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
@@ -211,14 +333,17 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
                                     </svg>
                                     Stream Now
                                 </button>
-                                <button className="btn btn-glass" onClick={handleDownloadClick} style={{ flex: 1 }}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                        <polyline points="7 10 12 15 17 10"></polyline>
-                                        <line x1="12" y1="15" x2="12" y2="3"></line>
-                                    </svg>
-                                    Download
-                                </button>
+                                {/* Only show download for MovieBox content, not HiAnime */}
+                                {item.source !== 'hianime' && (
+                                    <button className="btn btn-glass" onClick={handleDownloadClick} style={{ flex: 1 }}>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                            <polyline points="7 10 12 15 17 10"></polyline>
+                                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                                        </svg>
+                                        Download
+                                    </button>
+                                )}
                             </div>
                         ) : (
                             <div style={{

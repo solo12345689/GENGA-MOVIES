@@ -1,0 +1,9 @@
+Starting check for naruto-679
+Fetching episodes: https://aniwatch-api-3e2f.onrender.com/api/v2/hianime/anime/naruto-679/episodes
+Found Episode ID: gunbuster-679?ep=12586
+Fetching sources: https://aniwatch-api-3e2f.onrender.com/api/v2/hianime/episode/sources?animeEpisodeId=gunbuster-679?ep=12586&server=hd-1&category=sub
+Source Data:
+{
+  "status": 403,
+  "message": "getAnimeEpisodeSources: fetchError: Forbidden"
+}

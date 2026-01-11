@@ -66,16 +66,30 @@ patch_moviebox_models()
 
 router = APIRouter()
 
+ANIME_API_BASE = "https://aniwatch-api-3e2f.onrender.com/api/v2/hianime"
+
 # Global session
 session = Session()
 
-# Persistent HTTP client for better performance and to avoid connection closure issues
-# We use a larger timeout and connection pool for streaming.
-http_client = httpx.AsyncClient(
-    timeout=httpx.Timeout(60.0, connect=10.0),
-    follow_redirects=True,
-    limits=httpx.Limits(max_connections=100, max_keepalive_connections=20)
-)
+# Persistent HTTP client (initialized lazily to avoid loop issues)
+_http_client: Optional[httpx.AsyncClient] = None
+
+DEFAULT_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept': '*/*',
+    'Accept-Language': 'en-US,en;q=0.9',
+}
+
+def get_http_client() -> httpx.AsyncClient:
+    global _http_client
+    if _http_client is None:
+        _http_client = httpx.AsyncClient(
+            timeout=httpx.Timeout(60.0, connect=10.0),
+            follow_redirects=True,
+            limits=httpx.Limits(max_connections=100, max_keepalive_connections=20),
+            headers=DEFAULT_HEADERS
+        )
+    return _http_client
 
 # Simple in-memory cache: {uuid: item_object}
 search_cache = {}
@@ -89,7 +103,11 @@ class ConnectionManager:
         self.active_connections.append(websocket)
 
     def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
+        try:
+            if websocket in self.active_connections:
+                self.active_connections.remove(websocket)
+        except Exception:
+            pass
 
     async def broadcast(self, message: dict):
         for connection in self.active_connections:
@@ -97,6 +115,111 @@ class ConnectionManager:
                 await connection.send_json(message)
             except Exception:
                 pass
+
+def extract_numeric_id(ep_id: str) -> str:
+    """
+    Extracts the numeric episode ID from various HiAnime episode string formats.
+    Megaplay REQUIRES the correct numeric episode ID to avoid 410 errors.
+    """
+    if not ep_id: return ""
+    ep_id = str(ep_id).strip()
+    
+    if "ep=" in ep_id:
+        return ep_id.split("ep=")[-1].split("&")[0]
+    
+    # Fallback: only if the string is purely numeric
+    if ep_id.isdigit():
+        return ep_id
+        
+    return ""  # Return empty if we cannot safely determine the numeric episode ID
+
+def get_source_headers(url: str, source: str = None) -> list[dict]:
+    """
+    Returns a LIST of dictionary headers to try.
+    Provides fallbacks for 403 Forbidden scenarios by cycling through possible Referers.
+    """
+    base_headers = DEFAULT_HEADERS.copy()
+    
+    # 1. Inherit from active session if possible (but avoid overwriting UA)
+    if hasattr(session, '_headers'):
+        for k, v in session._headers.items():
+            if k.lower() not in ['user-agent', 'accept', 'accept-language']:
+                base_headers[k] = v
+                
+    if hasattr(session, '_client') and hasattr(session._client, 'headers'):
+        src_headers = session._client.headers
+        for k in ['cookie', 'Cookie', 'X-Client-Signature', 'X-Token']:
+            if k in src_headers:
+                base_headers[k] = src_headers[k]
+                
+    # 2. Exhaustive Referer Cycling
+    url_lower = url.lower()
+    is_moviebox_cdn = any(d in url_lower for d in ["haildrop", "moviebox", "fogtwist", "sunburst", "stormshade", "hakunaymatata", "bcdn"]) or "/_v7/" in url_lower or "/_v10/" in url_lower
+    
+    # Enforce modern UA (unless session has one)
+    if hasattr(session, '_headers') and 'User-Agent' in session._headers:
+        base_headers['User-Agent'] = session._headers['User-Agent']
+    elif hasattr(session, '_client') and hasattr(session._client, 'headers') and 'User-Agent' in session._client.headers:
+        base_headers['User-Agent'] = session._client.headers['User-Agent']
+    else:
+        base_headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    
+    configs_refs = []
+    
+    # Priority A: Best guess based on source hint vs domain
+    if source == 'hianime':
+        # Even if it looks like a moviebox CDN, if it came from HiAnime API, try HiAnime first
+        configs_refs.append({'Referer': 'https://hianime.to/', 'Origin': 'https://hianime.to'})
+
+    if "megaplay.buzz" in url_lower:
+        configs_refs.append({'Referer': 'https://megaplay.buzz/', 'Origin': 'https://megaplay.buzz'})
+        
+    if "hianime" in url_lower or "aniwatch" in url_lower or "megacloud" in url_lower or "vidcloud" in url_lower or "rabbitstream" in url_lower:
+        configs_refs.append({'Referer': 'https://hianime.to/', 'Origin': 'https://hianime.to'})
+    
+    if is_moviebox_cdn:
+        # Prioritize known working Referers for MPV (which only uses the first one)
+        # Matches official moviebox_api library default (fmoviesunblocked.net)
+        configs_refs.append({'Referer': 'https://fmoviesunblocked.net/', 'Origin': 'https://fmoviesunblocked.net'})
+        configs_refs.append({'Referer': 'https://www.moviebox.pro/', 'Origin': 'https://www.moviebox.pro'})
+        configs_refs.append({'Referer': 'https://showbox.media/', 'Origin': 'https://showbox.media'})
+        configs_refs.append({'Referer': 'https://v.showbox.cc/', 'Origin': 'https://v.showbox.cc'})
+
+        # Additional strategies for stubborn CDNs (Sunburst, Fogtwist, Stormshade, Lightning, active-storage)
+        if any(k in url_lower for k in ["sunburst", "fogtwist", "stormshade", "lightning", "active-storage", "rainveil"]):
+            configs_refs.append({'Referer': 'https://megacloud.blog/', 'Origin': 'https://megacloud.blog'})
+            configs_refs.append({'Referer': 'https://megacloud.tv/', 'Origin': 'https://megacloud.tv'})
+            configs_refs.append({'Referer': 'https://vidcloud.tv/', 'Origin': 'https://vidcloud.tv'})
+            configs_refs.append({'Referer': 'https://megaup.net/', 'Origin': 'https://megaup.net'})
+        
+    # Priority B: Universal Candidates (deduplicated)
+    candidates = [
+        {'Referer': 'https://megaplay.buzz/', 'Origin': 'https://megaplay.buzz'},
+        {'Referer': 'https://hianime.to/', 'Origin': 'https://hianime.to'},
+        {'Referer': 'https://vidcloud9.me/', 'Origin': 'https://vidcloud9.me'},
+        {'Referer': 'https://megacloud.to/', 'Origin': 'https://megacloud.to'},
+        {'Referer': 'https://v.showbox.cc/', 'Origin': 'https://v.showbox.cc'},
+        {'Referer': 'https://fmoviesunblocked.net/', 'Origin': 'h5.aoneroom.com'},
+        {'Referer': 'https://www.moviebox.pro/', 'Origin': 'https://www.moviebox.pro'},
+        {'Referer': 'https://videonext.net/', 'Origin': 'https://videonext.net'},
+        {} # None
+    ]
+    
+    for cand in candidates:
+        if cand not in configs_refs:
+            configs_refs.append(cand)
+            
+    # Merge with base_headers to create final configurations
+    final_configs = []
+    for ref_dict in configs_refs:
+        cfg = base_headers.copy()
+        # Ensure we don't have conflicting referers
+        cfg.pop('Referer', None)
+        cfg.pop('Origin', None)
+        cfg.update(ref_dict)
+        final_configs.append(cfg)
+        
+    return final_configs
 
 manager = ConnectionManager()
 
@@ -157,8 +280,13 @@ async def determine_item_type(item: Any, content_type_filter: str = "all") -> st
     category = str(getattr(item, 'category', '')).lower()
     genres = [str(g).lower() for g in getattr(item, 'genre', [])] if hasattr(item, 'genre') else []
     
-    if 'anime' in category or 'anime' in genres:
-        item_type = "anime_movie" if item_type == "movie" else "anime"
+    # Only label as anime if specifically filtered as anime or if it's a known anime source
+    # For MovieBox, we prefer 'series' or 'movie' to use its native details logic
+    if filter_lower == "anime":
+        if 'series' in category or 'tv' in category or getattr(item, 'is_tv_series', False):
+            item_type = "anime"
+        else:
+            item_type = "anime_movie"
     elif 'series' in category or 'tv' in category:
         item_type = "series"
         
@@ -267,18 +395,14 @@ async def warmup_session() -> None:
 @router.get("/homepage")
 async def get_homepage_content() -> dict:
     """
-    Fetches trending and featured content for the homepage.
-    """
-    """
-    Fetch trending/homepage content using the moviebox-api library.
+    Fetches trending and featured content for the homepage using the global session.
     """
     try:
-        print("Fetching homepage via moviebox_api...")
-        # Use library's Session and Homepage
-        session = Session()
+        print("Fetching homepage via moviebox_api using global session...")
+        # Use GLOBAL session
         homepage = Homepage(session=session)
         
-        # Get raw content (since HomepageContentModel is currently buggy with 'groups')
+        # Get raw content
         raw_response = await homepage.get_content()
         
         # Data is usually in 'data' key or root
@@ -332,11 +456,15 @@ async def get_homepage_content() -> dict:
                             # Create a dummy search instance for this group's context
                             item_search = Search(session=session, query=title)
                             
+                            # Determine type more accurately
+                            is_tv = item.get('is_tv_series') or item.get('isTvSeries') or any(k in group_title.lower() for k in ['series', 'tv', 'show'])
+                            it_type = "series" if is_tv else "movie"
+                            
                             cache_item = {
                                 "id": str(sid),
                                 "title": title,
                                 "year": year,
-                                "type": "movie",
+                                "type": it_type,
                                 "poster_url": poster_url,
                                 "rating": rating
                             }
@@ -358,7 +486,7 @@ async def get_homepage_content() -> dict:
                             search_cache[str(sid)] = {
                                 "item": model_item,
                                 "search_instance": item_search,
-                                "type": "movie",
+                                "type": it_type,
                                 "is_homepage": True
                             }
                             
@@ -493,6 +621,7 @@ async def details(item_id: str) -> dict:
             poster_url = getattr(item, 'poster_url', getattr(item, 'poster', None))
             
         response = {
+            "id": item_id,
             "title": getattr(details_model, 'title', getattr(item, 'title', 'Unknown')),
             "year": getattr(details_model, 'year', getattr(item, 'year', None)),
             "plot": getattr(details_model, 'plot', getattr(details_model, 'description', None)),
@@ -500,11 +629,12 @@ async def details(item_id: str) -> dict:
             "rating_value": imdb_rating_value,
             "poster_url": poster_url,
             "trailer": getattr(details_model, 'trailer', None),
+            "category": getattr(details_model, 'category', getattr(item, 'category', None)),
             "type": item_type
         }
         
         # Extract seasons for TV series and anime
-        if item_type in ["series", "anime"]:
+        if item_type in ["series", "anime", "anime_movie"]:
             seasons_data = []
             try:
                 # Try multiple paths to find season data
@@ -517,52 +647,41 @@ async def details(item_id: str) -> dict:
                     elif hasattr(details_model.resData, 'seasons'):
                         seasons_list = details_model.resData.seasons
                 
-                # Path 2: details_model.resource.seasons (fallback)
+                # Path 2: details_model.resource.seasons
                 elif hasattr(details_model, 'resource') and hasattr(details_model.resource, 'seasons'):
                     seasons_list = details_model.resource.seasons
                 
-                # Path 3: details_model.seasons
-                elif hasattr(details_model, 'seasons'):
-                    seasons_list = details_model.seasons
-                
-                # Path 4: Try to get from dict representation
-                elif hasattr(details_model, 'dict'):
-                    try:
-                        model_dict = details_model.dict()
-                        if 'resData' in model_dict:
-                            if 'resource' in model_dict['resData'] and 'seasons' in model_dict['resData']['resource']:
-                                seasons_list = model_dict['resData']['resource']['seasons']
-                            elif 'seasons' in model_dict['resData']:
-                                seasons_list = model_dict['resData']['seasons']
-                        elif 'resource' in model_dict and 'seasons' in model_dict['resource']:
-                            seasons_list = model_dict['resource']['seasons']
-                    except:
-                        pass
-                
-                # Extract season data
+                # Path 5: data.seasons
+                elif hasattr(details_model, 'data'):
+                    data_obj = details_model.data
+                    if hasattr(data_obj, 'seasons'):
+                        seasons_list = data_obj.seasons
+
                 if seasons_list:
                     for season in seasons_list:
                         # Handle both object and dict formats
                         if isinstance(season, dict):
-                            season_num = season.get('se', season.get('season_number', 0))
-                            max_ep = season.get('maxEp', season.get('max_episodes', season.get('episode_count', 0)))
+                            s_num = season.get('se', season.get('number', season.get('season_number', 0)))
+                            m_ep = season.get('maxEp', season.get('max_episodes', season.get('episode_count', season.get('episodeCount', 0))))
                         else:
-                            season_num = getattr(season, 'se', getattr(season, 'season_number', 0))
-                            max_ep = getattr(season, 'maxEp', getattr(season, 'max_episodes', getattr(season, 'episode_count', 0)))
+                            s_num = getattr(season, 'se', getattr(season, 'number', getattr(season, 'season_number', 0)))
+                            m_ep = getattr(season, 'maxEp', getattr(season, 'max_episodes', getattr(season, 'episode_count', getattr(season, 'episodeCount', 0))))
                         
-                        if season_num and max_ep:
+                        if s_num is not None:
                             seasons_data.append({
-                                "season_number": season_num,
-                                "max_episodes": max_ep,
+                                "season_number": int(s_num),
+                                "max_episodes": int(m_ep) if m_ep else 0,
                             })
             except Exception as e:
-                # Log error but don't fail the entire request
                 print(f"Error extracting seasons: {e}")
+                traceback.print_exc()
             
             response["seasons"] = seasons_data
             
         return response
     except Exception as e:
+        print(f"Details extraction failed: {e}")
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 async def download_task(
@@ -788,22 +907,30 @@ async def stream(
             headers.update(session._client.headers)
             
         # Construct mpv command
-        cmd = [mpv_path, str(media_file.url), f"--title={target_item.title}"]
+        cmd = [mpv_path, str(media_file.url), f"--title={target_item.title}", "--no-ytdl"]
         
-        # Case-insensitive header map
-        headers_lower = {k.lower(): v for k, v in headers.items()}
+        # Get hardened headers for this specific URL
+        # MPV uses the first (primary) config
+        mpv_headers = get_source_headers(str(media_file.url))[0]
         
         # Add User-Agent
-        if "user-agent" in headers_lower:
-            cmd.append(f"--user-agent={headers_lower['user-agent']}")
+        cmd.append(f"--user-agent={mpv_headers.get('User-Agent')}")
             
         # Add Referer
-        if "referer" in headers_lower:
-            cmd.append(f"--referrer={headers_lower['referer']}")
+        cmd.append(f"--referrer={mpv_headers.get('Referer')}")
             
-        # Add Cookies if needed
-        if "cookie" in headers_lower:
-            cmd.append(f"--http-header-fields=Cookie: {headers_lower['cookie']}")
+        # Add Cookies (Priority: Explicit header -> Session cookies)
+        cookie_str = mpv_headers.get('Cookie') or mpv_headers.get('cookie')
+        
+        if not cookie_str:
+            # Try to extract from session cookie jar
+            if hasattr(session, 'cookies') and session.cookies:
+                 cookie_str = "; ".join([f"{k}={v}" for k, v in session.cookies.items()])
+            elif hasattr(session, '_client') and hasattr(session._client, 'cookies') and session._client.cookies:
+                 cookie_str = "; ".join([f"{k}={v}" for k, v in session._client.cookies.items()])
+
+        if cookie_str:
+            cmd.append(f"--http-header-fields=Cookie: {cookie_str}")
 
         # Auto-confirm selection if moviebox CLI prompts (though we are calling mpv directly now)
         # But wait, this code launches MPV directly. Good.
@@ -819,67 +946,451 @@ async def stream(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/proxy-stream")
-async def proxy_stream(url: str, request: Request):
+async def proxy_stream(request: Request, url: str, source: str = None):
     """
-    Proxies a stream URL through the backend to bypass 403 Forbidden errors.
-    Supports range requests for seeking in video players.
+    Proxies a stream URL through the backend in a single pass.
+    Bypasses 403s and supports range requests via browser headers.
     """
+    # Cycle through headers until success
+    candidates = get_source_headers(url, source)
+    
+    # Forward Range from browser
+    client_range = request.headers.get('range')
+    
+    # User Request: Fix Format Error (Client closing too early)
+    # We must NOT use 'async with' because StreamingResponse needs the client open!
+    client = httpx.AsyncClient(verify=False, follow_redirects=True)
+    
     try:
-        # Extract headers from session
-        headers = {}
-        if hasattr(session, '_headers'):
-            headers.update(session._headers)
-        if hasattr(session, '_client') and hasattr(session._client, 'headers'):
-            headers.update(session._client.headers)
-            
-        # Ensure User-Agent is present
-        if 'User-Agent' not in headers and 'user-agent' not in headers:
-            headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        last_error = None
+        for headers in candidates:
+            if client_range:
+                headers['Range'] = client_range
 
-        # Forward Range header from the client request
-        client_range = request.headers.get('range')
-        if client_range:
-            headers['Range'] = client_range
+            try:
+                # Check if this is an HLS request
+                is_m3u8 = url.split("?")[0].endswith(".m3u8")
+                
+                if is_m3u8:
+                    # For playlists, we download and REWRITE absolute URLs to proxy through US
+                    resp = await client.get(url, headers=headers, follow_redirects=True, timeout=15.0)
+                    if resp.status_code != 200:
+                        last_error = f"Source returned {resp.status_code}"
+                        continue
+                    
+                    content = resp.text
+                    base_url = str(resp.url).rsplit('/', 1)[0]
+                    lines = content.splitlines()
+                    new_lines = []
+                    
+                    proxy_base = f"{request.url.scheme}://{request.url.netloc}/api/proxy-stream"
+                    
+                    for line in lines:
+                        line = line.strip()
+                        if not line:
+                            new_lines.append(line)
+                            continue
+                        
+                        if line.startswith("#"):
+                            if "URI=" in line:
+                                import re
+                                def wrap_uri(match):
+                                    uri = match.group(2)
+                                    if not uri.startswith("http"):
+                                        uri = f"{base_url}/{uri}"
+                                    return f'{match.group(1)}="{proxy_base}?url={quote(uri)}&source={source or ""}"'
+                                line = re.sub(r'(URI)=["\']([^"\']+)["\']', wrap_uri, line)
+                            new_lines.append(line)
+                        else:
+                            target_url = line
+                            if not target_url.startswith("http"):
+                                target_url = f"{base_url}/{target_url}"
+                            proxied_url = f"{proxy_base}?url={quote(target_url)}&source={source or ''}"
+                            new_lines.append(proxied_url)
+                    
+                    rewritten_content = "\n".join(new_lines)
+                    
+                    # Close client since we are done
+                    await client.aclose()
+                    
+                    return Response(
+                        content=rewritten_content,
+                        media_type="application/vnd.apple.mpegurl",
+                        headers={
+                            "Access-Control-Allow-Origin": "*",
+                            "X-Proxy-Status": "Rewritten-M3U8"
+                        }
+                    )
 
-        # Define an async generator to stream the response
-        async def event_generator():
-            async with http_client.stream("GET", url, headers=headers) as source_response:
-                # Check for successful response
-                if source_response.status_code not in (200, 206):
-                    print(f"[PROXY ERROR] Source returned {source_response.status_code}")
-                    yield f"Error: Source returned {source_response.status_code}".encode()
-                    return
+                # Not M3U8 -> Standard Streaming Proxy
+                req = client.build_request("GET", url, headers=headers)
+                resp = await client.send(req, stream=True, follow_redirects=True)
+                
+                if resp.status_code >= 400:
+                    print(f"[PROXY ERROR] {resp.status_code} for {url[:50]}")
+                    await resp.aclose()
+                    last_error = f"Source returned {resp.status_code}"
+                    continue
+                
+                # Success!
+                excluded_headers = ["content-encoding", "content-length", "transfer-encoding", "connection", "keep-alive"]
+                res_headers = {k: v for k, v in resp.headers.items() if k.lower() not in excluded_headers}
+                res_headers.update({
+                    "Access-Control-Allow-Origin": "*",
+                    "Connection": "keep-alive",
+                    "X-Proxy-Status": "One-Shot"
+                })
+                if "Content-Length" in resp.headers:
+                    res_headers["Content-Length"] = resp.headers["Content-Length"]
 
-                # Stream the content in chunks
-                async for chunk in source_response.aiter_bytes(chunk_size=1024 * 64):
-                    yield chunk
+                from starlette.background import BackgroundTask
+                
+                async def cleanup():
+                    await resp.aclose()
+                    await client.aclose()
 
-        # Get content type and total size from source
-        async with http_client.stream("GET", url, headers=headers) as r:
-            content_type = r.headers.get("Content-Type", "video/mp4")
-            content_length = r.headers.get("Content-Length")
-            content_range = r.headers.get("Content-Range")
-            status_code = r.status_code
+                return StreamingResponse(
+                    resp.aiter_raw(),
+                    status_code=resp.status_code,
+                    headers=res_headers,
+                    background=BackgroundTask(cleanup)
+                )
 
-        response_headers = {
-            "Content-Type": content_type,
-            "Accept-Ranges": "bytes",
-            "Access-Control-Allow-Origin": "*",
-        }
-        if content_length:
-            response_headers["Content-Length"] = content_length
-        if content_range:
-            response_headers["Content-Range"] = content_range
+            except Exception as e:
+                print(f"[PROXY ATTEMPT FAILED] {e} for {url[:50]}")
+                last_error = str(e)
+                continue
+                
+        # If we exit loop without returning
+        await client.aclose()
+        raise HTTPException(status_code=502, detail=f"Proxy failed: {last_error}")
 
-        return StreamingResponse(
-            event_generator(),
-            status_code=status_code,
-            headers=response_headers,
-            media_type=content_type
-        )
     except Exception as e:
-        print(f"Proxy error: {e}")
+        # Fallback closure
+        # Note: If client is not defined, this might error, but 'client' is defined at top
+        if 'client' in locals():
+            await client.aclose()
+        print(f"[PROXY FATAL] {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
+    except Exception as e:
+        print(f"[PROXY FATAL] {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
+# --- HiAnime Section ---
+
+@router.get("/anime/home")
+async def get_anime_home():
+    try:
+        url = f"{ANIME_API_BASE}/home"
+        client = get_http_client()
+        response = await client.get(url, timeout=30.0)
+        return response.json()
+    except Exception as e:
+        print(f"HiAnime Home error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/anime/search")
+async def search_anime(query: str, page: int = 1):
+    try:
+        url = f"{ANIME_API_BASE}/search?q={quote(query)}&page={page}"
+        client = get_http_client()
+        response = await client.get(url, timeout=30.0)
+        return response.json()
+    except Exception as e:
+        print(f"HiAnime Search error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/anime/details/{anime_id}")
+async def get_anime_details(anime_id: str):
+    try:
+        about_url = f"{ANIME_API_BASE}/anime/{anime_id}"
+        client = get_http_client()
+        about_res = await client.get(about_url, timeout=30.0)
+        
+        if about_res.status_code != 200:
+            print(f"[HiAnime] Details API error {about_res.status_code} for {anime_id}")
+            return {"error": f"API returned {about_res.status_code}", "status": about_res.status_code, "id": anime_id}
+
+        try:
+            about_data = about_res.json()
+        except Exception as e:
+            print(f"[HiAnime] JSON error for {anime_id}: {e}")
+            return {"error": "Invalid JSON from API", "status": 500, "id": anime_id}
+        
+        if about_data.get("status") == 200 and "data" in about_data:
+            anime = about_data["data"]["anime"]
+            info = anime.get("info", {})
+            more_info = anime.get("moreInfo", {})
+            
+            return {
+                "id": anime_id,
+                "title": info.get("name", "Unknown"),
+                "plot": info.get("description", ""),
+                "poster_url": info.get("poster", ""),
+                "rating": more_info.get("status", "N/A"),
+                "rating_value": float(anime.get("stats", {}).get("rating", 0)) if anime.get("stats", {}).get("rating") else 0,
+                "year": more_info.get("aired", "N/A"),
+                "type": "anime",
+                "episodes_data": about_data["data"].get("seasons") or []
+            }
+        
+        return {"error": "Failed to fetch anime details", "status": about_data.get("status"), "id": anime_id}
+    except Exception as e:
+        print(f"HiAnime Details error: {e}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/anime/episodes/{anime_id}")
+async def get_anime_episodes(anime_id: str):
+    try:
+        url = f"{ANIME_API_BASE}/anime/{anime_id}/episodes"
+        client = get_http_client()
+        response = await client.get(url, timeout=30.0)
+        return response.json()
+    except Exception as e:
+        print(f"HiAnime Episodes error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/anime/servers")
+async def get_anime_servers(episode_id: str):
+    try:
+        url = f"{ANIME_API_BASE}/episode/servers?animeEpisodeId={quote(episode_id)}"
+        client = get_http_client()
+        response = await client.get(url, timeout=30.0)
+        return response.json()
+    except Exception as e:
+        print(f"HiAnime Servers error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/iframe-proxy")
+async def iframe_proxy(url: str):
+    """
+    Serves a minimal HTML page containing the target iframe.
+    Includes AGGRESSIVE ad-blocking to prevent ALL redirects.
+    """
+    html_content = f'''<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Video Player</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        html, body {{ margin: 0; padding: 0; width: 100%; height: 100%; background: black; overflow: hidden; }}
+        .iframe-container {{ width: 100%; height: 100%; position: relative; }}
+        iframe {{ width: 100%; height: 100%; border: none; }}
+        /* Hide any ad overlays */
+        .ad, .ads, .advert, .advertisement, .popup, .overlay, [class*="ad-"], [class*="popup"], 
+        [id*="ad-"], [id*="popup"], [class*="sponsor"], [class*="banner"] {{ display: none !important; }}
+    </style>
+    <script>
+        // AGGRESSIVE AD-BLOCKER v2.0
+        (function() {{
+            'use strict';
+            console.log("[AdBlock] STRICT MODE ACTIVE");
+            
+            var ALLOWED = ['megaplay.buzz', 'megacloud.tv', 'megacloud.blog', 'hianime.to', 'localhost', '127.0.0.1'];
+            
+            function isAllowed(urlStr) {{
+                try {{
+                    var u = new URL(urlStr, window.location.href);
+                    return ALLOWED.some(function(d) {{ return u.hostname.indexOf(d) !== -1; }});
+                }} catch(e) {{ return false; }}
+            }}
+            
+            // 1. BLOCK window.open
+            var _open = window.open;
+            window.open = function(url) {{
+                if (url && isAllowed(url)) return _open.apply(window, arguments);
+                console.log("[AdBlock] Blocked window.open:", url);
+                return null;
+            }};
+            
+            // 2. BLOCK location changes
+            var _location = window.location;
+            Object.defineProperty(window, 'location', {{
+                get: function() {{ return _location; }},
+                set: function(v) {{
+                    if (isAllowed(v)) {{ _location.href = v; }}
+                    else {{ console.log("[AdBlock] Blocked location change:", v); }}
+                }}
+            }});
+            
+            // 3. BLOCK top/parent navigation
+            try {{
+                if (window.top !== window) {{
+                    Object.defineProperty(window, 'top', {{ get: function() {{ return window; }} }});
+                    Object.defineProperty(window, 'parent', {{ get: function() {{ return window; }} }});
+                }}
+            }} catch(e) {{}}
+            
+            // 4. BLOCK ALL click events on suspicious elements
+            document.addEventListener('click', function(e) {{
+                var t = e.target;
+                
+                // Block clicks on invisible overlays (ad trick)
+                var style = window.getComputedStyle(t);
+                if (style.opacity === '0' || style.visibility === 'hidden' || 
+                    (style.position === 'fixed' && parseInt(style.zIndex) > 1000)) {{
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                    console.log("[AdBlock] Blocked invisible overlay click");
+                    return false;
+                }}
+                
+                // Block external links
+                while (t && t.tagName !== 'A') {{ t = t.parentElement; }}
+                if (t && t.href && !isAllowed(t.href)) {{
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                    console.log("[AdBlock] Blocked link:", t.href);
+                    return false;
+                }}
+            }}, true);
+            
+            // 5. BLOCK mousedown/mouseup (some ads use these)
+            ['mousedown', 'mouseup', 'pointerdown', 'pointerup'].forEach(function(evt) {{
+                document.addEventListener(evt, function(e) {{
+                    var t = e.target;
+                    while (t && t.tagName !== 'A') {{ t = t.parentElement; }}
+                    if (t && t.href && !isAllowed(t.href)) {{
+                        e.preventDefault();
+                        e.stopPropagation();
+                        e.stopImmediatePropagation();
+                        return false;
+                    }}
+                }}, true);
+            }});
+            
+            // 6. BLOCK form submissions to external sites
+            document.addEventListener('submit', function(e) {{
+                var form = e.target;
+                if (form.action && !isAllowed(form.action)) {{
+                    e.preventDefault();
+                    console.log("[AdBlock] Blocked form submit:", form.action);
+                    return false;
+                }}
+            }}, true);
+            
+            // 7. INTERCEPT and BLOCK setTimeout/setInterval redirects
+            var _setTimeout = window.setTimeout;
+            var _setInterval = window.setInterval;
+            window.setTimeout = function(fn, delay) {{
+                if (typeof fn === 'string' && (fn.includes('location') || fn.includes('open') || fn.includes('href'))) {{
+                    console.log("[AdBlock] Blocked setTimeout redirect");
+                    return 0;
+                }}
+                return _setTimeout.apply(window, arguments);
+            }};
+            window.setInterval = function(fn, delay) {{
+                if (typeof fn === 'string' && (fn.includes('location') || fn.includes('open') || fn.includes('href'))) {{
+                    console.log("[AdBlock] Blocked setInterval redirect");
+                    return 0;
+                }}
+                return _setInterval.apply(window, arguments);
+            }};
+            
+            // 8. BLOCK beforeunload (prevents "are you sure" popups)
+            window.onbeforeunload = null;
+            window.addEventListener('beforeunload', function(e) {{
+                delete e.returnValue;
+            }});
+            
+            // 9. Remove ad elements on load
+            function removeAds() {{
+                var selectors = ['.ad', '.ads', '.advert', '.popup', '.overlay', '[class*="ad-"]', 
+                                 '[class*="popup"]', '[id*="ad-"]', '[id*="popup"]', 'iframe[src*="ads"]'];
+                selectors.forEach(function(sel) {{
+                    document.querySelectorAll(sel).forEach(function(el) {{
+                        if (!el.src || !isAllowed(el.src)) {{
+                            el.remove();
+                        }}
+                    }});
+                }});
+            }}
+            document.addEventListener('DOMContentLoaded', removeAds);
+            setInterval(removeAds, 2000);
+            
+            // 10. BLOCK postMessage redirects
+            window.addEventListener('message', function(e) {{
+                if (e.data && typeof e.data === 'string') {{
+                    if (e.data.includes('redirect') || e.data.includes('location') || e.data.includes('http')) {{
+                        console.log("[AdBlock] Blocked postMessage:", e.data.substring(0, 100));
+                        e.stopImmediatePropagation();
+                    }}
+                }}
+            }}, true);
+            
+            console.log("[AdBlock] All protections loaded successfully");
+        }})();
+    </script>
+</head>
+<body>
+    <div class="iframe-container">
+        <iframe 
+            src="{url}"
+            frameborder="0"
+            scrolling="no"
+            allowfullscreen
+            allow="autoplay; encrypted-media; fullscreen"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-presentation">
+        </iframe>
+    </div>
+</body>
+</html>'''
+    
+    return Response(content=html_content, media_type="text/html")
+
+@router.get("/anime/sources")
+async def get_anime_sources(episode_id: str, server: str = "vidcloud", category: str = "sub"):
+    """
+    Fetches anime stream sources, attempting multiple servers and providers if needed.
+    """
+    # providers = [
+    #     "https://hianime-api.vercel.app/api/v1",
+    #     ANIME_API_BASE
+    # ]
+    provider = ANIME_API_BASE
+    
+    # User Request: Prioritize hd-2, but keep backups to prevent 404s.
+    # We try hd-2 first, then others if it fails.
+    servers = ["hd-2", "megacloud", "vidcloud"] 
+    
+    # If a specific server was requested via `server` param that isn't in our list, 
+    # we could add it, but for now strict optimization.
+
+    client = get_http_client()
+    for s in servers:
+        try:
+            url = f"{provider}/episode/sources?animeEpisodeId={quote(episode_id)}&server={s}&category={category}"
+            response = await client.get(url, timeout=15.0)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("status") == 200 and data.get("data", {}).get("sources"):
+                    print(f"[HiAnime] Success with {s} on {provider}")
+                    
+                    # If any source is Megaplay, ensure it's marked as 'embed'
+                    for src in data["data"]["sources"]:
+                        if "megaplay.buzz" in src.get("url", ""):
+                            src["type"] = "embed"
+                    return data
+                else:
+                    print(f"[HiAnime] API returned 200 but no sources for {s} on {provider}: {data.get('message')}")
+            else:
+                print(f"[HiAnime] Provider {provider} returned {response.status_code} for {s}")
+        except Exception as e:
+            print(f"[HiAnime] Error fetching from {provider} for {s}: {e}")
+            continue
+
+    raise HTTPException(status_code=404, detail="No working stream sources found for this episode.")
 
 @router.get("/health")
 async def health():

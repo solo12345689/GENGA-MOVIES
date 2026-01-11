@@ -1,0 +1,8 @@
+URL: https://aniwatch-api-3e2f.onrender.com/api/v2/hianime/home
+Status: 200
+Body: {"status":200,"data":{"spotlightAnimes":[{"rank":1,"id":"jack-of-all-trades-party-of-none-20333","name":"Jack-of-All-Trades, Party of None","description":"\"Orn Doula, today will be your last day in t
+
+URL: https://aniwatch-api-3e2f.onrender.com/api/v2/hianime/search?q=naruto
+Status: 200
+Body: {"status":200,"data":{"animes":[{"id":"road-of-naruto-18220","name":"Road of Naruto","jname":"Road of Naruto","poster":"https://cdn.noitatnemucod.net/thumbnail/300x400/100/fd414879634ea83ad2c4fc1c33e8
+

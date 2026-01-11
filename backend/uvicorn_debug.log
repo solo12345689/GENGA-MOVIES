@@ -1,7 +1,633 @@
-INFO:     Started server process [59164]
+INFO:     Started server process [18744]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
-ERROR:    [Errno 10048] error while attempting to bind on address ('0.0.0.0', 8000): [winerror 10048] only one usage of each socket address (protocol/network address/port) is normally permitted
+INFO:     Uvicorn running on http://127.0.0.1:8080 (Press CTRL+C to quit)
+WARNING:  Unsupported upgrade request.
+WARNING:  No supported WebSocket library detected. Please use "pip install 'uvicorn[standard]'", or install 'websockets' or 'wsproto' manually.
+Successfully patched SubjectModel.trailer and rebuilt models
+INFO:     127.0.0.1:59662 - "GET /api/ws HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:51942 - "GET /api/anime/home HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58176 - "GET /api/anime/search?query=naruto HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58176 - "GET /api/anime/details/naruto-677 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58176 - "GET /api/anime/episodes/naruto-677 HTTP/1.1" 200 OK
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for vidcloud
+INFO:     127.0.0.1:58176 - "GET /api/anime/episodes/naruto-677 HTTP/1.1" 200 OK
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for megacloud
+INFO:     127.0.0.1:58176 - "GET /api/anime/episodes/naruto-677 HTTP/1.1" 200 OK
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for hd-1
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for hd-2
+[HiAnime] Provider https://aniwatch-api-3e2f.onrender.com/api/v2/hianime returned 500 for vidcloud
+[HiAnime] Provider https://aniwatch-api-3e2f.onrender.com/api/v2/hianime returned 500 for megacloud
+[HiAnime] Provider https://aniwatch-api-3e2f.onrender.com/api/v2/hianime returned 403 for hd-1
+[HiAnime] Success with hd-2 on https://aniwatch-api-3e2f.onrender.com/api/v2/hianime
+INFO:     127.0.0.1:54012 - "GET /api/anime/sources?episode_id=naruto-677%3Fep%3D12352&server=vidcloud&category=sub HTTP/1.1" 200 OK
+[PROXY] Requesting: https://dp.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a221fe96996c655b61772e836e2369916e901d266bcb4a40849478e276c9f0d3a1d2a3d7f49ddfc2789f243992aed00d85711628b638e8a33ebbcf974c5eb155f5aa5b35403b99a3119ac13b55d0e871e3841f4f1240c10bdf7335aa97be2f896/master.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:54012 - "GET /api/proxy-stream?url=https%3A%2F%2Fdp.netmagcdn.com%3A2228%2Fhls-playback%2Fbcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a221fe96996c655b61772e836e2369916e901d266bcb4a40849478e276c9f0d3a1d2a3d7f49ddfc2789f243992aed00d85711628b638e8a33ebbcf974c5eb155f5aa5b35403b99a3119ac13b55d0e871e3841f4f1240c10bdf7335aa97be2f896%2Fmaster.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Requesting: https://dp.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a221fe96996c655b61772e836e2369916e901d266bcb4a40849478e276c9f0d3a1d2a3d7f49ddfc2789f243992aed00d85711628b638e8a33ebbcf974c5eb155f5aa5b35403b99a3119ac13b55d0e871e3841f4f1240c10bdf7335aa97be2f896/master.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:54012 - "GET /api/proxy-stream?url=https%3A%2F%2Fdp.netmagcdn.com%3A2228%2Fhls-playback%2Fbcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a221fe96996c655b61772e836e2369916e901d266bcb4a40849478e276c9f0d3a1d2a3d7f49ddfc2789f243992aed00d85711628b638e8a33ebbcf974c5eb155f5aa5b35403b99a3119ac13b55d0e871e3841f4f1240c10bdf7335aa97be2f896%2Fmaster.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Requesting: https://dp.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a221fe96996c655b61772e836e2369916e901d266bcb4a40849478e276c9f0d3a1d2a3d7f49ddfc2789f243992aed00d85711628b638e8a33ebbcf974c5eb155f5aa5b35403b99a3119ac13b55d0e871e3841f4f1240c10bdf7335aa97be2f896/index-f1-v1-a1.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:54012 - "GET /api/proxy-stream?url=https%3A//dp.netmagcdn.com%3A2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a221fe96996c655b61772e836e2369916e901d266bcb4a40849478e276c9f0d3a1d2a3d7f49ddfc2789f243992aed00d85711628b638e8a33ebbcf974c5eb155f5aa5b35403b99a3119ac13b55d0e871e3841f4f1240c10bdf7335aa97be2f896/index-f1-v1-a1.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Requesting: https://dp.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a221fe96996c655b61772e836e2369916e901d266bcb4a40849478e276c9f0d3a1d2a3d7f49ddfc2789f243992aed00d85711628b638e8a33ebbcf974c5eb155f5aa5b35403b99a3119ac13b55d0e871e3841f4f1240c10bdf7335aa97be2f896/seg-1-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:54012 - "GET /api/proxy-stream?url=https%3A//dp.netmagcdn.com%3A2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a221fe96996c655b61772e836e2369916e901d266bcb4a40849478e276c9f0d3a1d2a3d7f49ddfc2789f243992aed00d85711628b638e8a33ebbcf974c5eb155f5aa5b35403b99a3119ac13b55d0e871e3841f4f1240c10bdf7335aa97be2f896/seg-1-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[PROXY] Requesting: https://dp.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a221fe96996c655b61772e836e2369916e901d266bcb4a40849478e276c9f0d3a1d2a3d7f49ddfc2789f243992aed00d85711628b638e8a33ebbcf974c5eb155f5aa5b35403b99a3119ac13b55d0e871e3841f4f1240c10bdf7335aa97be2f896/seg-2-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:54012 - "GET /api/proxy-stream?url=https%3A//dp.netmagcdn.com%3A2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a221fe96996c655b61772e836e2369916e901d266bcb4a40849478e276c9f0d3a1d2a3d7f49ddfc2789f243992aed00d85711628b638e8a33ebbcf974c5eb155f5aa5b35403b99a3119ac13b55d0e871e3841f4f1240c10bdf7335aa97be2f896/seg-2-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[PROXY] Requesting: https://dp.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a221fe96996c655b61772e836e2369916e901d266bcb4a40849478e276c9f0d3a1d2a3d7f49ddfc2789f243992aed00d85711628b638e8a33ebbcf974c5eb155f5aa5b35403b99a3119ac13b55d0e871e3841f4f1240c10bdf7335aa97be2f896/seg-4-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[STREAM] Using search result: Naruto
+[SUCCESS] Resolved media file with quality: BEST
+INFO:     127.0.0.1:50081 - "POST /api/stream?mode=url&query=Naruto&id=naruto-677&content_type=anime&season=1&episode=2 HTTP/1.1" 200 OK
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:54012 - "GET /api/proxy-stream?url=https%3A//dp.netmagcdn.com%3A2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a221fe96996c655b61772e836e2369916e901d266bcb4a40849478e276c9f0d3a1d2a3d7f49ddfc2789f243992aed00d85711628b638e8a33ebbcf974c5eb155f5aa5b35403b99a3119ac13b55d0e871e3841f4f1240c10bdf7335aa97be2f896/seg-4-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[PROXY] Requesting: https://dp.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a221fe96996c655b61772e836e2369916e901d266bcb4a40849478e276c9f0d3a1d2a3d7f49ddfc2789f243992aed00d85711628b638e8a33ebbcf974c5eb155f5aa5b35403b99a3119ac13b55d0e871e3841f4f1240c10bdf7335aa97be2f896/master.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:55118 - "GET /api/proxy-stream?url=https%3A%2F%2Fdp.netmagcdn.com%3A2228%2Fhls-playback%2Fbcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a221fe96996c655b61772e836e2369916e901d266bcb4a40849478e276c9f0d3a1d2a3d7f49ddfc2789f243992aed00d85711628b638e8a33ebbcf974c5eb155f5aa5b35403b99a3119ac13b55d0e871e3841f4f1240c10bdf7335aa97be2f896%2Fmaster.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Requesting: https://dp.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a221fe96996c655b61772e836e2369916e901d266bcb4a40849478e276c9f0d3a1d2a3d7f49ddfc2789f243992aed00d85711628b638e8a33ebbcf974c5eb155f5aa5b35403b99a3119ac13b55d0e871e3841f4f1240c10bdf7335aa97be2f896/master.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:55118 - "GET /api/proxy-stream?url=https%3A%2F%2Fdp.netmagcdn.com%3A2228%2Fhls-playback%2Fbcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a221fe96996c655b61772e836e2369916e901d266bcb4a40849478e276c9f0d3a1d2a3d7f49ddfc2789f243992aed00d85711628b638e8a33ebbcf974c5eb155f5aa5b35403b99a3119ac13b55d0e871e3841f4f1240c10bdf7335aa97be2f896%2Fmaster.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Requesting: https://dp.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a221fe96996c655b61772e836e2369916e901d266bcb4a40849478e276c9f0d3a1d2a3d7f49ddfc2789f243992aed00d85711628b638e8a33ebbcf974c5eb155f5aa5b35403b99a3119ac13b55d0e871e3841f4f1240c10bdf7335aa97be2f896/index-f1-v1-a1.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:55118 - "GET /api/proxy-stream?url=https%3A//dp.netmagcdn.com%3A2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a221fe96996c655b61772e836e2369916e901d266bcb4a40849478e276c9f0d3a1d2a3d7f49ddfc2789f243992aed00d85711628b638e8a33ebbcf974c5eb155f5aa5b35403b99a3119ac13b55d0e871e3841f4f1240c10bdf7335aa97be2f896/index-f1-v1-a1.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Requesting: https://dp.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a221fe96996c655b61772e836e2369916e901d266bcb4a40849478e276c9f0d3a1d2a3d7f49ddfc2789f243992aed00d85711628b638e8a33ebbcf974c5eb155f5aa5b35403b99a3119ac13b55d0e871e3841f4f1240c10bdf7335aa97be2f896/seg-1-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:55118 - "GET /api/proxy-stream?url=https%3A//dp.netmagcdn.com%3A2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a221fe96996c655b61772e836e2369916e901d266bcb4a40849478e276c9f0d3a1d2a3d7f49ddfc2789f243992aed00d85711628b638e8a33ebbcf974c5eb155f5aa5b35403b99a3119ac13b55d0e871e3841f4f1240c10bdf7335aa97be2f896/seg-1-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[PROXY] Requesting: https://dp.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a221fe96996c655b61772e836e2369916e901d266bcb4a40849478e276c9f0d3a1d2a3d7f49ddfc2789f243992aed00d85711628b638e8a33ebbcf974c5eb155f5aa5b35403b99a3119ac13b55d0e871e3841f4f1240c10bdf7335aa97be2f896/seg-2-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:55118 - "GET /api/proxy-stream?url=https%3A//dp.netmagcdn.com%3A2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a221fe96996c655b61772e836e2369916e901d266bcb4a40849478e276c9f0d3a1d2a3d7f49ddfc2789f243992aed00d85711628b638e8a33ebbcf974c5eb155f5aa5b35403b99a3119ac13b55d0e871e3841f4f1240c10bdf7335aa97be2f896/seg-2-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[PROXY] Requesting: https://dp.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a221fe96996c655b61772e836e2369916e901d266bcb4a40849478e276c9f0d3a1d2a3d7f49ddfc2789f243992aed00d85711628b638e8a33ebbcf974c5eb155f5aa5b35403b99a3119ac13b55d0e871e3841f4f1240c10bdf7335aa97be2f896/seg-4-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Requesting: https://dp.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a221fe96996c655b61772e836e2369916e901d266bcb4a40849478e276c9f0d3a1d2a3d7f49ddfc2789f243992aed00d85711628b638e8a33ebbcf974c5eb155f5aa5b35403b99a3119ac13b55d0e871e3841f4f1240c10bdf7335aa97be2f896/master.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for vidcloud
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:62383 - "GET /api/proxy-stream?url=https%3A%2F%2Fdp.netmagcdn.com%3A2228%2Fhls-playback%2Fbcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a221fe96996c655b61772e836e2369916e901d266bcb4a40849478e276c9f0d3a1d2a3d7f49ddfc2789f243992aed00d85711628b638e8a33ebbcf974c5eb155f5aa5b35403b99a3119ac13b55d0e871e3841f4f1240c10bdf7335aa97be2f896%2Fmaster.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Requesting: https://dp.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a221fe96996c655b61772e836e2369916e901d266bcb4a40849478e276c9f0d3a1d2a3d7f49ddfc2789f243992aed00d85711628b638e8a33ebbcf974c5eb155f5aa5b35403b99a3119ac13b55d0e871e3841f4f1240c10bdf7335aa97be2f896/master.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:62383 - "GET /api/proxy-stream?url=https%3A%2F%2Fdp.netmagcdn.com%3A2228%2Fhls-playback%2Fbcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a221fe96996c655b61772e836e2369916e901d266bcb4a40849478e276c9f0d3a1d2a3d7f49ddfc2789f243992aed00d85711628b638e8a33ebbcf974c5eb155f5aa5b35403b99a3119ac13b55d0e871e3841f4f1240c10bdf7335aa97be2f896%2Fmaster.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Requesting: https://dp.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a221fe96996c655b61772e836e2369916e901d266bcb4a40849478e276c9f0d3a1d2a3d7f49ddfc2789f243992aed00d85711628b638e8a33ebbcf974c5eb155f5aa5b35403b99a3119ac13b55d0e871e3841f4f1240c10bdf7335aa97be2f896/index-f1-v1-a1.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:62383 - "GET /api/proxy-stream?url=https%3A//dp.netmagcdn.com%3A2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a221fe96996c655b61772e836e2369916e901d266bcb4a40849478e276c9f0d3a1d2a3d7f49ddfc2789f243992aed00d85711628b638e8a33ebbcf974c5eb155f5aa5b35403b99a3119ac13b55d0e871e3841f4f1240c10bdf7335aa97be2f896/index-f1-v1-a1.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Requesting: https://dp.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a221fe96996c655b61772e836e2369916e901d266bcb4a40849478e276c9f0d3a1d2a3d7f49ddfc2789f243992aed00d85711628b638e8a33ebbcf974c5eb155f5aa5b35403b99a3119ac13b55d0e871e3841f4f1240c10bdf7335aa97be2f896/seg-1-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for megacloud
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:62383 - "GET /api/proxy-stream?url=https%3A//dp.netmagcdn.com%3A2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a221fe96996c655b61772e836e2369916e901d266bcb4a40849478e276c9f0d3a1d2a3d7f49ddfc2789f243992aed00d85711628b638e8a33ebbcf974c5eb155f5aa5b35403b99a3119ac13b55d0e871e3841f4f1240c10bdf7335aa97be2f896/seg-1-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for hd-1
+[PROXY] Requesting: https://dp.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a221fe96996c655b61772e836e2369916e901d266bcb4a40849478e276c9f0d3a1d2a3d7f49ddfc2789f243992aed00d85711628b638e8a33ebbcf974c5eb155f5aa5b35403b99a3119ac13b55d0e871e3841f4f1240c10bdf7335aa97be2f896/seg-2-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for hd-2
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:62383 - "GET /api/proxy-stream?url=https%3A//dp.netmagcdn.com%3A2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a221fe96996c655b61772e836e2369916e901d266bcb4a40849478e276c9f0d3a1d2a3d7f49ddfc2789f243992aed00d85711628b638e8a33ebbcf974c5eb155f5aa5b35403b99a3119ac13b55d0e871e3841f4f1240c10bdf7335aa97be2f896/seg-2-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[PROXY] Requesting: https://dp.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a221fe96996c655b61772e836e2369916e901d266bcb4a40849478e276c9f0d3a1d2a3d7f49ddfc2789f243992aed00d85711628b638e8a33ebbcf974c5eb155f5aa5b35403b99a3119ac13b55d0e871e3841f4f1240c10bdf7335aa97be2f896/seg-4-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[HiAnime] Provider https://aniwatch-api-3e2f.onrender.com/api/v2/hianime returned 500 for vidcloud
+[HiAnime] Provider https://aniwatch-api-3e2f.onrender.com/api/v2/hianime returned 500 for megacloud
+[PROXY] Strategy 1 SUCCESS
+[HiAnime] Provider https://aniwatch-api-3e2f.onrender.com/api/v2/hianime returned 403 for hd-1
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:62383 - "GET /api/proxy-stream?url=https%3A//dp.netmagcdn.com%3A2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a221fe96996c655b61772e836e2369916e901d266bcb4a40849478e276c9f0d3a1d2a3d7f49ddfc2789f243992aed00d85711628b638e8a33ebbcf974c5eb155f5aa5b35403b99a3119ac13b55d0e871e3841f4f1240c10bdf7335aa97be2f896/seg-4-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[HiAnime] Success with hd-2 on https://aniwatch-api-3e2f.onrender.com/api/v2/hianime
+INFO:     127.0.0.1:50221 - "GET /api/anime/sources?episode_id=naruto-677%3Fep%3D12352&server=vidcloud&category=dub HTTP/1.1" 200 OK
+[PROXY] Requesting: https://dm.netmagcdn.com:2228/hls-playback/3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe56c603c55fbfbf77f207b8930a8ba3a79d6e7db02ed48c76fdaeb535e81614eb50dd0fda36ee954709ef4e6f36dc37bd78fd6df78d8406c7abd6b5a245e6ccd719431409e072929376f0717cc4c41f8030cc136dcb7790f3f7a5a89dc791a7ccd9b0a729a7d1fb20a6bdf633eb692c21e/master.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:50221 - "GET /api/proxy-stream?url=https%3A%2F%2Fdm.netmagcdn.com%3A2228%2Fhls-playback%2F3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe56c603c55fbfbf77f207b8930a8ba3a79d6e7db02ed48c76fdaeb535e81614eb50dd0fda36ee954709ef4e6f36dc37bd78fd6df78d8406c7abd6b5a245e6ccd719431409e072929376f0717cc4c41f8030cc136dcb7790f3f7a5a89dc791a7ccd9b0a729a7d1fb20a6bdf633eb692c21e%2Fmaster.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Requesting: https://dm.netmagcdn.com:2228/hls-playback/3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe56c603c55fbfbf77f207b8930a8ba3a79d6e7db02ed48c76fdaeb535e81614eb50dd0fda36ee954709ef4e6f36dc37bd78fd6df78d8406c7abd6b5a245e6ccd719431409e072929376f0717cc4c41f8030cc136dcb7790f3f7a5a89dc791a7ccd9b0a729a7d1fb20a6bdf633eb692c21e/master.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:50221 - "GET /api/proxy-stream?url=https%3A%2F%2Fdm.netmagcdn.com%3A2228%2Fhls-playback%2F3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe56c603c55fbfbf77f207b8930a8ba3a79d6e7db02ed48c76fdaeb535e81614eb50dd0fda36ee954709ef4e6f36dc37bd78fd6df78d8406c7abd6b5a245e6ccd719431409e072929376f0717cc4c41f8030cc136dcb7790f3f7a5a89dc791a7ccd9b0a729a7d1fb20a6bdf633eb692c21e%2Fmaster.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Requesting: https://dm.netmagcdn.com:2228/hls-playback/3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe56c603c55fbfbf77f207b8930a8ba3a79d6e7db02ed48c76fdaeb535e81614eb50dd0fda36ee954709ef4e6f36dc37bd78fd6df78d8406c7abd6b5a245e6ccd719431409e072929376f0717cc4c41f8030cc136dcb7790f3f7a5a89dc791a7ccd9b0a729a7d1fb20a6bdf633eb692c21e/index-f1-v1-a1.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:50221 - "GET /api/proxy-stream?url=https%3A//dm.netmagcdn.com%3A2228/hls-playback/3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe56c603c55fbfbf77f207b8930a8ba3a79d6e7db02ed48c76fdaeb535e81614eb50dd0fda36ee954709ef4e6f36dc37bd78fd6df78d8406c7abd6b5a245e6ccd719431409e072929376f0717cc4c41f8030cc136dcb7790f3f7a5a89dc791a7ccd9b0a729a7d1fb20a6bdf633eb692c21e/index-f1-v1-a1.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Requesting: https://dm.netmagcdn.com:2228/hls-playback/3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe56c603c55fbfbf77f207b8930a8ba3a79d6e7db02ed48c76fdaeb535e81614eb50dd0fda36ee954709ef4e6f36dc37bd78fd6df78d8406c7abd6b5a245e6ccd719431409e072929376f0717cc4c41f8030cc136dcb7790f3f7a5a89dc791a7ccd9b0a729a7d1fb20a6bdf633eb692c21e/seg-1-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Requesting: https://dp.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a221fe96996c655b61772e836e2369916e901d266bcb4a40849478e276c9f0d3a1d2a3d7f49ddfc2789f243992aed00d85711628b638e8a33ebbcf974c5eb155f5aa5b35403b99a3119ac13b55d0e871e3841f4f1240c10bdf7335aa97be2f896/index-f3-v1-a1.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:62383 - "GET /api/proxy-stream?url=https%3A//dp.netmagcdn.com%3A2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a221fe96996c655b61772e836e2369916e901d266bcb4a40849478e276c9f0d3a1d2a3d7f49ddfc2789f243992aed00d85711628b638e8a33ebbcf974c5eb155f5aa5b35403b99a3119ac13b55d0e871e3841f4f1240c10bdf7335aa97be2f896/index-f3-v1-a1.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:50221 - "GET /api/proxy-stream?url=https%3A//dm.netmagcdn.com%3A2228/hls-playback/3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe56c603c55fbfbf77f207b8930a8ba3a79d6e7db02ed48c76fdaeb535e81614eb50dd0fda36ee954709ef4e6f36dc37bd78fd6df78d8406c7abd6b5a245e6ccd719431409e072929376f0717cc4c41f8030cc136dcb7790f3f7a5a89dc791a7ccd9b0a729a7d1fb20a6bdf633eb692c21e/seg-1-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[PROXY] Requesting: https://dm.netmagcdn.com:2228/hls-playback/3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe56c603c55fbfbf77f207b8930a8ba3a79d6e7db02ed48c76fdaeb535e81614eb50dd0fda36ee954709ef4e6f36dc37bd78fd6df78d8406c7abd6b5a245e6ccd719431409e072929376f0717cc4c41f8030cc136dcb7790f3f7a5a89dc791a7ccd9b0a729a7d1fb20a6bdf633eb692c21e/seg-2-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:50221 - "GET /api/proxy-stream?url=https%3A//dm.netmagcdn.com%3A2228/hls-playback/3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe56c603c55fbfbf77f207b8930a8ba3a79d6e7db02ed48c76fdaeb535e81614eb50dd0fda36ee954709ef4e6f36dc37bd78fd6df78d8406c7abd6b5a245e6ccd719431409e072929376f0717cc4c41f8030cc136dcb7790f3f7a5a89dc791a7ccd9b0a729a7d1fb20a6bdf633eb692c21e/seg-2-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[PROXY] Requesting: https://dm.netmagcdn.com:2228/hls-playback/3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe56c603c55fbfbf77f207b8930a8ba3a79d6e7db02ed48c76fdaeb535e81614eb50dd0fda36ee954709ef4e6f36dc37bd78fd6df78d8406c7abd6b5a245e6ccd719431409e072929376f0717cc4c41f8030cc136dcb7790f3f7a5a89dc791a7ccd9b0a729a7d1fb20a6bdf633eb692c21e/seg-3-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:50221 - "GET /api/proxy-stream?url=https%3A//dm.netmagcdn.com%3A2228/hls-playback/3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe56c603c55fbfbf77f207b8930a8ba3a79d6e7db02ed48c76fdaeb535e81614eb50dd0fda36ee954709ef4e6f36dc37bd78fd6df78d8406c7abd6b5a245e6ccd719431409e072929376f0717cc4c41f8030cc136dcb7790f3f7a5a89dc791a7ccd9b0a729a7d1fb20a6bdf633eb692c21e/seg-3-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[PROXY] Requesting: https://dm.netmagcdn.com:2228/hls-playback/3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe56c603c55fbfbf77f207b8930a8ba3a79d6e7db02ed48c76fdaeb535e81614eb50dd0fda36ee954709ef4e6f36dc37bd78fd6df78d8406c7abd6b5a245e6ccd719431409e072929376f0717cc4c41f8030cc136dcb7790f3f7a5a89dc791a7ccd9b0a729a7d1fb20a6bdf633eb692c21e/seg-4-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:50221 - "GET /api/proxy-stream?url=https%3A//dm.netmagcdn.com%3A2228/hls-playback/3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe56c603c55fbfbf77f207b8930a8ba3a79d6e7db02ed48c76fdaeb535e81614eb50dd0fda36ee954709ef4e6f36dc37bd78fd6df78d8406c7abd6b5a245e6ccd719431409e072929376f0717cc4c41f8030cc136dcb7790f3f7a5a89dc791a7ccd9b0a729a7d1fb20a6bdf633eb692c21e/seg-4-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[PROXY] Requesting: https://dm.netmagcdn.com:2228/hls-playback/3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe56c603c55fbfbf77f207b8930a8ba3a79d6e7db02ed48c76fdaeb535e81614eb50dd0fda36ee954709ef4e6f36dc37bd78fd6df78d8406c7abd6b5a245e6ccd719431409e072929376f0717cc4c41f8030cc136dcb7790f3f7a5a89dc791a7ccd9b0a729a7d1fb20a6bdf633eb692c21e/index-f2-v1-a1.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:50221 - "GET /api/proxy-stream?url=https%3A//dm.netmagcdn.com%3A2228/hls-playback/3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe56c603c55fbfbf77f207b8930a8ba3a79d6e7db02ed48c76fdaeb535e81614eb50dd0fda36ee954709ef4e6f36dc37bd78fd6df78d8406c7abd6b5a245e6ccd719431409e072929376f0717cc4c41f8030cc136dcb7790f3f7a5a89dc791a7ccd9b0a729a7d1fb20a6bdf633eb692c21e/index-f2-v1-a1.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Requesting: https://dm.netmagcdn.com:2228/hls-playback/3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe56c603c55fbfbf77f207b8930a8ba3a79d6e7db02ed48c76fdaeb535e81614eb50dd0fda36ee954709ef4e6f36dc37bd78fd6df78d8406c7abd6b5a245e6ccd719431409e072929376f0717cc4c41f8030cc136dcb7790f3f7a5a89dc791a7ccd9b0a729a7d1fb20a6bdf633eb692c21e/seg-6-f2-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:50221 - "GET /api/proxy-stream?url=https%3A//dm.netmagcdn.com%3A2228/hls-playback/3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe56c603c55fbfbf77f207b8930a8ba3a79d6e7db02ed48c76fdaeb535e81614eb50dd0fda36ee954709ef4e6f36dc37bd78fd6df78d8406c7abd6b5a245e6ccd719431409e072929376f0717cc4c41f8030cc136dcb7790f3f7a5a89dc791a7ccd9b0a729a7d1fb20a6bdf633eb692c21e/seg-6-f2-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[PROXY] Requesting: https://dm.netmagcdn.com:2228/hls-playback/3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe56c603c55fbfbf77f207b8930a8ba3a79d6e7db02ed48c76fdaeb535e81614eb50dd0fda36ee954709ef4e6f36dc37bd78fd6df78d8406c7abd6b5a245e6ccd719431409e072929376f0717cc4c41f8030cc136dcb7790f3f7a5a89dc791a7ccd9b0a729a7d1fb20a6bdf633eb692c21e/index-f1-v1-a1.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:50221 - "GET /api/proxy-stream?url=https%3A//dm.netmagcdn.com%3A2228/hls-playback/3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe56c603c55fbfbf77f207b8930a8ba3a79d6e7db02ed48c76fdaeb535e81614eb50dd0fda36ee954709ef4e6f36dc37bd78fd6df78d8406c7abd6b5a245e6ccd719431409e072929376f0717cc4c41f8030cc136dcb7790f3f7a5a89dc791a7ccd9b0a729a7d1fb20a6bdf633eb692c21e/index-f1-v1-a1.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Requesting: https://dm.netmagcdn.com:2228/hls-playback/3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe56c603c55fbfbf77f207b8930a8ba3a79d6e7db02ed48c76fdaeb535e81614eb50dd0fda36ee954709ef4e6f36dc37bd78fd6df78d8406c7abd6b5a245e6ccd719431409e072929376f0717cc4c41f8030cc136dcb7790f3f7a5a89dc791a7ccd9b0a729a7d1fb20a6bdf633eb692c21e/seg-6-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:50221 - "GET /api/proxy-stream?url=https%3A//dm.netmagcdn.com%3A2228/hls-playback/3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe56c603c55fbfbf77f207b8930a8ba3a79d6e7db02ed48c76fdaeb535e81614eb50dd0fda36ee954709ef4e6f36dc37bd78fd6df78d8406c7abd6b5a245e6ccd719431409e072929376f0717cc4c41f8030cc136dcb7790f3f7a5a89dc791a7ccd9b0a729a7d1fb20a6bdf633eb692c21e/seg-6-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[PROXY] Requesting: https://dm.netmagcdn.com:2228/hls-playback/3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe56c603c55fbfbf77f207b8930a8ba3a79d6e7db02ed48c76fdaeb535e81614eb50dd0fda36ee954709ef4e6f36dc37bd78fd6df78d8406c7abd6b5a245e6ccd719431409e072929376f0717cc4c41f8030cc136dcb7790f3f7a5a89dc791a7ccd9b0a729a7d1fb20a6bdf633eb692c21e/seg-7-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:50221 - "GET /api/proxy-stream?url=https%3A//dm.netmagcdn.com%3A2228/hls-playback/3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe56c603c55fbfbf77f207b8930a8ba3a79d6e7db02ed48c76fdaeb535e81614eb50dd0fda36ee954709ef4e6f36dc37bd78fd6df78d8406c7abd6b5a245e6ccd719431409e072929376f0717cc4c41f8030cc136dcb7790f3f7a5a89dc791a7ccd9b0a729a7d1fb20a6bdf633eb692c21e/seg-7-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[PROXY] Requesting: https://dm.netmagcdn.com:2228/hls-playback/3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe56c603c55fbfbf77f207b8930a8ba3a79d6e7db02ed48c76fdaeb535e81614eb50dd0fda36ee954709ef4e6f36dc37bd78fd6df78d8406c7abd6b5a245e6ccd719431409e072929376f0717cc4c41f8030cc136dcb7790f3f7a5a89dc791a7ccd9b0a729a7d1fb20a6bdf633eb692c21e/master.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for vidcloud
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:54139 - "GET /api/proxy-stream?url=https%3A%2F%2Fdm.netmagcdn.com%3A2228%2Fhls-playback%2F3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe56c603c55fbfbf77f207b8930a8ba3a79d6e7db02ed48c76fdaeb535e81614eb50dd0fda36ee954709ef4e6f36dc37bd78fd6df78d8406c7abd6b5a245e6ccd719431409e072929376f0717cc4c41f8030cc136dcb7790f3f7a5a89dc791a7ccd9b0a729a7d1fb20a6bdf633eb692c21e%2Fmaster.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Requesting: https://dm.netmagcdn.com:2228/hls-playback/3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe56c603c55fbfbf77f207b8930a8ba3a79d6e7db02ed48c76fdaeb535e81614eb50dd0fda36ee954709ef4e6f36dc37bd78fd6df78d8406c7abd6b5a245e6ccd719431409e072929376f0717cc4c41f8030cc136dcb7790f3f7a5a89dc791a7ccd9b0a729a7d1fb20a6bdf633eb692c21e/master.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:54139 - "GET /api/proxy-stream?url=https%3A%2F%2Fdm.netmagcdn.com%3A2228%2Fhls-playback%2F3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe56c603c55fbfbf77f207b8930a8ba3a79d6e7db02ed48c76fdaeb535e81614eb50dd0fda36ee954709ef4e6f36dc37bd78fd6df78d8406c7abd6b5a245e6ccd719431409e072929376f0717cc4c41f8030cc136dcb7790f3f7a5a89dc791a7ccd9b0a729a7d1fb20a6bdf633eb692c21e%2Fmaster.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Requesting: https://dm.netmagcdn.com:2228/hls-playback/3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe56c603c55fbfbf77f207b8930a8ba3a79d6e7db02ed48c76fdaeb535e81614eb50dd0fda36ee954709ef4e6f36dc37bd78fd6df78d8406c7abd6b5a245e6ccd719431409e072929376f0717cc4c41f8030cc136dcb7790f3f7a5a89dc791a7ccd9b0a729a7d1fb20a6bdf633eb692c21e/index-f1-v1-a1.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for megacloud
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:54139 - "GET /api/proxy-stream?url=https%3A//dm.netmagcdn.com%3A2228/hls-playback/3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe56c603c55fbfbf77f207b8930a8ba3a79d6e7db02ed48c76fdaeb535e81614eb50dd0fda36ee954709ef4e6f36dc37bd78fd6df78d8406c7abd6b5a245e6ccd719431409e072929376f0717cc4c41f8030cc136dcb7790f3f7a5a89dc791a7ccd9b0a729a7d1fb20a6bdf633eb692c21e/index-f1-v1-a1.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Requesting: https://dm.netmagcdn.com:2228/hls-playback/3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe56c603c55fbfbf77f207b8930a8ba3a79d6e7db02ed48c76fdaeb535e81614eb50dd0fda36ee954709ef4e6f36dc37bd78fd6df78d8406c7abd6b5a245e6ccd719431409e072929376f0717cc4c41f8030cc136dcb7790f3f7a5a89dc791a7ccd9b0a729a7d1fb20a6bdf633eb692c21e/seg-1-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for hd-1
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for hd-2
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:54139 - "GET /api/proxy-stream?url=https%3A//dm.netmagcdn.com%3A2228/hls-playback/3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe56c603c55fbfbf77f207b8930a8ba3a79d6e7db02ed48c76fdaeb535e81614eb50dd0fda36ee954709ef4e6f36dc37bd78fd6df78d8406c7abd6b5a245e6ccd719431409e072929376f0717cc4c41f8030cc136dcb7790f3f7a5a89dc791a7ccd9b0a729a7d1fb20a6bdf633eb692c21e/seg-1-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[PROXY] Requesting: https://dm.netmagcdn.com:2228/hls-playback/3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe56c603c55fbfbf77f207b8930a8ba3a79d6e7db02ed48c76fdaeb535e81614eb50dd0fda36ee954709ef4e6f36dc37bd78fd6df78d8406c7abd6b5a245e6ccd719431409e072929376f0717cc4c41f8030cc136dcb7790f3f7a5a89dc791a7ccd9b0a729a7d1fb20a6bdf633eb692c21e/seg-2-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:54139 - "GET /api/proxy-stream?url=https%3A//dm.netmagcdn.com%3A2228/hls-playback/3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe56c603c55fbfbf77f207b8930a8ba3a79d6e7db02ed48c76fdaeb535e81614eb50dd0fda36ee954709ef4e6f36dc37bd78fd6df78d8406c7abd6b5a245e6ccd719431409e072929376f0717cc4c41f8030cc136dcb7790f3f7a5a89dc791a7ccd9b0a729a7d1fb20a6bdf633eb692c21e/seg-2-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[PROXY] Requesting: https://dm.netmagcdn.com:2228/hls-playback/3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe56c603c55fbfbf77f207b8930a8ba3a79d6e7db02ed48c76fdaeb535e81614eb50dd0fda36ee954709ef4e6f36dc37bd78fd6df78d8406c7abd6b5a245e6ccd719431409e072929376f0717cc4c41f8030cc136dcb7790f3f7a5a89dc791a7ccd9b0a729a7d1fb20a6bdf633eb692c21e/seg-3-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:54139 - "GET /api/proxy-stream?url=https%3A//dm.netmagcdn.com%3A2228/hls-playback/3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe56c603c55fbfbf77f207b8930a8ba3a79d6e7db02ed48c76fdaeb535e81614eb50dd0fda36ee954709ef4e6f36dc37bd78fd6df78d8406c7abd6b5a245e6ccd719431409e072929376f0717cc4c41f8030cc136dcb7790f3f7a5a89dc791a7ccd9b0a729a7d1fb20a6bdf633eb692c21e/seg-3-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[HiAnime] Provider https://aniwatch-api-3e2f.onrender.com/api/v2/hianime returned 500 for vidcloud
+[HiAnime] Provider https://aniwatch-api-3e2f.onrender.com/api/v2/hianime returned 500 for megacloud
+[HiAnime] Success with hd-1 on https://aniwatch-api-3e2f.onrender.com/api/v2/hianime
+INFO:     127.0.0.1:53551 - "GET /api/anime/sources?episode_id=naruto-677%3Fep%3D12352&server=vidcloud&category=sub HTTP/1.1" 200 OK
+[PROXY] Requesting: https://lightningspark77.pro/_v7/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a7d7f9cd4c48150fef35b7c3f31be6b6fded8afc1bab364cdd53e67ee2a279e91515dd28bd0f91d4ffd14b5e2dfd5b6283d011385480e67b720707cf4dc4daa744f35ffd57103b2cb10437298d113311f/master.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 returned 403
+[PROXY] Strategy 2 (Ref: https://v.showbox.cc/...)
+[PROXY] Strategy 2 returned 403
+[PROXY] Strategy 3 (Ref: https://fmoviesunblocked.net/...)
+[PROXY] Strategy 3 returned 403
+[PROXY] Strategy 4 (Ref: https://megaplay.buzz/...)
+[PROXY] Strategy 4 returned 403
+[PROXY] Strategy 5 (Ref: https://vidcloud9.me/...)
+[PROXY] Strategy 5 returned 403
+[PROXY] Strategy 6 (Ref: https://megacloud.to/...)
+[PROXY] Strategy 6 returned 403
+[PROXY] Strategy 7 (Ref: https://www.moviebox.pro/...)
+[PROXY] Strategy 7 returned 403
+[PROXY] Strategy 8 (Ref: https://videonext.net/...)
+[PROXY] Strategy 8 returned 403
+[PROXY] Strategy 9 (Ref: None...)
+[PROXY] Strategy 9 returned 403
+INFO:     127.0.0.1:53551 - "GET /api/proxy-stream?url=https%3A%2F%2Flightningspark77.pro%2F_v7%2Fbcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a7d7f9cd4c48150fef35b7c3f31be6b6fded8afc1bab364cdd53e67ee2a279e91515dd28bd0f91d4ffd14b5e2dfd5b6283d011385480e67b720707cf4dc4daa744f35ffd57103b2cb10437298d113311f%2Fmaster.m3u8&source=hianime HTTP/1.1" 502 Bad Gateway
+[PROXY] Requesting: https://lightningspark77.pro/_v7/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a7d7f9cd4c48150fef35b7c3f31be6b6fded8afc1bab364cdd53e67ee2a279e91515dd28bd0f91d4ffd14b5e2dfd5b6283d011385480e67b720707cf4dc4daa744f35ffd57103b2cb10437298d113311f/master.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for vidcloud
+INFO:     127.0.0.1:62550 - "GET /api/anime/episodes/naruto-677 HTTP/1.1" 200 OK
+[PROXY] Strategy 1 returned 403
+[PROXY] Strategy 2 (Ref: https://v.showbox.cc/...)
+[PROXY] Strategy 2 returned 403
+[PROXY] Strategy 3 (Ref: https://fmoviesunblocked.net/...)
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for megacloud
+[PROXY] Strategy 3 returned 403
+[PROXY] Strategy 4 (Ref: https://megaplay.buzz/...)
+[PROXY] Strategy 4 returned 403
+[PROXY] Strategy 5 (Ref: https://vidcloud9.me/...)
+[PROXY] Strategy 5 returned 403
+[PROXY] Strategy 6 (Ref: https://megacloud.to/...)
+[PROXY] Strategy 6 returned 403
+[PROXY] Strategy 7 (Ref: https://www.moviebox.pro/...)
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for hd-1
+[PROXY] Strategy 7 returned 403
+[PROXY] Strategy 8 (Ref: https://videonext.net/...)
+[PROXY] Strategy 8 returned 403
+[PROXY] Strategy 9 (Ref: None...)
+[PROXY] Strategy 9 returned 403
+INFO:     127.0.0.1:58841 - "GET /api/proxy-stream?url=https%3A%2F%2Flightningspark77.pro%2F_v7%2Fbcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812a7d7f9cd4c48150fef35b7c3f31be6b6fded8afc1bab364cdd53e67ee2a279e91515dd28bd0f91d4ffd14b5e2dfd5b6283d011385480e67b720707cf4dc4daa744f35ffd57103b2cb10437298d113311f%2Fmaster.m3u8&source=hianime HTTP/1.1" 502 Bad Gateway
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for hd-2
+[HiAnime] Provider https://aniwatch-api-3e2f.onrender.com/api/v2/hianime returned 500 for vidcloud
+[HiAnime] Provider https://aniwatch-api-3e2f.onrender.com/api/v2/hianime returned 500 for megacloud
+[HiAnime] Provider https://aniwatch-api-3e2f.onrender.com/api/v2/hianime returned 403 for hd-1
+[HiAnime] Success with hd-2 on https://aniwatch-api-3e2f.onrender.com/api/v2/hianime
+INFO:     127.0.0.1:62673 - "GET /api/anime/sources?episode_id=naruto-677%3Fep%3D12352&server=vidcloud&category=sub HTTP/1.1" 200 OK
+[PROXY] Requesting: https://da.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563/master.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:62673 - "GET /api/proxy-stream?url=https%3A%2F%2Fda.netmagcdn.com%3A2228%2Fhls-playback%2Fbcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563%2Fmaster.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Requesting: https://da.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563/master.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:62673 - "GET /api/proxy-stream?url=https%3A%2F%2Fda.netmagcdn.com%3A2228%2Fhls-playback%2Fbcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563%2Fmaster.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Requesting: https://da.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563/index-f1-v1-a1.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:62673 - "GET /api/proxy-stream?url=https%3A//da.netmagcdn.com%3A2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563/index-f1-v1-a1.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Requesting: https://da.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563/seg-1-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:62673 - "GET /api/proxy-stream?url=https%3A//da.netmagcdn.com%3A2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563/seg-1-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[PROXY] Requesting: https://da.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563/seg-2-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:62673 - "GET /api/proxy-stream?url=https%3A//da.netmagcdn.com%3A2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563/seg-2-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[PROXY] Requesting: https://da.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563/seg-4-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:62673 - "GET /api/proxy-stream?url=https%3A//da.netmagcdn.com%3A2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563/seg-4-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[PROXY] Requesting: https://da.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563/index-f3-v1-a1.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:62673 - "GET /api/proxy-stream?url=https%3A//da.netmagcdn.com%3A2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563/index-f3-v1-a1.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Requesting: https://da.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563/seg-6-f3-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:62673 - "GET /api/proxy-stream?url=https%3A//da.netmagcdn.com%3A2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563/seg-6-f3-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[PROXY] Requesting: https://da.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563/index-f1-v1-a1.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:62673 - "GET /api/proxy-stream?url=https%3A//da.netmagcdn.com%3A2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563/index-f1-v1-a1.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Requesting: https://da.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563/seg-8-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:62673 - "GET /api/proxy-stream?url=https%3A//da.netmagcdn.com%3A2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563/seg-8-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[PROXY] Requesting: https://da.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563/seg-9-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:65438 - "GET /api/proxy-stream?url=https%3A//da.netmagcdn.com%3A2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563/seg-9-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[PROXY] Requesting: https://da.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563/seg-10-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:65438 - "GET /api/proxy-stream?url=https%3A//da.netmagcdn.com%3A2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563/seg-10-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[PROXY] Requesting: https://da.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563/seg-11-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:65438 - "GET /api/proxy-stream?url=https%3A//da.netmagcdn.com%3A2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563/seg-11-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[PROXY] Requesting: https://da.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563/seg-12-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:52444 - "GET /api/proxy-stream?url=https%3A//da.netmagcdn.com%3A2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563/seg-12-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[PROXY] Requesting: https://da.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563/master.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:52444 - "GET /api/proxy-stream?url=https%3A%2F%2Fda.netmagcdn.com%3A2228%2Fhls-playback%2Fbcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563%2Fmaster.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Requesting: https://da.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563/master.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:49377 - "GET /api/proxy-stream?url=https%3A%2F%2Fda.netmagcdn.com%3A2228%2Fhls-playback%2Fbcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563%2Fmaster.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Requesting: https://da.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563/index-f1-v1-a1.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:49377 - "GET /api/proxy-stream?url=https%3A//da.netmagcdn.com%3A2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563/index-f1-v1-a1.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Requesting: https://da.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563/seg-1-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for vidcloud
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:49377 - "GET /api/proxy-stream?url=https%3A//da.netmagcdn.com%3A2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563/seg-1-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[PROXY] Requesting: https://da.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563/seg-2-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for megacloud
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:49377 - "GET /api/proxy-stream?url=https%3A//da.netmagcdn.com%3A2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563/seg-2-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[PROXY] Requesting: https://da.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563/seg-4-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for hd-1
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for hd-2
+[HiAnime] Provider https://aniwatch-api-3e2f.onrender.com/api/v2/hianime returned 500 for vidcloud
+[HiAnime] Provider https://aniwatch-api-3e2f.onrender.com/api/v2/hianime returned 500 for megacloud
+[HiAnime] Success with hd-1 on https://aniwatch-api-3e2f.onrender.com/api/v2/hianime
+INFO:     127.0.0.1:52444 - "GET /api/anime/sources?episode_id=naruto-677%3Fep%3D12352&server=vidcloud&category=dub HTTP/1.1" 200 OK
+[PROXY] Requesting: https://sunburst93.live/_v7/3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe5d5b4647cf9c2303fd38833172fff7d38fab2589ddfe62a0b564ad15e8facff8c99b21f7c060837b31a441315ab57b5b8f5d3d2a1fc587b7f39c935d59b49c01df1e7d5f5071b7331bad35a3bbb13fba4/master.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 returned 403
+[PROXY] Strategy 2 (Ref: https://v.showbox.cc/...)
+[PROXY] Strategy 2 returned 403
+[PROXY] Strategy 3 (Ref: https://fmoviesunblocked.net/...)
+[PROXY] Strategy 3 returned 403
+[PROXY] Strategy 4 (Ref: https://megaplay.buzz/...)
+[PROXY] Strategy 4 returned 403
+[PROXY] Strategy 5 (Ref: https://vidcloud9.me/...)
+[PROXY] Strategy 5 returned 403
+[PROXY] Strategy 6 (Ref: https://megacloud.to/...)
+[PROXY] Strategy 6 returned 403
+[PROXY] Strategy 7 (Ref: https://www.moviebox.pro/...)
+[PROXY] Strategy 7 returned 403
+[PROXY] Strategy 8 (Ref: https://videonext.net/...)
+[PROXY] Strategy 8 returned 403
+[PROXY] Strategy 9 (Ref: None...)
+[PROXY] Strategy 9 returned 403
+INFO:     127.0.0.1:52444 - "GET /api/proxy-stream?url=https%3A%2F%2Fsunburst93.live%2F_v7%2F3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe5d5b4647cf9c2303fd38833172fff7d38fab2589ddfe62a0b564ad15e8facff8c99b21f7c060837b31a441315ab57b5b8f5d3d2a1fc587b7f39c935d59b49c01df1e7d5f5071b7331bad35a3bbb13fba4%2Fmaster.m3u8&source=hianime HTTP/1.1" 502 Bad Gateway
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:49377 - "GET /api/proxy-stream?url=https%3A//da.netmagcdn.com%3A2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563/seg-4-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[PROXY] Requesting: https://da.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563/index-f3-v1-a1.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:49377 - "GET /api/proxy-stream?url=https%3A//da.netmagcdn.com%3A2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812ad44e2bb5103b8f9c7429d9f4cdfdfced521661c8410de857a114450aa27e2b307380dab397d2f7f90d1b508b9f6d4a2325da8cbffcc680bbad33a731a99d831a4388f746c94bf7f496edc75cb558e6458f49ea34c217054cd7296c627297b563/index-f3-v1-a1.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Requesting: https://sunburst93.live/_v7/3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe5d5b4647cf9c2303fd38833172fff7d38fab2589ddfe62a0b564ad15e8facff8c99b21f7c060837b31a441315ab57b5b8f5d3d2a1fc587b7f39c935d59b49c01df1e7d5f5071b7331bad35a3bbb13fba4/master.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 returned 403
+[PROXY] Strategy 2 (Ref: https://v.showbox.cc/...)
+[PROXY] Strategy 2 returned 403
+[PROXY] Strategy 3 (Ref: https://fmoviesunblocked.net/...)
+[PROXY] Strategy 3 returned 403
+[PROXY] Strategy 4 (Ref: https://megaplay.buzz/...)
+[PROXY] Strategy 4 returned 403
+[PROXY] Strategy 5 (Ref: https://vidcloud9.me/...)
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for vidcloud
+[PROXY] Strategy 5 returned 403
+[PROXY] Strategy 6 (Ref: https://megacloud.to/...)
+[PROXY] Strategy 6 returned 403
+[PROXY] Strategy 7 (Ref: https://www.moviebox.pro/...)
+[PROXY] Strategy 7 returned 403
+[PROXY] Strategy 8 (Ref: https://videonext.net/...)
+[PROXY] Strategy 8 returned 403
+[PROXY] Strategy 9 (Ref: None...)
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for megacloud
+[PROXY] Strategy 9 returned 403
+INFO:     127.0.0.1:49377 - "GET /api/proxy-stream?url=https%3A%2F%2Fsunburst93.live%2F_v7%2F3c271a6e530ffa2d265a92ce71ab72ac28eb7db393e774a8237f5005c8c5ffe5d5b4647cf9c2303fd38833172fff7d38fab2589ddfe62a0b564ad15e8facff8c99b21f7c060837b31a441315ab57b5b8f5d3d2a1fc587b7f39c935d59b49c01df1e7d5f5071b7331bad35a3bbb13fba4%2Fmaster.m3u8&source=hianime HTTP/1.1" 502 Bad Gateway
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for hd-1
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for hd-2
+[HiAnime] Provider https://aniwatch-api-3e2f.onrender.com/api/v2/hianime returned 500 for vidcloud
+[HiAnime] Provider https://aniwatch-api-3e2f.onrender.com/api/v2/hianime returned 500 for megacloud
+[HiAnime] Provider https://aniwatch-api-3e2f.onrender.com/api/v2/hianime returned 403 for hd-1
+[HiAnime] Success with hd-2 on https://aniwatch-api-3e2f.onrender.com/api/v2/hianime
+INFO:     127.0.0.1:54767 - "GET /api/anime/sources?episode_id=naruto-677%3Fep%3D12352&server=vidcloud&category=sub HTTP/1.1" 200 OK
+[PROXY] Requesting: https://dg.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812afeef0bc72a07f410fabcff05089c768f5bbbd4952183f82ec8205cece781cbe5dfc5218b54d241623d469eec1e929421ab3935fa4cad4e0e3c57a98f3d6114bc8ae90945292bfce337e576f08984236dff6dae3a8b92796cd3178e5907aece22/master.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:54767 - "GET /api/proxy-stream?url=https%3A%2F%2Fdg.netmagcdn.com%3A2228%2Fhls-playback%2Fbcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812afeef0bc72a07f410fabcff05089c768f5bbbd4952183f82ec8205cece781cbe5dfc5218b54d241623d469eec1e929421ab3935fa4cad4e0e3c57a98f3d6114bc8ae90945292bfce337e576f08984236dff6dae3a8b92796cd3178e5907aece22%2Fmaster.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Requesting: https://dg.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812afeef0bc72a07f410fabcff05089c768f5bbbd4952183f82ec8205cece781cbe5dfc5218b54d241623d469eec1e929421ab3935fa4cad4e0e3c57a98f3d6114bc8ae90945292bfce337e576f08984236dff6dae3a8b92796cd3178e5907aece22/master.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:54767 - "GET /api/proxy-stream?url=https%3A%2F%2Fdg.netmagcdn.com%3A2228%2Fhls-playback%2Fbcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812afeef0bc72a07f410fabcff05089c768f5bbbd4952183f82ec8205cece781cbe5dfc5218b54d241623d469eec1e929421ab3935fa4cad4e0e3c57a98f3d6114bc8ae90945292bfce337e576f08984236dff6dae3a8b92796cd3178e5907aece22%2Fmaster.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Requesting: https://dg.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812afeef0bc72a07f410fabcff05089c768f5bbbd4952183f82ec8205cece781cbe5dfc5218b54d241623d469eec1e929421ab3935fa4cad4e0e3c57a98f3d6114bc8ae90945292bfce337e576f08984236dff6dae3a8b92796cd3178e5907aece22/index-f1-v1-a1.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:54767 - "GET /api/proxy-stream?url=https%3A//dg.netmagcdn.com%3A2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812afeef0bc72a07f410fabcff05089c768f5bbbd4952183f82ec8205cece781cbe5dfc5218b54d241623d469eec1e929421ab3935fa4cad4e0e3c57a98f3d6114bc8ae90945292bfce337e576f08984236dff6dae3a8b92796cd3178e5907aece22/index-f1-v1-a1.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Requesting: https://dg.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812afeef0bc72a07f410fabcff05089c768f5bbbd4952183f82ec8205cece781cbe5dfc5218b54d241623d469eec1e929421ab3935fa4cad4e0e3c57a98f3d6114bc8ae90945292bfce337e576f08984236dff6dae3a8b92796cd3178e5907aece22/seg-1-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:54767 - "GET /api/proxy-stream?url=https%3A//dg.netmagcdn.com%3A2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812afeef0bc72a07f410fabcff05089c768f5bbbd4952183f82ec8205cece781cbe5dfc5218b54d241623d469eec1e929421ab3935fa4cad4e0e3c57a98f3d6114bc8ae90945292bfce337e576f08984236dff6dae3a8b92796cd3178e5907aece22/seg-1-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[PROXY] Requesting: https://dg.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812afeef0bc72a07f410fabcff05089c768f5bbbd4952183f82ec8205cece781cbe5dfc5218b54d241623d469eec1e929421ab3935fa4cad4e0e3c57a98f3d6114bc8ae90945292bfce337e576f08984236dff6dae3a8b92796cd3178e5907aece22/seg-2-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:54767 - "GET /api/proxy-stream?url=https%3A//dg.netmagcdn.com%3A2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812afeef0bc72a07f410fabcff05089c768f5bbbd4952183f82ec8205cece781cbe5dfc5218b54d241623d469eec1e929421ab3935fa4cad4e0e3c57a98f3d6114bc8ae90945292bfce337e576f08984236dff6dae3a8b92796cd3178e5907aece22/seg-2-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[PROXY] Requesting: https://dg.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812afeef0bc72a07f410fabcff05089c768f5bbbd4952183f82ec8205cece781cbe5dfc5218b54d241623d469eec1e929421ab3935fa4cad4e0e3c57a98f3d6114bc8ae90945292bfce337e576f08984236dff6dae3a8b92796cd3178e5907aece22/seg-4-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Requesting: https://dg.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812afeef0bc72a07f410fabcff05089c768f5bbbd4952183f82ec8205cece781cbe5dfc5218b54d241623d469eec1e929421ab3935fa4cad4e0e3c57a98f3d6114bc8ae90945292bfce337e576f08984236dff6dae3a8b92796cd3178e5907aece22/master.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for vidcloud
+[PROXY] Strategy 1 SUCCESS
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:62025 - "GET /api/proxy-stream?url=https%3A%2F%2Fdg.netmagcdn.com%3A2228%2Fhls-playback%2Fbcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812afeef0bc72a07f410fabcff05089c768f5bbbd4952183f82ec8205cece781cbe5dfc5218b54d241623d469eec1e929421ab3935fa4cad4e0e3c57a98f3d6114bc8ae90945292bfce337e576f08984236dff6dae3a8b92796cd3178e5907aece22%2Fmaster.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Requesting: https://dg.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812afeef0bc72a07f410fabcff05089c768f5bbbd4952183f82ec8205cece781cbe5dfc5218b54d241623d469eec1e929421ab3935fa4cad4e0e3c57a98f3d6114bc8ae90945292bfce337e576f08984236dff6dae3a8b92796cd3178e5907aece22/master.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:62025 - "GET /api/proxy-stream?url=https%3A%2F%2Fdg.netmagcdn.com%3A2228%2Fhls-playback%2Fbcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812afeef0bc72a07f410fabcff05089c768f5bbbd4952183f82ec8205cece781cbe5dfc5218b54d241623d469eec1e929421ab3935fa4cad4e0e3c57a98f3d6114bc8ae90945292bfce337e576f08984236dff6dae3a8b92796cd3178e5907aece22%2Fmaster.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Requesting: https://dg.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812afeef0bc72a07f410fabcff05089c768f5bbbd4952183f82ec8205cece781cbe5dfc5218b54d241623d469eec1e929421ab3935fa4cad4e0e3c57a98f3d6114bc8ae90945292bfce337e576f08984236dff6dae3a8b92796cd3178e5907aece22/index-f1-v1-a1.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for megacloud
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:62025 - "GET /api/proxy-stream?url=https%3A//dg.netmagcdn.com%3A2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812afeef0bc72a07f410fabcff05089c768f5bbbd4952183f82ec8205cece781cbe5dfc5218b54d241623d469eec1e929421ab3935fa4cad4e0e3c57a98f3d6114bc8ae90945292bfce337e576f08984236dff6dae3a8b92796cd3178e5907aece22/index-f1-v1-a1.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Requesting: https://dg.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812afeef0bc72a07f410fabcff05089c768f5bbbd4952183f82ec8205cece781cbe5dfc5218b54d241623d469eec1e929421ab3935fa4cad4e0e3c57a98f3d6114bc8ae90945292bfce337e576f08984236dff6dae3a8b92796cd3178e5907aece22/seg-1-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for hd-1
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for hd-2
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:62025 - "GET /api/proxy-stream?url=https%3A//dg.netmagcdn.com%3A2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812afeef0bc72a07f410fabcff05089c768f5bbbd4952183f82ec8205cece781cbe5dfc5218b54d241623d469eec1e929421ab3935fa4cad4e0e3c57a98f3d6114bc8ae90945292bfce337e576f08984236dff6dae3a8b92796cd3178e5907aece22/seg-1-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[PROXY] Requesting: https://dg.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812afeef0bc72a07f410fabcff05089c768f5bbbd4952183f82ec8205cece781cbe5dfc5218b54d241623d469eec1e929421ab3935fa4cad4e0e3c57a98f3d6114bc8ae90945292bfce337e576f08984236dff6dae3a8b92796cd3178e5907aece22/seg-2-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[HiAnime] Provider https://aniwatch-api-3e2f.onrender.com/api/v2/hianime returned 500 for vidcloud
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:62025 - "GET /api/proxy-stream?url=https%3A//dg.netmagcdn.com%3A2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812afeef0bc72a07f410fabcff05089c768f5bbbd4952183f82ec8205cece781cbe5dfc5218b54d241623d469eec1e929421ab3935fa4cad4e0e3c57a98f3d6114bc8ae90945292bfce337e576f08984236dff6dae3a8b92796cd3178e5907aece22/seg-2-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[PROXY] Requesting: https://dg.netmagcdn.com:2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812afeef0bc72a07f410fabcff05089c768f5bbbd4952183f82ec8205cece781cbe5dfc5218b54d241623d469eec1e929421ab3935fa4cad4e0e3c57a98f3d6114bc8ae90945292bfce337e576f08984236dff6dae3a8b92796cd3178e5907aece22/seg-4-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[HiAnime] Provider https://aniwatch-api-3e2f.onrender.com/api/v2/hianime returned 500 for megacloud
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:62025 - "GET /api/proxy-stream?url=https%3A//dg.netmagcdn.com%3A2228/hls-playback/bcc52d54faa312a4db378d17489cb8a004d0e466d2734810803aa4ceb961f23f284642f711fba4bbca93d3ce1f4a812afeef0bc72a07f410fabcff05089c768f5bbbd4952183f82ec8205cece781cbe5dfc5218b54d241623d469eec1e929421ab3935fa4cad4e0e3c57a98f3d6114bc8ae90945292bfce337e576f08984236dff6dae3a8b92796cd3178e5907aece22/seg-4-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[HiAnime] Success with hd-1 on https://aniwatch-api-3e2f.onrender.com/api/v2/hianime
+INFO:     127.0.0.1:64360 - "GET /api/anime/sources?episode_id=naruto-677%3Fep%3D12353&server=vidcloud&category=sub HTTP/1.1" 200 OK
+[PROXY] Requesting: https://stormshade84.live/_v7/d663a7d491e505c370bbbc08cafe671ff2925b763cc72e712a2be3a11a08398e93bdde27f2471fe9c2195f4080bb157ffde55edf2e8cde45ce50698136764bbfc2d07d3f58e90cc6a926c75231d51955234761a5e3a2656acfe46687c36f06fe0d7eaa21cddd99b3d498341289b931c9c678c4ab295ea3938aff77f5811ebb1e/master.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 returned 403
+[PROXY] Strategy 2 (Ref: https://v.showbox.cc/...)
+[PROXY] Strategy 2 returned 403
+[PROXY] Strategy 3 (Ref: https://fmoviesunblocked.net/...)
+[PROXY] Strategy 3 returned 403
+[PROXY] Strategy 4 (Ref: https://megaplay.buzz/...)
+[PROXY] Strategy 4 returned 403
+[PROXY] Strategy 5 (Ref: https://vidcloud9.me/...)
+[PROXY] Strategy 5 returned 403
+[PROXY] Strategy 6 (Ref: https://megacloud.to/...)
+[PROXY] Strategy 6 returned 403
+[PROXY] Strategy 7 (Ref: https://www.moviebox.pro/...)
+[PROXY] Strategy 7 returned 403
+[PROXY] Strategy 8 (Ref: https://videonext.net/...)
+[PROXY] Strategy 8 returned 403
+[PROXY] Strategy 9 (Ref: None...)
+[PROXY] Strategy 9 returned 403
+INFO:     127.0.0.1:64360 - "GET /api/proxy-stream?url=https%3A%2F%2Fstormshade84.live%2F_v7%2Fd663a7d491e505c370bbbc08cafe671ff2925b763cc72e712a2be3a11a08398e93bdde27f2471fe9c2195f4080bb157ffde55edf2e8cde45ce50698136764bbfc2d07d3f58e90cc6a926c75231d51955234761a5e3a2656acfe46687c36f06fe0d7eaa21cddd99b3d498341289b931c9c678c4ab295ea3938aff77f5811ebb1e%2Fmaster.m3u8&source=hianime HTTP/1.1" 502 Bad Gateway
+[PROXY] Requesting: https://stormshade84.live/_v7/d663a7d491e505c370bbbc08cafe671ff2925b763cc72e712a2be3a11a08398e93bdde27f2471fe9c2195f4080bb157ffde55edf2e8cde45ce50698136764bbfc2d07d3f58e90cc6a926c75231d51955234761a5e3a2656acfe46687c36f06fe0d7eaa21cddd99b3d498341289b931c9c678c4ab295ea3938aff77f5811ebb1e/master.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 returned 403
+[PROXY] Strategy 2 (Ref: https://v.showbox.cc/...)
+[PROXY] Strategy 2 returned 403
+[PROXY] Strategy 3 (Ref: https://fmoviesunblocked.net/...)
+[PROXY] Strategy 3 returned 403
+[PROXY] Strategy 4 (Ref: https://megaplay.buzz/...)
+[PROXY] Strategy 4 returned 403
+[PROXY] Strategy 5 (Ref: https://vidcloud9.me/...)
+[PROXY] Strategy 5 returned 403
+[PROXY] Strategy 6 (Ref: https://megacloud.to/...)
+[PROXY] Strategy 6 returned 403
+[PROXY] Strategy 7 (Ref: https://www.moviebox.pro/...)
+[PROXY] Strategy 7 returned 403
+[PROXY] Strategy 8 (Ref: https://videonext.net/...)
+[PROXY] Strategy 8 returned 403
+[PROXY] Strategy 9 (Ref: None...)
+[PROXY] Strategy 9 returned 403
+INFO:     127.0.0.1:64623 - "GET /api/proxy-stream?url=https%3A%2F%2Fstormshade84.live%2F_v7%2Fd663a7d491e505c370bbbc08cafe671ff2925b763cc72e712a2be3a11a08398e93bdde27f2471fe9c2195f4080bb157ffde55edf2e8cde45ce50698136764bbfc2d07d3f58e90cc6a926c75231d51955234761a5e3a2656acfe46687c36f06fe0d7eaa21cddd99b3d498341289b931c9c678c4ab295ea3938aff77f5811ebb1e%2Fmaster.m3u8&source=hianime HTTP/1.1" 502 Bad Gateway
+[PROXY] Requesting: https://stormshade84.live/_v7/d663a7d491e505c370bbbc08cafe671ff2925b763cc72e712a2be3a11a08398e93bdde27f2471fe9c2195f4080bb157ffde55edf2e8cde45ce50698136764bbfc2d07d3f58e90cc6a926c75231d51955234761a5e3a2656acfe46687c36f06fe0d7eaa21cddd99b3d498341289b931c9c678c4ab295ea3938aff77f5811ebb1e/master.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 returned 403
+[PROXY] Strategy 2 (Ref: https://v.showbox.cc/...)
+[PROXY] Strategy 2 returned 403
+[PROXY] Strategy 3 (Ref: https://fmoviesunblocked.net/...)
+[PROXY] Strategy 3 returned 403
+[PROXY] Strategy 4 (Ref: https://megaplay.buzz/...)
+[PROXY] Strategy 4 returned 403
+[PROXY] Strategy 5 (Ref: https://vidcloud9.me/...)
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for vidcloud
+[PROXY] Strategy 5 returned 403
+[PROXY] Strategy 6 (Ref: https://megacloud.to/...)
+[PROXY] Strategy 6 returned 403
+[PROXY] Strategy 7 (Ref: https://www.moviebox.pro/...)
+[PROXY] Strategy 7 returned 403
+[PROXY] Strategy 8 (Ref: https://videonext.net/...)
+[PROXY] Strategy 8 returned 403
+[PROXY] Strategy 9 (Ref: None...)
+[PROXY] Strategy 9 returned 403
+INFO:     127.0.0.1:64623 - "GET /api/proxy-stream?url=https%3A%2F%2Fstormshade84.live%2F_v7%2Fd663a7d491e505c370bbbc08cafe671ff2925b763cc72e712a2be3a11a08398e93bdde27f2471fe9c2195f4080bb157ffde55edf2e8cde45ce50698136764bbfc2d07d3f58e90cc6a926c75231d51955234761a5e3a2656acfe46687c36f06fe0d7eaa21cddd99b3d498341289b931c9c678c4ab295ea3938aff77f5811ebb1e%2Fmaster.m3u8&source=hianime HTTP/1.1" 502 Bad Gateway
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for megacloud
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for hd-1
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for hd-2
+[HiAnime] Provider https://aniwatch-api-3e2f.onrender.com/api/v2/hianime returned 500 for vidcloud
+[HiAnime] Provider https://aniwatch-api-3e2f.onrender.com/api/v2/hianime returned 500 for megacloud
+[HiAnime] Provider https://aniwatch-api-3e2f.onrender.com/api/v2/hianime returned 403 for hd-1
+[HiAnime] Success with hd-2 on https://aniwatch-api-3e2f.onrender.com/api/v2/hianime
+INFO:     127.0.0.1:50093 - "GET /api/anime/sources?episode_id=naruto-677%3Fep%3D12354&server=vidcloud&category=sub HTTP/1.1" 200 OK
+[PROXY] Requesting: https://dm.netmagcdn.com:2228/hls-playback/174d034d32597a2d0a75f498a6d370bd4d2097f6f23ca98cf719ca5d495c21052a4b0257d42e775b47fbe2cef221fa91f31f6ac179fd14d063d5d9c78f64052bc83be9caf00895528752c94010b50eb6f756a216184a5ebee92e2268b0a3d50d15a285314733d48446c1a609509bb169ed1097497163d5fa402bda8cbfde824939fcf8d26eb1a0b8a784e03d3c0ccf41/master.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:50093 - "GET /api/proxy-stream?url=https%3A%2F%2Fdm.netmagcdn.com%3A2228%2Fhls-playback%2F174d034d32597a2d0a75f498a6d370bd4d2097f6f23ca98cf719ca5d495c21052a4b0257d42e775b47fbe2cef221fa91f31f6ac179fd14d063d5d9c78f64052bc83be9caf00895528752c94010b50eb6f756a216184a5ebee92e2268b0a3d50d15a285314733d48446c1a609509bb169ed1097497163d5fa402bda8cbfde824939fcf8d26eb1a0b8a784e03d3c0ccf41%2Fmaster.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Requesting: https://dm.netmagcdn.com:2228/hls-playback/174d034d32597a2d0a75f498a6d370bd4d2097f6f23ca98cf719ca5d495c21052a4b0257d42e775b47fbe2cef221fa91f31f6ac179fd14d063d5d9c78f64052bc83be9caf00895528752c94010b50eb6f756a216184a5ebee92e2268b0a3d50d15a285314733d48446c1a609509bb169ed1097497163d5fa402bda8cbfde824939fcf8d26eb1a0b8a784e03d3c0ccf41/master.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:50093 - "GET /api/proxy-stream?url=https%3A%2F%2Fdm.netmagcdn.com%3A2228%2Fhls-playback%2F174d034d32597a2d0a75f498a6d370bd4d2097f6f23ca98cf719ca5d495c21052a4b0257d42e775b47fbe2cef221fa91f31f6ac179fd14d063d5d9c78f64052bc83be9caf00895528752c94010b50eb6f756a216184a5ebee92e2268b0a3d50d15a285314733d48446c1a609509bb169ed1097497163d5fa402bda8cbfde824939fcf8d26eb1a0b8a784e03d3c0ccf41%2Fmaster.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Requesting: https://dm.netmagcdn.com:2228/hls-playback/174d034d32597a2d0a75f498a6d370bd4d2097f6f23ca98cf719ca5d495c21052a4b0257d42e775b47fbe2cef221fa91f31f6ac179fd14d063d5d9c78f64052bc83be9caf00895528752c94010b50eb6f756a216184a5ebee92e2268b0a3d50d15a285314733d48446c1a609509bb169ed1097497163d5fa402bda8cbfde824939fcf8d26eb1a0b8a784e03d3c0ccf41/index-f1-v1-a1.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:50093 - "GET /api/proxy-stream?url=https%3A//dm.netmagcdn.com%3A2228/hls-playback/174d034d32597a2d0a75f498a6d370bd4d2097f6f23ca98cf719ca5d495c21052a4b0257d42e775b47fbe2cef221fa91f31f6ac179fd14d063d5d9c78f64052bc83be9caf00895528752c94010b50eb6f756a216184a5ebee92e2268b0a3d50d15a285314733d48446c1a609509bb169ed1097497163d5fa402bda8cbfde824939fcf8d26eb1a0b8a784e03d3c0ccf41/index-f1-v1-a1.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Requesting: https://dm.netmagcdn.com:2228/hls-playback/174d034d32597a2d0a75f498a6d370bd4d2097f6f23ca98cf719ca5d495c21052a4b0257d42e775b47fbe2cef221fa91f31f6ac179fd14d063d5d9c78f64052bc83be9caf00895528752c94010b50eb6f756a216184a5ebee92e2268b0a3d50d15a285314733d48446c1a609509bb169ed1097497163d5fa402bda8cbfde824939fcf8d26eb1a0b8a784e03d3c0ccf41/seg-1-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:50093 - "GET /api/proxy-stream?url=https%3A//dm.netmagcdn.com%3A2228/hls-playback/174d034d32597a2d0a75f498a6d370bd4d2097f6f23ca98cf719ca5d495c21052a4b0257d42e775b47fbe2cef221fa91f31f6ac179fd14d063d5d9c78f64052bc83be9caf00895528752c94010b50eb6f756a216184a5ebee92e2268b0a3d50d15a285314733d48446c1a609509bb169ed1097497163d5fa402bda8cbfde824939fcf8d26eb1a0b8a784e03d3c0ccf41/seg-1-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[PROXY] Requesting: https://dm.netmagcdn.com:2228/hls-playback/174d034d32597a2d0a75f498a6d370bd4d2097f6f23ca98cf719ca5d495c21052a4b0257d42e775b47fbe2cef221fa91f31f6ac179fd14d063d5d9c78f64052bc83be9caf00895528752c94010b50eb6f756a216184a5ebee92e2268b0a3d50d15a285314733d48446c1a609509bb169ed1097497163d5fa402bda8cbfde824939fcf8d26eb1a0b8a784e03d3c0ccf41/seg-3-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:50093 - "GET /api/proxy-stream?url=https%3A//dm.netmagcdn.com%3A2228/hls-playback/174d034d32597a2d0a75f498a6d370bd4d2097f6f23ca98cf719ca5d495c21052a4b0257d42e775b47fbe2cef221fa91f31f6ac179fd14d063d5d9c78f64052bc83be9caf00895528752c94010b50eb6f756a216184a5ebee92e2268b0a3d50d15a285314733d48446c1a609509bb169ed1097497163d5fa402bda8cbfde824939fcf8d26eb1a0b8a784e03d3c0ccf41/seg-3-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[PROXY] Requesting: https://dm.netmagcdn.com:2228/hls-playback/174d034d32597a2d0a75f498a6d370bd4d2097f6f23ca98cf719ca5d495c21052a4b0257d42e775b47fbe2cef221fa91f31f6ac179fd14d063d5d9c78f64052bc83be9caf00895528752c94010b50eb6f756a216184a5ebee92e2268b0a3d50d15a285314733d48446c1a609509bb169ed1097497163d5fa402bda8cbfde824939fcf8d26eb1a0b8a784e03d3c0ccf41/seg-4-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:50093 - "GET /api/proxy-stream?url=https%3A//dm.netmagcdn.com%3A2228/hls-playback/174d034d32597a2d0a75f498a6d370bd4d2097f6f23ca98cf719ca5d495c21052a4b0257d42e775b47fbe2cef221fa91f31f6ac179fd14d063d5d9c78f64052bc83be9caf00895528752c94010b50eb6f756a216184a5ebee92e2268b0a3d50d15a285314733d48446c1a609509bb169ed1097497163d5fa402bda8cbfde824939fcf8d26eb1a0b8a784e03d3c0ccf41/seg-4-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[PROXY] Requesting: https://dm.netmagcdn.com:2228/hls-playback/174d034d32597a2d0a75f498a6d370bd4d2097f6f23ca98cf719ca5d495c21052a4b0257d42e775b47fbe2cef221fa91f31f6ac179fd14d063d5d9c78f64052bc83be9caf00895528752c94010b50eb6f756a216184a5ebee92e2268b0a3d50d15a285314733d48446c1a609509bb169ed1097497163d5fa402bda8cbfde824939fcf8d26eb1a0b8a784e03d3c0ccf41/master.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:50093 - "GET /api/proxy-stream?url=https%3A%2F%2Fdm.netmagcdn.com%3A2228%2Fhls-playback%2F174d034d32597a2d0a75f498a6d370bd4d2097f6f23ca98cf719ca5d495c21052a4b0257d42e775b47fbe2cef221fa91f31f6ac179fd14d063d5d9c78f64052bc83be9caf00895528752c94010b50eb6f756a216184a5ebee92e2268b0a3d50d15a285314733d48446c1a609509bb169ed1097497163d5fa402bda8cbfde824939fcf8d26eb1a0b8a784e03d3c0ccf41%2Fmaster.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Requesting: https://dm.netmagcdn.com:2228/hls-playback/174d034d32597a2d0a75f498a6d370bd4d2097f6f23ca98cf719ca5d495c21052a4b0257d42e775b47fbe2cef221fa91f31f6ac179fd14d063d5d9c78f64052bc83be9caf00895528752c94010b50eb6f756a216184a5ebee92e2268b0a3d50d15a285314733d48446c1a609509bb169ed1097497163d5fa402bda8cbfde824939fcf8d26eb1a0b8a784e03d3c0ccf41/master.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:49671 - "GET /api/proxy-stream?url=https%3A%2F%2Fdm.netmagcdn.com%3A2228%2Fhls-playback%2F174d034d32597a2d0a75f498a6d370bd4d2097f6f23ca98cf719ca5d495c21052a4b0257d42e775b47fbe2cef221fa91f31f6ac179fd14d063d5d9c78f64052bc83be9caf00895528752c94010b50eb6f756a216184a5ebee92e2268b0a3d50d15a285314733d48446c1a609509bb169ed1097497163d5fa402bda8cbfde824939fcf8d26eb1a0b8a784e03d3c0ccf41%2Fmaster.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Requesting: https://dm.netmagcdn.com:2228/hls-playback/174d034d32597a2d0a75f498a6d370bd4d2097f6f23ca98cf719ca5d495c21052a4b0257d42e775b47fbe2cef221fa91f31f6ac179fd14d063d5d9c78f64052bc83be9caf00895528752c94010b50eb6f756a216184a5ebee92e2268b0a3d50d15a285314733d48446c1a609509bb169ed1097497163d5fa402bda8cbfde824939fcf8d26eb1a0b8a784e03d3c0ccf41/index-f1-v1-a1.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:49671 - "GET /api/proxy-stream?url=https%3A//dm.netmagcdn.com%3A2228/hls-playback/174d034d32597a2d0a75f498a6d370bd4d2097f6f23ca98cf719ca5d495c21052a4b0257d42e775b47fbe2cef221fa91f31f6ac179fd14d063d5d9c78f64052bc83be9caf00895528752c94010b50eb6f756a216184a5ebee92e2268b0a3d50d15a285314733d48446c1a609509bb169ed1097497163d5fa402bda8cbfde824939fcf8d26eb1a0b8a784e03d3c0ccf41/index-f1-v1-a1.m3u8&source=hianime HTTP/1.1" 200 OK
+[PROXY] Requesting: https://dm.netmagcdn.com:2228/hls-playback/174d034d32597a2d0a75f498a6d370bd4d2097f6f23ca98cf719ca5d495c21052a4b0257d42e775b47fbe2cef221fa91f31f6ac179fd14d063d5d9c78f64052bc83be9caf00895528752c94010b50eb6f756a216184a5ebee92e2268b0a3d50d15a285314733d48446c1a609509bb169ed1097497163d5fa402bda8cbfde824939fcf8d26eb1a0b8a784e03d3c0ccf41/seg-1-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for vidcloud
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:49671 - "GET /api/proxy-stream?url=https%3A//dm.netmagcdn.com%3A2228/hls-playback/174d034d32597a2d0a75f498a6d370bd4d2097f6f23ca98cf719ca5d495c21052a4b0257d42e775b47fbe2cef221fa91f31f6ac179fd14d063d5d9c78f64052bc83be9caf00895528752c94010b50eb6f756a216184a5ebee92e2268b0a3d50d15a285314733d48446c1a609509bb169ed1097497163d5fa402bda8cbfde824939fcf8d26eb1a0b8a784e03d3c0ccf41/seg-1-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[PROXY] Requesting: https://dm.netmagcdn.com:2228/hls-playback/174d034d32597a2d0a75f498a6d370bd4d2097f6f23ca98cf719ca5d495c21052a4b0257d42e775b47fbe2cef221fa91f31f6ac179fd14d063d5d9c78f64052bc83be9caf00895528752c94010b50eb6f756a216184a5ebee92e2268b0a3d50d15a285314733d48446c1a609509bb169ed1097497163d5fa402bda8cbfde824939fcf8d26eb1a0b8a784e03d3c0ccf41/seg-3-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for megacloud
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:49671 - "GET /api/proxy-stream?url=https%3A//dm.netmagcdn.com%3A2228/hls-playback/174d034d32597a2d0a75f498a6d370bd4d2097f6f23ca98cf719ca5d495c21052a4b0257d42e775b47fbe2cef221fa91f31f6ac179fd14d063d5d9c78f64052bc83be9caf00895528752c94010b50eb6f756a216184a5ebee92e2268b0a3d50d15a285314733d48446c1a609509bb169ed1097497163d5fa402bda8cbfde824939fcf8d26eb1a0b8a784e03d3c0ccf41/seg-3-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[PROXY] Requesting: https://dm.netmagcdn.com:2228/hls-playback/174d034d32597a2d0a75f498a6d370bd4d2097f6f23ca98cf719ca5d495c21052a4b0257d42e775b47fbe2cef221fa91f31f6ac179fd14d063d5d9c78f64052bc83be9caf00895528752c94010b50eb6f756a216184a5ebee92e2268b0a3d50d15a285314733d48446c1a609509bb169ed1097497163d5fa402bda8cbfde824939fcf8d26eb1a0b8a784e03d3c0ccf41/seg-4-f1-v1-a1.ts
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for hd-1
+[PROXY] Strategy 1 SUCCESS
+INFO:     127.0.0.1:49671 - "GET /api/proxy-stream?url=https%3A//dm.netmagcdn.com%3A2228/hls-playback/174d034d32597a2d0a75f498a6d370bd4d2097f6f23ca98cf719ca5d495c21052a4b0257d42e775b47fbe2cef221fa91f31f6ac179fd14d063d5d9c78f64052bc83be9caf00895528752c94010b50eb6f756a216184a5ebee92e2268b0a3d50d15a285314733d48446c1a609509bb169ed1097497163d5fa402bda8cbfde824939fcf8d26eb1a0b8a784e03d3c0ccf41/seg-4-f1-v1-a1.ts&source=hianime HTTP/1.1" 206 Partial Content
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for hd-2
+[HiAnime] Provider https://aniwatch-api-3e2f.onrender.com/api/v2/hianime returned 500 for vidcloud
+[HiAnime] Provider https://aniwatch-api-3e2f.onrender.com/api/v2/hianime returned 500 for megacloud
+[HiAnime] Success with hd-1 on https://aniwatch-api-3e2f.onrender.com/api/v2/hianime
+INFO:     127.0.0.1:50093 - "GET /api/anime/sources?episode_id=naruto-677%3Fep%3D12353&server=vidcloud&category=sub HTTP/1.1" 200 OK
+[PROXY] Requesting: https://fogtwist21.xyz/_v7/d663a7d491e505c370bbbc08cafe671ff2925b763cc72e712a2be3a11a08398e93bdde27f2471fe9c2195f4080bb157ffde55edf2e8cde45ce50698136764bbfc2d07d3f58e90cc6a926c75231d51955234761a5e3a2656acfe46687c36f06fe0d7eaa21cddd99b3d498341289b931c9c678c4ab295ea3938aff77f5811ebb1e/master.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 returned 403
+[PROXY] Strategy 2 (Ref: https://v.showbox.cc/...)
+[PROXY] Strategy 2 returned 403
+[PROXY] Strategy 3 (Ref: https://fmoviesunblocked.net/...)
+[PROXY] Strategy 3 returned 403
+[PROXY] Strategy 4 (Ref: https://megaplay.buzz/...)
+[PROXY] Strategy 4 returned 403
+[PROXY] Strategy 5 (Ref: https://vidcloud9.me/...)
+[PROXY] Strategy 5 returned 403
+[PROXY] Strategy 6 (Ref: https://megacloud.to/...)
+[PROXY] Strategy 6 returned 403
+[PROXY] Strategy 7 (Ref: https://www.moviebox.pro/...)
+[PROXY] Strategy 7 returned 403
+[PROXY] Strategy 8 (Ref: https://videonext.net/...)
+[PROXY] Strategy 8 returned 403
+[PROXY] Strategy 9 (Ref: None...)
+[PROXY] Strategy 9 returned 403
+INFO:     127.0.0.1:50093 - "GET /api/proxy-stream?url=https%3A%2F%2Ffogtwist21.xyz%2F_v7%2Fd663a7d491e505c370bbbc08cafe671ff2925b763cc72e712a2be3a11a08398e93bdde27f2471fe9c2195f4080bb157ffde55edf2e8cde45ce50698136764bbfc2d07d3f58e90cc6a926c75231d51955234761a5e3a2656acfe46687c36f06fe0d7eaa21cddd99b3d498341289b931c9c678c4ab295ea3938aff77f5811ebb1e%2Fmaster.m3u8&source=hianime HTTP/1.1" 502 Bad Gateway
+[PROXY] Requesting: https://fogtwist21.xyz/_v7/d663a7d491e505c370bbbc08cafe671ff2925b763cc72e712a2be3a11a08398e93bdde27f2471fe9c2195f4080bb157ffde55edf2e8cde45ce50698136764bbfc2d07d3f58e90cc6a926c75231d51955234761a5e3a2656acfe46687c36f06fe0d7eaa21cddd99b3d498341289b931c9c678c4ab295ea3938aff77f5811ebb1e/master.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 returned 403
+[PROXY] Strategy 2 (Ref: https://v.showbox.cc/...)
+[PROXY] Strategy 2 returned 403
+[PROXY] Strategy 3 (Ref: https://fmoviesunblocked.net/...)
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for vidcloud
+[PROXY] Strategy 3 returned 403
+[PROXY] Strategy 4 (Ref: https://megaplay.buzz/...)
+[PROXY] Strategy 4 returned 403
+[PROXY] Strategy 5 (Ref: https://vidcloud9.me/...)
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for megacloud
+[PROXY] Strategy 5 returned 403
+[PROXY] Strategy 6 (Ref: https://megacloud.to/...)
+[PROXY] Strategy 6 returned 403
+[PROXY] Strategy 7 (Ref: https://www.moviebox.pro/...)
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for hd-1
+[PROXY] Strategy 7 returned 403
+[PROXY] Strategy 8 (Ref: https://videonext.net/...)
+[PROXY] Strategy 8 returned 403
+[PROXY] Strategy 9 (Ref: None...)
+[HiAnime] Provider https://hianime-api.vercel.app/api/v1 returned 404 for hd-2
+[PROXY] Strategy 9 returned 403
+INFO:     127.0.0.1:50093 - "GET /api/proxy-stream?url=https%3A%2F%2Ffogtwist21.xyz%2F_v7%2Fd663a7d491e505c370bbbc08cafe671ff2925b763cc72e712a2be3a11a08398e93bdde27f2471fe9c2195f4080bb157ffde55edf2e8cde45ce50698136764bbfc2d07d3f58e90cc6a926c75231d51955234761a5e3a2656acfe46687c36f06fe0d7eaa21cddd99b3d498341289b931c9c678c4ab295ea3938aff77f5811ebb1e%2Fmaster.m3u8&source=hianime HTTP/1.1" 502 Bad Gateway
+[HiAnime] Provider https://aniwatch-api-3e2f.onrender.com/api/v2/hianime returned 500 for vidcloud
+[HiAnime] Provider https://aniwatch-api-3e2f.onrender.com/api/v2/hianime returned 500 for megacloud
+[HiAnime] Success with hd-1 on https://aniwatch-api-3e2f.onrender.com/api/v2/hianime
+INFO:     127.0.0.1:56640 - "GET /api/anime/sources?episode_id=naruto-677%3Fep%3D12361&server=vidcloud&category=sub HTTP/1.1" 200 OK
+[PROXY] Requesting: https://sunburst93.live/_v7/27748e98ad9382815ef994b83ad80b5a5303322a89208f4780da23a7c7732d1d913d6c5ed3be1a9a62ebc5f3977d816771c7da371635b9b6e2615dbd7a02d9cffade7ff68f4b73bee870a7ab9772283eb1dd1dbea867ab9c24db771ba0850bc7f103c04106c1a3a8ba276040d6155a1855ddea5cbaef4a142aaac5481c98ae66/master.m3u8
+[PROXY] Strategy 1 (Ref: https://hianime.to/...)
+[PROXY] Strategy 1 returned 403
+[PROXY] Strategy 2 (Ref: https://v.showbox.cc/...)
+[PROXY] Strategy 2 returned 403
+[PROXY] Strategy 3 (Ref: https://fmoviesunblocked.net/...)
+[PROXY] Strategy 3 returned 403
+[PROXY] Strategy 4 (Ref: https://megaplay.buzz/...)
+[PROXY] Strategy 4 returned 403
+[PROXY] Strategy 5 (Ref: https://vidcloud9.me/...)
+[PROXY] Strategy 5 returned 403
+[PROXY] Strategy 6 (Ref: https://megacloud.to/...)
+[PROXY] Strategy 6 returned 403
+[PROXY] Strategy 7 (Ref: https://www.moviebox.pro/...)
+[PROXY] Strategy 7 returned 403
+[PROXY] Strategy 8 (Ref: https://videonext.net/...)
+[PROXY] Strategy 8 returned 403
+[PROXY] Strategy 9 (Ref: None...)
+[PROXY] Strategy 9 returned 403
+INFO:     127.0.0.1:56640 - "GET /api/proxy-stream?url=https%3A%2F%2Fsunburst93.live%2F_v7%2F27748e98ad9382815ef994b83ad80b5a5303322a89208f4780da23a7c7732d1d913d6c5ed3be1a9a62ebc5f3977d816771c7da371635b9b6e2615dbd7a02d9cffade7ff68f4b73bee870a7ab9772283eb1dd1dbea867ab9c24db771ba0850bc7f103c04106c1a3a8ba276040d6155a1855ddea5cbaef4a142aaac5481c98ae66%2Fmaster.m3u8&source=hianime HTTP/1.1" 502 Bad Gateway
+INFO:     Shutting down
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-Successfully patched SubjectModel.trailer and rebuilt models
+INFO:     Finished server process [18744]
