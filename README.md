@@ -3,7 +3,7 @@
 
 A modern, cinematic web interface for searching, streaming, and downloading movies, TV series, and anime. Built with FastAPI and React.
 
-To learn more, view the OpenAPI documentation at http://localhost:8000/docs
+To learn more, view the OpenAPI documentation at http://localhost:8080/docs
  after running the backend locally
 
 This page is the OpenAPI (Swagger) documentation for the MovieBox Web App backend.
