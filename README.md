@@ -10,14 +10,82 @@ This page is the OpenAPI (Swagger) documentation for the MovieBox Web App backen
 It lists all available API endpoints used by the frontend to search content, fetch details, stream or download media, and proxy streams, along with their parameters and responses.
 The API acts as a controller and proxy layer, connecting the app to an external content API without hosting or storing any media itself.
 
+🌐 Overview
 
-## Features
+MovieBox is designed as a controller & player layer, not a content host.
 
-- **Cinematic UI**: A premium "Cinematic Dark" theme with glassmorphism effects and smooth animations.
-- **Unified Search**: Search across movies, TV series, and anime with a single powerful search bar.
-- **Streaming**: Instantly stream content using  player integration.
-- **Downloading**: Download content directly to your local machine with progress tracking.
-- **Responsive Design**: Optimized for both desktop (laptops) and mobile devices.
+The backend connects to external content APIs (MovieBox API, HiAnime embed services)
+
+The frontend handles UI, playback, and browser-local history
+
+Media is streamed either:
+
+via a local proxy (MovieBox mode), or
+
+via cloud embed players (HiAnime mode)
+
+📌 No media files are stored, cached, or redistributed by this application.
+
+🧭 Application Modes
+🎥 MovieBox Mode
+
+Uses the local FastAPI backend
+
+Backend acts as:
+
+Metadata aggregator
+
+Playback controller
+
+Optional proxy (/api/proxy-stream)
+
+Requires backend to be running (local or cloud)
+
+🍥 HiAnime Mode
+
+No local backend required
+
+Only extracts episode ID
+
+Streams via third-party embed player
+
+Playback handled fully in the browser via <iframe>
+
+Users can switch between modes directly in the UI.
+
+✨ Features
+
+Cinematic UI
+
+Dark theme with glassmorphism
+
+Smooth animations & transitions
+
+Unified Search
+
+Movies, TV shows, and anime
+
+Dual Streaming Architecture
+
+Local proxy streaming (MovieBox)
+
+Cloud embed streaming (HiAnime)
+
+Browser-Only History
+
+Search/watch history saved in browser storage
+
+Isolated per:
+
+Browser (Chrome ≠ Brave)
+
+Website origin
+
+App section (Movie ≠ TV ≠ Anime)
+
+Responsive Design
+
+Desktop & mobile optimized
 
 
 🧰 Tech Stack
@@ -168,3 +236,15 @@ Users are responsible for complying with applicable laws.
 
 This project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0).
 See the LICENSE file for details.
+
+⭐ Final Note
+
+This architecture closely mirrors real OTT platforms:
+
+Controller-based backend
+
+Multiple content providers
+
+Browser-side playback
+
+No content ownership
