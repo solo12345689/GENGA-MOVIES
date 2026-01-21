@@ -1,115 +1,80 @@
 # MovieBox Web App
 
-**MovieBox Web App** is a modern, cinematic interface that aggregates metadata, controls playback, and proxies remote media streams. It acts as a "Headless Controller" for your media, connecting to external APIs (MovieBox, YTS, HiAnime) without hosting or distributing content itself.
-
-> **Note**: This application is a technical demonstration. It does not host any media files.
+**MovieBox Web App** is a self-hosted web interface for aggregating metadata and controlling media playback. It connects to external APIs to resolve stream URLs and provides a unified frontend for search and discovery.
 
 ---
 
-## 🚀 New Features (v2.0)
+## 🎯 Project Scope
 
-### 🧭 Sidebar Navigation
--   **Unified Sidebar**: A new, collapsible vertical navigation bar replaces the old top tabs.
--   **Source Switching**: Easily toggle between **Home**, **MovieBox** (Streaming), **HiAnime** (Anime), and **CineCLI** (Torrents).
--   **Server Status**: Real-time system status indicator for backend health.
+### What this is
+-   A **metadata aggregator** that pulls info from MovieBox, HiAnime, and YTS.
+-   A **playback controller** that delegates streaming to embedded players or local proxies.
+-   A **technical demonstration** of FastAPI and React integration.
 
-### 🧲 CineCLI Integration
--   **Torrent Search**: Seamlessly search YTS/CineCLI for torrents directly from the unified search bar.
--   **Robust Mirror Fallback**: The backend automatically rotates through 10+ YTS mirrors (`yts.mx`, `yts.lt`, `yts.rs`, etc.) to ensure connectivity, even if some domains are blocked.
--   **Magnet Resolution**: Instantly resolves magnet links for external downloaders.
-
-### 🛡️ Enhanced Proxy & Streaming
--   **Smart Proxy**: New `/api/proxy/stream` endpoint supports **Range Requests**, allowing you to seek/scrub through proxy-streamed videos.
--   **Download Proxy**: Dedicated `/api/proxy/download` endpoint to force-download remote content.
--   **Anti-Blocking**: Backend automatically spoofs User-Agents and manages headers to bypass basic hotlink protections.
+### What this is not
+-   A content hosting platform.
+-   A video distribution service.
+-   A commercial product.
 
 ---
 
-## 🌐 Overview
+## ✨ Key Features
 
-The architecture is designed to be lightweight and modular:
+### Navigation & UI
+-   **Unified Sidebar**: Vertical navigation for switching between standard, anime, and torrent sources.
+-   **Source Filtering**: Dedicated views for **MovieBox** (Web), **HiAnime** (Anime), and **CineCLI** (Torrents).
+-   **Responsive Layout**: Adapts to different screen sizes with a clean, dark-mode/glassmorphism design.
 
-1.  **Backend (FastAPI)**: Acts as the "Brain". It searches external APIs, resolves stream URLs, and proxies difficult connections.
-2.  **Frontend (React)**: Handles the UI, state, and specialized players for different content types.
-3.  **Media**: Streamed via **Local Proxy** (MovieBox mode) or **Cloud Embeds** (HiAnime mode).
-
-### Application Modes
-
-| Mode | Description |
-| :--- | :--- |
-| **🎥 MovieBox** | Uses the **Local Backend** to fetch high-quality HTTP streams. Supports proxying for maximum compatibility. |
-| **🍥 HiAnime** | Lightweight mode. Extracts episode IDs and uses 3rd-party embed players (iframe). |
-| **🧲 CineCLI** | **NEW!** Searches decentralized torrent networks (YTS) for magnet links. |
+### Backend Capabilities
+-   **CineCLI Integration**: Searches decentralized networks (YTS) with automatic mirror fallback and magnet link resolution.
+-   **Proxy Streaming**: `/api/proxy/stream` endpoint supports range requests to bypass CORS restrictions on specific video hosts.
+-   **Download Proxy**: `/api/proxy/download` endpoint for facilitating direct file downloads.
+-   **System Monitoring**: `/api/system/status` provides real-time health checks of external dependencies.
 
 ---
 
 ## 🧰 Tech Stack
 
-### Backend
--   **FastAPI**: High-performance Async IO.
--   **HTTPX**: Modern, async HTTP client (replaces Requests for better concurrency).
--   **Uvicorn**: ASGI Server.
--   **moviebox-api**: Content aggregation.
+**Backend**
+-   **FastAPI**: Async Python web framework.
+-   **HTTPX**: Asynchronous HTTP client.
+-   **Uvicorn**: ASGI server implementation.
 
-### Frontend
--   **React 18**: Component-based UI.
--   **Vite**: Next-gen tooling.
--   **Glassmorphism UI**: Custom CSS variables for a premium, dark-mode aesthetic.
+**Frontend**
+-   **React 18**: Frontend library.
+-   **Vite**: Build tool and dev server.
+-   **CSS Modules**: Component-scoped styling.
 
 ---
 
-## 🛠️ Setup & Installation
+## 🛠️ Setup & Usage
 
 ### Prerequisites
--   **Python 3.8+**
--   **Node.js 16+**
+-   Python 3.8+
+-   Node.js 16+
 
-### 1. Backend Setup
+### 1. Backend
 ```bash
-cd moviebox_web_app/backend
-
-# Install dependencies
-pip install fastapi uvicorn httpx moviebox-api
-
-# Run the server
+cd backend
+pip install -r requirements.txt # or install manually: fastapi uvicorn httpx moviebox-api
 python -m uvicorn main:app --host 0.0.0.0 --port 8080 --reload
 ```
-*Port 8080 is the default for the backend API.*
+*Documentation available at: [http://localhost:8080/docs](http://localhost:8080/docs)*
 
-> **Tip**: You can view the full interactive API documentation (Swagger UI) at [http://localhost:8080/docs](http://localhost:8080/docs) when the backend is running.
-
-### 2. Frontend Setup
+### 2. Frontend
 ```bash
-cd moviebox_web_app/frontend
-
-# Install dependencies
+cd frontend
 npm install
-
-# Run the dev server
 npm run dev -- --host
 ```
-*Access the web app at `http://localhost:5173`.*
+*Access application at: `http://localhost:5173`*
 
 ---
 
-## 🎮 Usage Guide
+## ⚖️ Legal Disclaimer
 
-1.  **Search**: Use the top search bar.
-    -   *Default*: Searches all unified sources.
-    -   *CineCLI*: Switching to the CineCLI tab targets YTS torrents specifically.
-2.  **Sidebar Toggle**: Use the arrow icon in the sidebar to collapse it for a "Theater Mode" view.
-3.  **Server Toggle**: In the top right, switch between **Cloud** (Remote API) and **Local** (Your machine).
-    -   *Visible only in Home/MovieBox sections.*
-4.  **Streaming**:
-    -   Click "Stream" to open the internal player (or mpv if configured).
-    -   For Anime, use the Season/Episode selector.
-5.  **Downloads**:
-    -   Click the "Download" button to save media via the backend proxy.
+This software is for educational and research purposes only. The developers of this project do not host, own, or upload any media content. The application acts solely as a client-side interface for existing third-party APIs. Users are responsible for ensuring their usage complies with all applicable local laws and regulations.
 
----
+## 📄 License
 
-## ⚖️ Disclaimer & License
-
-**Disclaimer**: This project does not host, store, or distribute any media content. It is a search engine and proxy tool for publicly available APIs. Users are responsible for their own usage and compliance with local laws.
-
-**License**: GNU Affero General Public License v3.0 (AGPL-3.0).
+Licensed under the **AGPL-3.0**. See `LICENSE` for details.
