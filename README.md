@@ -47,6 +47,30 @@
 
 ---
 
+## 🧠 Architecture & Workflows
+
+### 1. MovieBox (Streaming)
+*High-quality metadata and direct HTTP streaming.*
+-   **How it works**: Combines metadata from TMDB with direct stream links from indexed file hosts.
+-   **Stream Button**: Resolves the direct MP4/MKV link and plays it in the integrated player.
+-   **Download Button**: Routes the request through the **Backend Download Proxy** (`/api/proxy/download`). This creates a tunnel, allowing you to download files even if the host blocks direct browser downloads (CORS/Referer protection).
+-   **Local vs Cloud**:
+    -   **Local Mode**: Frontend talks to your running `localhost:8080` server. Recommended for maximum speed and proxy capabilities.
+    -   **Cloud Mode**: Frontend connects to a public community instance. Useful if you can't run Python locally.
+
+### 2. CineCLI (Torrents)
+*Decentralized P2P network search.*
+-   **How it works**: The backend acts as a "Meta-Search Engine" for YTS. It automatically cycles through **10+ active mirrors** (like `yts.lt`, `yts.rs`) to bypass ISP blocks.
+-   **Buttons**:
+    -   **Magnet**: CineCLI content is P2P-based. Clicking "Magnet" will open your system's default Torrent Client (e.g., qBittorrent, Transmission) to handle the file. It does not stream directly in the browser.
+
+### 3. HiAnime (Anime)
+*Specialized Anime scraper.*
+-   **How it works**: Scrapes episode lists and IDs from HiAnime.
+-   **Stream Button**: Instead of a direct file, it loads a third-party **Embed Player** (iframe) inside the app. This ensures 99% availability for anime episodes without complex proxying.
+
+---
+
 ## 🛠️ Setup & Usage
 
 ### Prerequisites
