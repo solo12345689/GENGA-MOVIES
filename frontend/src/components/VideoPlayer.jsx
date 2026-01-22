@@ -153,9 +153,13 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
 
     const handleSeek = (e) => {
         if (e) e.stopPropagation(); // Stop bubbling
-        const seekTime = (e.target.value / 100) * videoRef.current.duration;
-        videoRef.current.currentTime = seekTime;
-        setProgress(e.target.value);
+        if (videoRef.current && Number.isFinite(videoRef.current.duration)) {
+            const seekTime = (e.target.value / 100) * videoRef.current.duration;
+            if (Number.isFinite(seekTime)) {
+                videoRef.current.currentTime = seekTime;
+                setProgress(e.target.value);
+            }
+        }
     };
 
     // FIX 3: Update Fullscreen logic to handle iOS Safari

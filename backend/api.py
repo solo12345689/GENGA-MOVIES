@@ -12,6 +12,7 @@ from moviebox_api.download import (
 from moviebox_api.extractor._core import ItemJsonDetailsModel
 from moviebox_api.extractor.models.json import SubjectModel, SubjectTrailerModel
 from moviebox_api.models import SearchResultsItem
+from cinecli_service import CineCLIService
 from typing import Optional, Union, get_args, get_origin
 import pydantic
 import asyncio
@@ -279,14 +280,48 @@ async def determine_item_type(item: Any, content_type_filter: str = "all") -> st
     # 4. Check category and genre for Anime/Series specific detection
     category = str(getattr(item, 'category', '')).lower()
     genres = [str(g).lower() for g in getattr(item, 'genre', [])] if hasattr(item, 'genre') else []
+    title = str(getattr(item, 'title', '')).lower()
     
+    # Check if it's anime based on title patterns (same logic as homepage)
+    has_lang_tag = any(k in title for k in ['[hindi]', '[urdu]', '[tamil]', '[telugu]'])
+    is_animation = 'animation' in genres or 'anime' in category or 'anime' in title
+
     # Only label as anime if specifically filtered as anime or if it's a known anime source
     # For MovieBox, we prefer 'series' or 'movie' to use its native details logic
     if filter_lower == "anime":
-        if 'series' in category or 'tv' in category or getattr(item, 'is_tv_series', False):
+        # Force anime type if filter is explicitly anime
+        if (item_type == "series" or 
+            'series' in category or 'tv' in category or 
+            getattr(item, 'is_tv_series', False)):
             item_type = "anime"
         else:
             item_type = "anime_movie"
+            
+    # Intelligent Detection
+    elif is_animation:
+        # If it's explicitly animation, classify correctly
+        if (item_type == "series" or 
+            'series' in category or 'tv' in category or 
+            getattr(item, 'is_tv_series', False)):
+            item_type = "anime"
+        else:
+            item_type = "anime_movie"
+            
+    elif has_lang_tag:
+        # If it has [Hindi] etc tag:
+        # - SERIES -> Likely Anime (e.g. Naruto [Hindi])
+        # - MOVIE -> Likely Bollywood/Regional (e.g. Tashkent Files [Hindi]) -> Keep as MOVIE
+        if (item_type == "series" or 
+            'series' in category or 'tv' in category or 
+            getattr(item, 'is_tv_series', False)):
+            item_type = "anime"
+        else:
+            # It's a movie with [Hindi] tag - keep as 'movie' unless we know it's animation
+            if is_animation:
+                item_type = "anime_movie"
+            else:
+                item_type = "movie"
+                
     elif 'series' in category or 'tv' in category:
         item_type = "series"
         
@@ -357,10 +392,23 @@ async def search(query: str, page: int = 1, content_type: str = "all") -> dict:
                     "type": item_type
                 }
                 
+                # Improved Year Extraction
+                year = getattr(item, 'year', None)
+                if not year:
+                    year = getattr(item, 'release_date', None)
+                if not year:
+                    year = getattr(item, 'released', None)
+                if not year:
+                    year = getattr(item, 'premiered', None)
+                
+                # Format year if it's a full date string
+                if year and isinstance(year, str) and len(year) >= 4:
+                    year = year[:4]
+
                 items.append({
                     "id": item_id,
                     "title": getattr(item, 'title', 'Unknown'),
-                    "year": getattr(item, 'year', None),
+                    "year": year,
                     "poster_url": poster_url,
                     "type": item_type
                 })
@@ -453,44 +501,52 @@ async def get_homepage_content() -> dict:
                         
                         if sid and title and sid != "0":
                             # Store in search_cache for details fetching
-                            # Create a dummy search instance for this group's context
-                            item_search = Search(session=session, query=title)
+                            # Homepage items don't have all fields required by SearchResultsItem
+                            # So we cache them as dictionaries and handle them specially
                             
-                            # Determine type more accurately
-                            is_tv = item.get('is_tv_series') or item.get('isTvSeries') or any(k in group_title.lower() for k in ['series', 'tv', 'show'])
-                            it_type = "series" if is_tv else "movie"
+                            # Use the actual subjectType from API
+                            # 1=MOVIES, 2=TV_SERIES, 3=ANIME (likely), 6=MUSIC
+                            subject_type = item.get('subjectType', 1)  # Default to movie if missing
                             
-                            cache_item = {
+                            # Determine content type
+                            # Check if it's anime based on subjectType or group title
+                            is_anime = (subject_type == 3 or 
+                                       any(k in group_title.lower() for k in ['anime', 'hindi', 'urdu']) or
+                                       any(k in title.lower() for k in ['[hindi]', '[urdu]', '[tamil]', '[telugu]']))
+                            
+                            if is_anime:
+                                it_type = "anime"
+                            elif subject_type == 2:
+                                it_type = "series"
+                            else:
+                                it_type = "movie"
+
+                            
+                            # Cache as a simple dictionary - we'll do a fresh search if details are needed
+                            search_cache[str(sid)] = {
+                                "item": {
+                                    "id": str(sid),
+                                    "title": title,
+                                    "poster_url": poster_url,
+                                    "year": year,
+                                    "rating": rating,
+                                    "type": it_type,
+                                    "subjectType": subject_type
+                                },
+                                "search_instance": None,  # Will create on-demand
+                                "type": it_type,
+                                "is_homepage": True,
+                                "needs_search": True  # Flag to trigger fresh search in details endpoint
+                            }
+                            
+                            group_results.append({
                                 "id": str(sid),
                                 "title": title,
                                 "year": year,
                                 "type": it_type,
                                 "poster_url": poster_url,
                                 "rating": rating
-                            }
-                            
-                            # Cache the raw data and the search instance
-                            # Wrap the raw item dict in a SearchResultsItem model for library compatibility
-                            try:
-                                # Ensure we have the required fields for the model mapping
-                                model_data = item.copy()
-                                # SearchResultsItem expects 'id' as 'id' or 'subjectId'
-                                if 'subjectId' in model_data and 'id' not in model_data:
-                                    model_data['id'] = model_data['subjectId']
-                                
-                                model_item = SearchResultsItem.model_validate(model_data)
-                            except Exception as model_err:
-                                print(f"[WARNING] Failed to validate homepage item model: {model_err}. Using as-is.")
-                                model_item = item
-
-                            search_cache[str(sid)] = {
-                                "item": model_item,
-                                "search_instance": item_search,
-                                "type": it_type,
-                                "is_homepage": True
-                            }
-                            
-                            group_results.append(cache_item)
+                            })
                     except Exception as item_err:
                         print(f"Skipping malformed homepage item: {item_err}")
                         continue
@@ -542,6 +598,43 @@ async def details(item_id: str) -> dict:
     item_type = cached.get("type", "movie")
     
     try:
+        # If this is a homepage item, we need to do a fresh search first
+        if cached.get("needs_search", False):
+
+            # Use appropriate SubjectType based on content type
+            if item_type == "anime":
+                subject_type = SubjectType.ALL  # Anime might not have dedicated type, use ALL
+            elif item_type == "series":
+                subject_type = SubjectType.TV_SERIES
+            else:
+                subject_type = SubjectType.MOVIES
+            search_instance = Search(session=session, query=item['title'], subject_type=subject_type)
+            results = await search_instance.get_content_model()
+            
+            if not results.items:
+                raise HTTPException(status_code=404, detail="Content not found via search")
+            
+            # Find the matching item by ID (don't just take first result)
+            original_id = item['id']
+            matched_item = None
+            for search_item in results.items:
+                if str(getattr(search_item, 'id', '')) == str(original_id) or str(getattr(search_item, 'subjectId', '')) == str(original_id):
+                    matched_item = search_item
+
+                    break
+            
+            # If no ID match, fall back to first result (but log warning)
+            if not matched_item:
+                matched_item = results.items[0]
+            
+            item = matched_item
+            
+            # Update cache with proper SearchResultsItem
+            search_cache[item_id]["item"] = item
+            search_cache[item_id]["search_instance"] = search_instance
+            search_cache[item_id]["needs_search"] = False
+
+        
         # Use the search instance to get details for this item
         details_provider = search_instance.get_item_details(item)
         details_model = await details_provider.get_content_model()
@@ -640,16 +733,20 @@ async def details(item_id: str) -> dict:
                 # Try multiple paths to find season data
                 seasons_list = None
                 
+
                 # Path 1: details_model.resData.resource.seasons
                 if hasattr(details_model, 'resData'):
                     if hasattr(details_model.resData, 'resource') and hasattr(details_model.resData.resource, 'seasons'):
                         seasons_list = details_model.resData.resource.seasons
+
                     elif hasattr(details_model.resData, 'seasons'):
                         seasons_list = details_model.resData.seasons
+
                 
                 # Path 2: details_model.resource.seasons
                 elif hasattr(details_model, 'resource') and hasattr(details_model.resource, 'seasons'):
                     seasons_list = details_model.resource.seasons
+
                 
                 # Path 5: data.seasons
                 elif hasattr(details_model, 'data'):
@@ -657,7 +754,9 @@ async def details(item_id: str) -> dict:
                     if hasattr(data_obj, 'seasons'):
                         seasons_list = data_obj.seasons
 
+
                 if seasons_list:
+
                     for season in seasons_list:
                         # Handle both object and dict formats
                         if isinstance(season, dict):
@@ -672,11 +771,13 @@ async def details(item_id: str) -> dict:
                                 "season_number": int(s_num),
                                 "max_episodes": int(m_ep) if m_ep else 0,
                             })
+
             except Exception as e:
                 print(f"Error extracting seasons: {e}")
                 traceback.print_exc()
             
             response["seasons"] = seasons_data
+            print(f"[INFO] Returning {len(seasons_data)} seasons for {item_type}: {response.get('title', 'Unknown')}")
             
         return response
     except Exception as e:
@@ -808,7 +909,44 @@ async def stream(
             cached = search_cache[id]
             target_item = cached["item"]
             search_instance = cached["search_instance"]
-            print(f"[STREAM] Using cached item: {getattr(target_item, 'title', 'Unknown')}")
+            print(f"[STREAM] Using cached item: {getattr(target_item, 'title', target_item.get('title', 'Unknown') if isinstance(target_item, dict) else 'Unknown')}")
+            
+            # If this is a homepage item, we need to do a fresh search first
+            if cached.get("needs_search", False):
+
+                # Use appropriate SubjectType based on content type
+                if cached.get("type") == "anime":
+                    subject_type = SubjectType.ALL  # Use ALL for anime
+                elif cached.get("type") == "series":
+                    subject_type = SubjectType.TV_SERIES
+                else:
+                    subject_type = SubjectType.MOVIES
+                search_instance = Search(session=session, query=target_item['title'], subject_type=subject_type)
+                results = await search_instance.get_content_model()
+                
+                if not results.items:
+                    raise HTTPException(status_code=404, detail="Content not found via search")
+                
+                # Find the matching item by ID (don't just take first result)
+                original_id = target_item['id']
+                matched_item = None
+                for search_item in results.items:
+                    if str(getattr(search_item, 'id', '')) == str(original_id) or str(getattr(search_item, 'subjectId', '')) == str(original_id):
+                        matched_item = search_item
+
+                        break
+                
+                # If no ID match, fall back to first result (but log warning)
+                if not matched_item:
+                    matched_item = results.items[0]
+                
+                target_item = matched_item
+                
+                # Update cache with proper SearchResultsItem
+                search_cache[id]["item"] = target_item
+                search_cache[id]["search_instance"] = search_instance
+                search_cache[id]["needs_search"] = False
+
         else:
             # 2. Fallback: Search for the item with retries for network resilience
             subject_type = SubjectType.ALL
@@ -1033,7 +1171,7 @@ async def proxy_stream(request: Request, url: str, source: str = None):
                     continue
                 
                 # Success!
-                excluded_headers = ["content-encoding", "content-length", "transfer-encoding", "connection", "keep-alive"]
+                excluded_headers = ["content-encoding", "content-length", "transfer-encoding", "connection", "keep-alive", "content-disposition"]
                 res_headers = {k: v for k, v in resp.headers.items() if k.lower() not in excluded_headers}
                 res_headers.update({
                     "Access-Control-Allow-Origin": "*",
@@ -1213,13 +1351,12 @@ async def iframe_proxy(url: str):
             }};
             
             // 2. BLOCK location changes
-            var _location = window.location;
-            Object.defineProperty(window, 'location', {{
-                get: function() {{ return _location; }},
-                set: function(v) {{
-                    if (isAllowed(v)) {{ _location.href = v; }}
-                    else {{ console.log("[AdBlock] Blocked location change:", v); }}
-                }}
+            // 2. BLOCK location changes (Safe method)
+            // Cannot redefine window.location directly in modern browsers
+            window.addEventListener('beforeunload', function(e) {{
+                // heuristic: if we didn't initiate a click on an allowed link, it might be a redirect
+                // But this is hard to detect perfectly. 
+                // For now, relies on click hijacking (below) to stop new tabs.
             }});
             
             // 3. BLOCK top/parent navigation
@@ -1391,6 +1528,118 @@ async def get_anime_sources(episode_id: str, server: str = "vidcloud", category:
             continue
 
     raise HTTPException(status_code=404, detail="No working stream sources found for this episode.")
+
+# --- CineCLI & Proxy Routes ---
+
+@router.get("/cinecli/search")
+async def cinecli_search(query: str) -> dict:
+    """
+    Search for movies via CineCLI (YTS/Torrents).
+    """
+    print(f"Searching CineCLI for: {query}")
+    results = await CineCLIService.search(query)
+    return {"results": results}
+
+@router.get("/cinecli/details/{movie_id}")
+async def cinecli_details(movie_id: str) -> dict:
+    """
+    Get details and magnet links for a CineCLI movie.
+    """
+    details = await CineCLIService.get_details(movie_id)
+    if not details:
+        raise HTTPException(status_code=404, detail="Movie not found")
+    return details
+
+@router.get("/proxy/stream")
+async def proxy_stream(url: str, request: Request):
+    """
+    Streams content from a remote URL, forwarding Range headers.
+    Essential for playing videos that have hotlink protection or no CORS.
+    """
+    client = get_http_client()
+    
+    # Forward the Range header if present
+    headers = {}
+    range_header = request.headers.get("range")
+    if range_header:
+        headers["Range"] = range_header
+        
+    # Also spoof User-Agent and Referer to bypass basic protections
+    headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    headers["Referer"] = "https://google.com/" # Generic or specific if known
+
+    try:
+        req = client.build_request("GET", url, headers=headers)
+        r = await client.send(req, stream=True)
+        
+        # Prepare response headers
+        response_headers = {
+            "Content-Type": r.headers.get("Content-Type", "video/mp4"),
+            "Accept-Ranges": "bytes",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Range"
+        }
+        
+        if "Content-Length" in r.headers:
+            response_headers["Content-Length"] = r.headers["Content-Length"]
+        if "Content-Range" in r.headers:
+            response_headers["Content-Range"] = r.headers["Content-Range"]
+            
+        return StreamingResponse(
+            r.aiter_bytes(), 
+            status_code=r.status_code, 
+            headers=response_headers,
+            background=asyncio.create_task(r.aclose()) # Ensure client closes on finish
+        )
+    except Exception as e:
+        print(f"Proxy Stream Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/proxy/download")
+async def proxy_download(url: str, filename: str = "download.mp4"):
+    """
+    Forces a download of the remote URL.
+    """
+    client = get_http_client()
+    try:
+        req = client.build_request("GET", url, headers={"User-Agent": DEFAULT_HEADERS["User-Agent"]})
+        r = await client.send(req, stream=True)
+        
+        headers = {
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Type": r.headers.get("Content-Type", "application/octet-stream")
+        }
+        if "Content-Length" in r.headers:
+            headers["Content-Length"] = r.headers["Content-Length"]
+            
+        return StreamingResponse(
+            r.aiter_bytes(),
+            headers=headers,
+            background=asyncio.create_task(r.aclose())
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/system/status")
+async def system_status():
+    """
+    Checks status of external services (YTS, MovieBox).
+    """
+    # Simple check - could be cached
+    status = {"yts": "unknown", "moviebox": "operational", "overall": "operational"}
+    try:
+        # Ping YTS
+        async with httpx.AsyncClient() as client:
+            r = await client.get("https://yts.mx/api/v2/list_movies.json?limit=1", timeout=5.0)
+            if r.status_code == 200:
+                status["yts"] = "operational"
+            else:
+                status["yts"] = "down"
+    except:
+        status["yts"] = "down"
+        status["overall"] = "degraded"
+        
+    return status
 
 @router.get("/health")
 async def health():

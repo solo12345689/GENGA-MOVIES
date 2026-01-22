@@ -3,6 +3,7 @@ import SearchBar from './components/SearchBar';
 import MovieCard from './components/MovieCard';
 import DetailsModal from './components/DetailsModal';
 import WatchPage from './components/WatchPage';
+import Sidebar from './components/Sidebar';
 import './styles/index.css';
 
 // Auto-detect local server IP
@@ -128,8 +129,13 @@ function App() {
     const [videoPlayerData, setVideoPlayerData] = useState(null); // { url, title }
     const [homepageContent, setHomepageContent] = useState(null);
     const [homepageLoading, setHomepageLoading] = useState(false);
+
+    // Server status (simple polling or just static 'operational' for now, can be updated by backend)
+    const [serverStatus, setServerStatus] = useState('operational');
+
     const [activeSource, setActiveSource] = useState(() => {
-        return localStorage.getItem('moviebox_active_source') || 'moviebox';
+        // Default to 'home' which aggregates or shows default homepage
+        return localStorage.getItem('moviebox_active_source') || 'home';
     });
 
     // Update localStorage when activeSource changes
@@ -137,7 +143,11 @@ function App() {
         localStorage.setItem('moviebox_active_source', activeSource);
         // Clear results when switching sources to avoid mixing
         setResults([]);
+
+        // If switching to home, we typically want to clear search and show aggregation
+        // If switching to a specific source, we might auto-fetch its specific homepage variant
         setHomepageContent(null);
+
     }, [activeSource]);
 
     // Update localStorage when mode changes
@@ -147,14 +157,31 @@ function App() {
 
     // Fetch homepage content on mount or server/source change
     useEffect(() => {
+        // Just a simple status check simulation
+        setServerStatus(serverMode === 'cloud' ? 'operational' : 'operational');
+
         const fetchHomepage = async () => {
             if (!API_BASE) return;
+
+            // Don't fetch homepage if we are in 'cinecli' or search mode (unless implemented)
+            if (activeSource === 'cinecli') {
+                setHomepageContent([]); // Placeholder for CineCLI home
+                return;
+            }
+
             setHomepageLoading(true);
             try {
-                const endpoint = activeSource === 'moviebox' ? '/api/homepage' : '/api/anime/home';
+                // Determine endpoint based on source
+                // 'home' -> defaults to moviebox for now, or we could mix
+                // 'moviebox' -> /api/homepage
+                // 'hianime' -> /api/anime/home
+
+                let endpoint = '/api/homepage';
+                if (activeSource === 'hianime') endpoint = '/api/anime/home';
+
                 const res = await fetch(`${API_BASE}${endpoint}`);
                 if (res.ok) {
-                    if (activeSource === 'moviebox') {
+                    if (activeSource === 'moviebox' || activeSource === 'home') {
                         const data = await res.json();
                         // MovieBox normalization
                         setHomepageContent(data.groups.map(g => ({
@@ -164,7 +191,7 @@ function App() {
                                 source: 'moviebox' // Explicit source
                             }))
                         })));
-                    } else {
+                    } else if (activeSource === 'hianime') {
                         // HiAnime normalization
                         const data = await res.json();
                         const normalizedGroups = [];
@@ -186,7 +213,7 @@ function App() {
         };
 
         fetchHomepage();
-    }, [API_BASE, activeSource]);
+    }, [API_BASE, activeSource, serverMode]);
 
     const toggleServer = () => {
         setServerMode(prev => prev === 'cloud' ? 'local' : 'cloud');
@@ -234,16 +261,22 @@ function App() {
     const handleSearch = async (query, type = 'all') => {
         setLoading(true);
         try {
-            const endpoint = activeSource === 'moviebox'
-                ? `/api/search?query=${encodeURIComponent(query)}&content_type=${type}`
-                : `/api/anime/search?query=${encodeURIComponent(query)}`;
+            // Determine endpoint based on activeSource
+            // 'home' -> searches moviebox by default or we could aggregate (stick to moviebox for now)
+            // 'cinecli' -> Not implemented yet in backend, but we'll prepare for it
+
+            let endpoint = `/api/search?query=${encodeURIComponent(query)}&content_type=${type}`;
+
+            if (activeSource === 'hianime') {
+                endpoint = `/api/anime/search?query=${encodeURIComponent(query)}`;
+            } else if (activeSource === 'cinecli') {
+                endpoint = `/api/cinecli/search?query=${encodeURIComponent(query)}`;
+            }
 
             const res = await fetch(`${API_BASE}${endpoint}`);
             const data = await res.json();
 
-            if (activeSource === 'moviebox') {
-                setResults(data.results.map(it => ({ ...it, source: 'moviebox' })));
-            } else {
+            if (activeSource === 'hianime') {
                 // Normalize HiAnime results
                 if (data.status === 200 && data.data && data.data.animes) {
                     const normalized = data.data.animes.map(a => ({
@@ -258,6 +291,9 @@ function App() {
                 } else {
                     setResults([]);
                 }
+            } else {
+                // MovieBox results
+                setResults(data.results.map(it => ({ ...it, source: 'moviebox' })));
             }
         } catch (err) {
             console.error("Search failed", err);
@@ -281,7 +317,15 @@ function App() {
         setDetailsLoading(true);
         try {
             // Unambiguous routing based on source field
-            if (item.source === 'moviebox' || !item.source) { // Fallback for items without explicit source
+            if (item.source === 'cinecli') {
+                const res = await fetch(`${API_BASE}/api/cinecli/details/${item.id}`);
+                const details = await res.json();
+                setSelectedItem({
+                    ...item,
+                    ...details,
+                    source: 'cinecli'
+                });
+            } else if (item.source !== 'hianime') {
                 const res = await fetch(`${API_BASE}/api/details/${item.id}`);
                 const details = await res.json();
 
@@ -290,7 +334,8 @@ function App() {
                     ...item,
                     ...details,
                     poster_url: details.poster_url || item.poster_url,
-                    source: 'moviebox'
+                    source: 'moviebox',
+                    type: item.type || details.type // Preserve original type (anime/series/movie)
                 });
             } else {
                 // HiAnime Details & Episodes fetch concurrently
@@ -325,25 +370,37 @@ function App() {
         }
     };
 
-    const handleDownload = async (item, season = null, episode = null) => {
+    const handleDownload = async (item, season = null, episode = null, url = null) => {
+        // If a direct URL is provided (e.g. from CineCLI magnet or explicit file), use it
+        if (url) {
+            window.location.href = url; // Trigger browser download/magnet
+            return;
+        }
+
+        // For MovieBox, use the Proxy Download
         try {
-            let url = `${API_BASE}/api/download?`;
+            // We need to resolve the stream URL first to download it
+            // This is a bit complex for MovieBox items since we don't have the URL handy here without fetching.
+            // But let's assume we want to use the OLD backend downloader for now for MovieBox if no URL.
+            // OR we can try to fetch the stream url then redirect.
+
+            // Fallback to old behavior for now unless we are in WatchPage
+            let backendUrl = `${API_BASE}/api/download?`;
             if (item.id) {
-                url += `id=${encodeURIComponent(item.id)}&`;
+                backendUrl += `id=${encodeURIComponent(item.id)}&`;
             }
-            url += `query=${encodeURIComponent(item.title)}`;
+            backendUrl += `query=${encodeURIComponent(item.title)}`;
             if (season && episode) {
-                url += `&season=${season}&episode=${episode}`;
+                backendUrl += `&season=${season}&episode=${episode}`;
             }
 
-            // Start download in background
-            fetch(url, {
+            // Start download in background (Server side)
+            fetch(backendUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
             }).catch(err => console.error("Download failed", err));
 
-            // Show brief notification
-            alert('Download started');
+            alert('Server Download started');
         } catch (err) {
             console.error("Download failed", err);
             alert("Failed to start download");
@@ -361,201 +418,203 @@ function App() {
     };
 
 
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
     return (
-        <div className="app">
-            <header className="glass-panel" style={{ position: 'sticky', top: 0, zIndex: 50, padding: '1.5rem 0', marginBottom: '2rem', borderBottom: '1px solid var(--border-glass)', borderTop: 'none', borderLeft: 'none', borderRight: 'none' }}>
-                <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div>
-                        <h1 style={{ fontSize: '2rem', margin: 0 }}>GENGA MOVIES</h1>
-                        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Cinematic Discovery</p>
-                    </div>
+        <div className="app" style={{ display: 'flex', flexDirection: 'row', maxWidth: '100vw', overflow: 'hidden' }}>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        {scanningStatus && (
-                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', animation: 'pulse 1.5s infinite' }}>
-                                {scanningStatus}
-                            </span>
-                        )}
+            {/* NEW SIDEBAR */}
+            <Sidebar
+                activeSource={activeSource}
+                onChangeSource={setActiveSource}
+                serverStatus={serverStatus}
+                isOpen={isSidebarOpen}
+                onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+            />
 
-                        <button
-                            onClick={() => setShowHistoryModal(true)}
-                            style={{
-                                background: 'transparent',
-                                border: 'none',
-                                color: 'var(--text-muted)',
-                                cursor: 'pointer',
-                                padding: '0.5rem',
-                                display: 'flex',
-                                alignItems: 'center'
-                            }}
-                            title="Search History"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <circle cx="12" cy="12" r="10"></circle>
-                                <polyline points="12 6 12 12 16 14"></polyline>
-                            </svg>
-                        </button>
+            {/* MAIN CONTENT AREA */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', overflowY: 'auto', position: 'relative' }}>
 
-                        <button
-                            onClick={() => setShowManualIP(true)}
-                            style={{
-                                background: 'transparent',
-                                border: 'none',
-                                color: 'var(--text-muted)',
-                                cursor: 'pointer',
-                                padding: '0.5rem',
-                                display: 'flex',
-                                alignItems: 'center'
-                            }}
-                            title="Configure Server IP"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <circle cx="12" cy="12" r="3"></circle>
-                                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-                            </svg>
-                        </button>
+                {/* Header Controls */}
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'flex-end',
+                    gap: '1rem',
+                    alignItems: 'center',
+                    padding: '1rem 2rem',
+                    width: '100%',
+                    zIndex: 10
+                }}>
+                    {scanningStatus && (
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', animation: 'pulse 1.5s infinite', background: 'rgba(0,0,0,0.5)', padding: '4px 8px', borderRadius: '4px' }}>
+                            {scanningStatus}
+                        </span>
+                    )}
 
-                        <div style={{ display: 'flex', background: 'rgba(255, 255, 255, 0.05)', borderRadius: '25px', padding: '4px', border: '1px solid var(--border-glass)' }}>
-                            <button
-                                onClick={() => setActiveSource('moviebox')}
-                                style={{
-                                    padding: '0.5rem 1.2rem',
-                                    borderRadius: '20px',
-                                    border: 'none',
-                                    background: activeSource === 'moviebox' ? 'var(--primary)' : 'transparent',
-                                    color: activeSource === 'moviebox' ? 'white' : 'var(--text-muted)',
-                                    cursor: 'pointer',
-                                    fontSize: '0.85rem',
-                                    fontWeight: '500',
-                                    transition: 'all 0.3s ease'
-                                }}
-                            >
-                                Movie Box
-                            </button>
-                            <button
-                                onClick={() => setActiveSource('hianime')}
-                                style={{
-                                    padding: '0.5rem 1.2rem',
-                                    borderRadius: '20px',
-                                    border: 'none',
-                                    background: activeSource === 'hianime' ? 'var(--primary)' : 'transparent',
-                                    color: activeSource === 'hianime' ? 'white' : 'var(--text-muted)',
-                                    cursor: 'pointer',
-                                    fontSize: '0.85rem',
-                                    fontWeight: '500',
-                                    transition: 'all 0.3s ease'
-                                }}
-                            >
-                                HiAnime
-                            </button>
-                        </div>
+                    <button
+                        onClick={() => setShowHistoryModal(true)}
+                        style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: 'var(--text-muted)',
+                            cursor: 'pointer',
+                            padding: '0.5rem',
+                            display: 'flex',
+                            alignItems: 'center'
+                        }}
+                        title="Search History"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                    </button>
 
+                    <button
+                        onClick={() => setShowManualIP(true)}
+                        style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: 'var(--text-muted)',
+                            cursor: 'pointer',
+                            padding: '0.5rem',
+                            display: 'flex',
+                            alignItems: 'center'
+                        }}
+                        title="Configure IP"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                        </svg>
+                    </button>
+
+                    {(activeSource === 'moviebox' || activeSource === 'home') && (
                         <button
                             onClick={toggleServer}
                             style={{
-                                background: 'rgba(255, 255, 255, 0.1)',
+                                background: 'rgba(0, 0, 0, 0.4)',
                                 border: '1px solid var(--border-glass)',
                                 color: 'var(--text-primary)',
-                                padding: '0.5rem 1rem',
+                                padding: '0.4rem 0.8rem',
                                 borderRadius: '20px',
                                 cursor: 'pointer',
-                                fontSize: '0.8rem',
+                                fontSize: '0.75rem',
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '0.5rem'
+                                gap: '0.5rem',
+                                backdropFilter: 'blur(4px)'
                             }}
                         >
                             <span style={{
-                                width: '8px',
-                                height: '8px',
+                                width: '6px',
+                                height: '6px',
                                 borderRadius: '50%',
                                 background: serverMode === 'cloud' ? '#10b981' : '#f59e0b',
                                 display: 'inline-block'
                             }}></span>
                             {serverMode === 'cloud' ? 'Cloud' : 'Local'}
                         </button>
-                    </div>
-                </div>
-            </header>
-
-            <main className="container">
-                <SearchBar onSearch={handleSearch} />
-
-                {loading && (
-                    <div style={{ textAlign: 'center', padding: '4rem' }}>
-                        <div className="spinner" style={{
-                            width: '50px', height: '50px',
-                            border: '3px solid rgba(255,255,255,0.1)',
-                            borderTopColor: 'var(--primary)',
-                            borderRadius: '50%',
-                            animation: 'spin 1s linear infinite',
-                            margin: '0 auto'
-                        }}></div>
-                        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-                    </div>
-                )}
-
-                <div className="movie-card-grid" style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-                    gap: '2rem',
-                    paddingBottom: '4rem'
-                }}>
-                    {results.map((item) => (
-                        <MovieCard key={item.id} movie={item} onClick={handleItemClick} />
-                    ))}
+                    )}
                 </div>
 
-                {results.length === 0 && !loading && (
-                    <>
-                        {homepageLoading ? (
-                            <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>
-                                <div className="spinner" style={{
-                                    width: '30px', height: '30px',
-                                    border: '2px solid rgba(255,255,255,0.1)',
-                                    borderTopColor: 'var(--primary)',
-                                    borderRadius: '50%',
-                                    animation: 'spin 1s linear infinite',
-                                    margin: '0 auto 1rem auto'
-                                }}></div>
-                                Loading trending content...
-                            </div>
-                        ) : homepageContent ? (
-                            <div style={{ paddingBottom: '4rem' }}>
-                                {homepageContent.map((group, index) => (
-                                    <div key={index} style={{ marginBottom: '3rem' }}>
-                                        <h2 style={{
-                                            marginBottom: '1.5rem',
-                                            paddingLeft: '1rem',
-                                            borderLeft: '4px solid var(--primary)',
-                                            fontSize: '1.5rem',
-                                            fontWeight: '600'
-                                        }}>
-                                            {group.title}
-                                        </h2>
-                                        <div className="movie-card-grid" style={{
-                                            display: 'grid',
-                                            gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-                                            gap: '2rem'
-                                        }}>
-                                            {group.items.map((item) => (
-                                                <MovieCard key={item.id} movie={item} onClick={handleItemClick} />
-                                            ))}
+
+                <main className="container" style={{ paddingTop: '1rem' }}>
+
+                    {/* Source Title Helper */}
+                    <div style={{ marginBottom: '1rem', marginLeft: '0.5rem', opacity: 0.6, fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                        {activeSource === 'home' ? 'Discover' :
+                            activeSource === 'moviebox' ? 'Library' :
+                                activeSource === 'hianime' ? 'Anime World' : 'Torrents (CineCLI)'}
+                    </div>
+
+                    <SearchBar onSearch={handleSearch} />
+
+                    {loading && (
+                        <div style={{ textAlign: 'center', padding: '4rem' }}>
+                            <div className="spinner" style={{
+                                width: '50px', height: '50px',
+                                border: '3px solid rgba(255,255,255,0.1)',
+                                borderTopColor: 'var(--primary)',
+                                borderRadius: '50%',
+                                animation: 'spin 1s linear infinite',
+                                margin: '0 auto'
+                            }}></div>
+                            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                        </div>
+                    )}
+
+                    <div className="movie-card-grid" style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+                        gap: '2rem',
+                        paddingBottom: '4rem'
+                    }}>
+                        {results.map((item) => (
+                            <MovieCard key={item.id} movie={item} onClick={handleItemClick} />
+                        ))}
+                    </div>
+
+                    {results.length === 0 && !loading && (
+                        <>
+                            {homepageLoading ? (
+                                <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>
+                                    <div className="spinner" style={{
+                                        width: '30px', height: '30px',
+                                        border: '2px solid rgba(255,255,255,0.1)',
+                                        borderTopColor: 'var(--primary)',
+                                        borderRadius: '50%',
+                                        animation: 'spin 1s linear infinite',
+                                        margin: '0 auto 1rem auto'
+                                    }}></div>
+                                    Loading trending content...
+                                </div>
+                            ) : homepageContent && homepageContent.length > 0 ? (
+                                <div style={{ paddingBottom: '4rem' }}>
+                                    {homepageContent.map((group, index) => (
+                                        <div key={index} style={{ marginBottom: '3rem' }}>
+                                            <h2 style={{
+                                                marginBottom: '1.5rem',
+                                                paddingLeft: '1rem',
+                                                borderLeft: '4px solid var(--primary)',
+                                                fontSize: '1.5rem',
+                                                fontWeight: '600'
+                                            }}>
+                                                {group.title}
+                                            </h2>
+                                            <div className="movie-card-grid" style={{
+                                                display: 'grid',
+                                                gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+                                                gap: '2rem'
+                                            }}>
+                                                {group.items.map((item) => (
+                                                    <MovieCard key={item.id} movie={item} onClick={handleItemClick} />
+                                                ))}
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div style={{ textAlign: 'center', color: 'var(--text-muted)', marginTop: '4rem', padding: '2rem', border: '1px dashed var(--border-glass)', borderRadius: 'var(--radius-md)' }}>
-                                <p style={{ fontSize: '1.2rem' }}>Start by searching for a movie or TV show.</p>
-                                <p style={{ fontSize: '0.9rem', marginTop: '1rem', opacity: 0.7 }}>
-                                    Connected to: {API_BASE}
-                                </p>
-                            </div>
-                        )}
-                    </>
-                )}
-            </main>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div style={{ textAlign: 'center', color: 'var(--text-muted)', marginTop: '4rem', padding: '2rem', border: '1px dashed var(--border-glass)', borderRadius: 'var(--radius-md)' }}>
+                                    {activeSource === 'cinecli' ? (
+                                        <div>
+                                            <h3>CineCLI Integration Ready</h3>
+                                            <p>Search for torrents using the search bar above.</p>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <p style={{ fontSize: '1.2rem' }}>Start by searching for content.</p>
+                                            <p style={{ fontSize: '0.9rem', marginTop: '1rem', opacity: 0.7 }}>
+                                                Connected to: {API_BASE}
+                                            </p>
+                                        </>
+                                    )}
+                                </div>
+                            )}
+                        </>
+                    )}
+                </main>
+            </div>
 
             {
                 selectedItem && (

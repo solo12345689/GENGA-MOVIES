@@ -60,13 +60,33 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
     const [animeLanguage, setAnimeLanguage] = React.useState('sub');
 
     const handleStreamClick = () => {
+        if (item.source === 'cinecli') {
+            alert('Streaming torrents directly is not yet supported. Please download.');
+            return;
+        }
+
         if (item.type === 'series') {
             if (selectedSeason && selectedEpisode) {
                 onStream({ ...item, type: item.type }, selectedSeason.season_number, selectedEpisode);
             } else {
                 alert('Please select a season and episode');
             }
-        } else if (item.type === 'anime' || item.source === 'hianime') {
+        } else if (item.type === 'anime') {
+            // MovieBox anime
+            if (item.source === 'moviebox' && item.seasons && item.seasons.length > 0) {
+                if (selectedSeason && selectedEpisode) {
+                    onStream({ ...item, type: 'anime' }, selectedSeason.season_number, selectedEpisode);
+                } else {
+                    alert('Please select a season and episode');
+                }
+            }
+            // HiAnime
+            else if (selectedAnimeEp) {
+                onStream({ ...item, type: 'anime', episodeId: selectedAnimeEp.episodeId, episodeNo: selectedAnimeEp.number, language: animeLanguage });
+            } else {
+                alert('Please select an episode');
+            }
+        } else if (item.source === 'hianime') {
             if (selectedAnimeEp) {
                 onStream({ ...item, type: 'anime', episodeId: selectedAnimeEp.episodeId, episodeNo: selectedAnimeEp.number, language: animeLanguage });
             } else {
@@ -77,7 +97,24 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
         }
     };
 
-    const handleDownloadClick = () => {
+    const handleDownloadClick = (magnetUrl = null) => {
+        if (item.source === 'cinecli' && magnetUrl) {
+            // Trigger Magnet
+            window.location.href = magnetUrl;
+            return;
+        }
+
+        // Use new Proxy Download for MovieBox
+        if (item.source === 'moviebox' && item.type === 'movie') {
+            // We need a URL. For MovieBox, we don't have it easily without /api/stream call.
+            // But we can construct the proxy download URL if we knew the direct link.
+            // For now, let's just trigger the callback which App.jsx handles (falling back to server download)
+            // Or better: update App.jsx to handle this better.
+
+            onDownload(item); // App.jsx will handle
+            return;
+        }
+
         if (item.type === 'series' || item.type === 'anime') {
             if (selectedSeason && selectedEpisode) {
                 onDownload(item, selectedSeason.season_number, selectedEpisode);
@@ -118,102 +155,118 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
                     height: 'auto'
                 }}>
                     {item.poster_url || item.poster ? (
-                        <div onClick={handleStreamClick} style={{ cursor: 'pointer', height: '100%', position: 'relative', zIndex: 0 }}>
+                        <div onClick={item.source !== 'cinecli' ? handleStreamClick : undefined} style={{ cursor: item.source !== 'cinecli' ? 'pointer' : 'default', height: '100%', position: 'relative', zIndex: 0 }}>
                             <img
                                 src={item.poster_url || item.poster}
                                 alt={item.title}
                                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                onError={(e) => {
-                                    e.target.onerror = null;
-                                    e.target.style.display = 'none';
-                                    if (e.target.parentNode && e.target.parentNode.parentNode) {
-                                        const placeholder = e.target.parentNode.parentNode.querySelector('.poster-placeholder');
-                                        if (placeholder) placeholder.style.display = 'flex';
-                                    }
-                                }}
                             />
                         </div>
                     ) : null}
-                    <div style={{
-                        position: 'absolute',
-                        inset: 0,
-                        background: 'linear-gradient(to right, transparent 80%, var(--bg-surface) 100%)',
-                        zIndex: 1
-                    }}></div>
-                    <div style={{
-                        position: 'absolute',
-                        inset: 0,
-                        background: 'linear-gradient(to top, var(--bg-surface) 0%, transparent 50%)',
-                        zIndex: 1
-                    }}></div>
-                    <div className="poster-placeholder" style={{
-                        width: '100%',
-                        height: '100%',
-                        display: (item.poster_url || item.poster) ? 'none' : 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: 'var(--text-muted)',
-                        background: '#1a1a20',
-                        flexDirection: 'column',
-                        gap: '0.5rem',
-                        position: 'absolute',
-                        top: 0,
-                        left: 0
-                    }}>
-                        <span style={{ fontSize: '3rem' }}>🖼️</span>
-                        <span>No Poster</span>
-                    </div>
+                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, transparent 80%, var(--bg-surface) 100%)', zIndex: 1 }}></div>
                 </div>
 
                 <div className="modal-details-side" style={{
                     flex: '1',
                     padding: '2.5rem',
                     display: 'flex',
-                    flexDirection: 'column'
+                    flexDirection: 'column',
+                    maxHeight: '80vh',
+                    overflowY: 'auto'
                 }}>
                     <h2 style={{ fontSize: '2.5rem', marginBottom: '0.5rem', lineHeight: 1.1 }}>{item.title}</h2>
 
                     <div style={{ display: 'flex', gap: '1rem', color: 'var(--text-muted)', marginBottom: '2rem', fontSize: '0.95rem', alignItems: 'center', flexWrap: 'wrap' }}>
                         <span style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '4px' }}>{item.year}</span>
                         <span style={{ textTransform: 'capitalize', color: 'var(--primary)' }}>
-                            {(item.type === 'anime' || (item.type === 'series' && (item.source === 'hianime' || (item.category && item.category.toString().toLowerCase().includes('anime')) || item.title.toLowerCase().includes('naruto')))) ? 'Anime' : item.type}
+                            {item.source === 'cinecli' ? 'Torpedo' : (item.type || 'Movie')}
                         </span>
+                        {item.runtime && <span>{item.runtime} min</span>}
                     </div>
 
-                    {item.plot ? (
-                        <p style={{ lineHeight: '1.7', marginBottom: '2.5rem', color: 'var(--text-dim)', fontSize: '1.05rem' }}>
-                            {item.plot}
-                        </p>
-                    ) : item.rating ? (
+                    {item.rating && (
                         <div style={{
-                            marginBottom: '2.5rem',
-                            padding: '1.5rem',
+                            marginBottom: '2rem',
+                            padding: '1.2rem',
                             background: 'rgba(251, 191, 36, 0.1)',
                             border: '1px solid rgba(251, 191, 36, 0.2)',
-                            borderRadius: 'var(--radius-md)',
+                            borderRadius: '12px',
                             display: 'flex',
                             alignItems: 'center',
                             gap: '1rem'
                         }}>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="#fbbf24">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="#fbbf24">
                                 <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
                             </svg>
                             <div>
-                                <div style={{ fontSize: '1.8rem', fontWeight: '700', color: '#fbbf24' }}>{item.rating}</div>
-                                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>IMDB Rating</div>
+                                <div style={{ fontSize: '1.4rem', fontWeight: '700', color: '#fbbf24', lineHeight: 1 }}>{item.rating}</div>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>IMDB Rating</div>
                             </div>
                         </div>
-                    ) : (
-                        <p style={{ lineHeight: '1.7', marginBottom: '2.5rem', color: 'var(--text-dim)', fontSize: '1.05rem' }}>
-                            No plot or rating available.
-                        </p>
                     )}
+
+                    {item.description || item.plot ? (
+                        <p style={{ lineHeight: '1.7', marginBottom: '2.5rem', color: 'var(--text-dim)', fontSize: '1.05rem' }}>
+                            {item.description || item.plot}
+                        </p>
+                    ) : null}
 
                     <div style={{ marginTop: 'auto' }}>
 
-                        {item.source === 'moviebox' && item.type === 'series' && (
-                            <div style={{ marginBottom: '2rem', background: 'var(--bg-glass-light)', padding: '1.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-glass)' }}>
-                                <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>Select Episode</h3>
+                        {/* --- CINECLI TORRENT LIST --- */}
+                        {item.source === 'cinecli' && item.torrents && (
+                            <div style={{ marginBottom: '2rem' }}>
+                                <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>Available Torrents</h3>
+                                <div style={{ display: 'grid', gap: '0.8rem' }}>
+                                    {item.torrents.map((t, idx) => (
+                                        <div key={idx} style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            background: 'rgba(255,255,255,0.05)',
+                                            padding: '12px',
+                                            borderRadius: '8px',
+                                            border: '1px solid var(--border-glass)'
+                                        }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                                <span style={{ fontWeight: '600', color: 'var(--primary)' }}>{t.quality}</span>
+                                                <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{t.size}</span>
+                                                <span style={{ color: '#22c55e', fontSize: '0.85rem' }}>{t.seeds} seeds</span>
+                                            </div>
+                                            <button
+                                                onClick={() => handleDownloadClick(t.magnet)}
+                                                style={{
+                                                    background: 'transparent',
+                                                    border: '1px solid var(--border-glass)',
+                                                    color: 'white',
+                                                    padding: '6px 12px',
+                                                    borderRadius: '6px',
+                                                    cursor: 'pointer',
+                                                    fontSize: '0.85rem',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '6px'
+                                                }}
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                                Magnet
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* --- MOVIEBOX SEASONS --- */}
+                        {item.source === 'moviebox' && (item.type === 'series' || item.type === 'anime') && (
+                            <div style={{
+                                marginBottom: '2rem',
+                                background: 'rgba(255, 255, 255, 0.03)',
+                                padding: '1.5rem',
+                                borderRadius: '12px',
+                                border: '1px solid rgba(255, 255, 255, 0.08)'
+                            }}>
+                                <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem', marginTop: 0 }}>Select Episode</h3>
                                 {item.seasons && item.seasons.length > 0 ? (
                                     <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -228,11 +281,7 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
                                                 className="input-glass"
                                                 style={{ padding: '0.5rem 1rem', minWidth: '120px' }}
                                             >
-                                                {item.seasons.map(s => (
-                                                    <option key={s.season_number} value={s.season_number} style={{ background: 'var(--bg-surface)' }}>
-                                                        Season {s.season_number}
-                                                    </option>
-                                                ))}
+                                                {item.seasons.map(s => <option key={s.season_number} value={s.season_number} style={{ background: '#000', color: '#fff' }}>Season {s.season_number}</option>)}
                                             </select>
                                         </div>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -243,73 +292,46 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
                                                 className="input-glass"
                                                 style={{ padding: '0.5rem 1rem', minWidth: '120px' }}
                                             >
-                                                {selectedSeason && Array.from({ length: selectedSeason.max_episodes }, (_, i) => i + 1).map(ep => (
-                                                    <option key={ep} value={ep} style={{ background: 'var(--bg-surface)' }}>
-                                                        Episode {ep}
-                                                    </option>
-                                                ))}
+                                                {selectedSeason && Array.from({ length: selectedSeason.max_episodes }, (_, i) => i + 1).map(ep => <option key={ep} value={ep} style={{ background: '#000', color: '#fff' }}>Episode {ep}</option>)}
                                             </select>
                                         </div>
                                     </div>
                                 ) : (
-                                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: 0 }}>
-                                        Season information not available.
-                                    </p>
+                                    <p style={{ color: 'var(--text-muted)' }}>Season information not available.</p>
                                 )}
                             </div>
                         )}
 
+                        {/* --- HIANIME EPISODES --- */}
                         {item.source === 'hianime' && (
-                            <div style={{ marginBottom: '2rem', background: 'var(--bg-glass-light)', padding: '1.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-glass)' }}>
+                            <div style={{
+                                marginBottom: '2rem',
+                                background: 'rgba(255, 255, 255, 0.03)',
+                                padding: '1.5rem',
+                                borderRadius: '12px',
+                                border: '1px solid rgba(255, 255, 255, 0.08)'
+                            }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                                     <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Episodes</h3>
-
                                     <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '4px' }}>
-                                        <button
-                                            onClick={() => setAnimeLanguage('sub')}
-                                            style={{
-                                                padding: '4px 12px', border: 'none', borderRadius: '6px', cursor: 'pointer',
-                                                background: animeLanguage === 'sub' ? 'var(--primary)' : 'transparent',
-                                                color: 'white', fontSize: '0.8rem', fontWeight: '600'
-                                            }}
-                                        >SUB</button>
-                                        <button
-                                            onClick={() => setAnimeLanguage('dub')}
-                                            style={{
-                                                padding: '4px 12px', border: 'none', borderRadius: '6px', cursor: 'pointer',
-                                                background: animeLanguage === 'dub' ? 'var(--primary)' : 'transparent',
-                                                color: 'white', fontSize: '0.8rem', fontWeight: '600'
-                                            }}
-                                        >DUB</button>
+                                        <button onClick={() => setAnimeLanguage('sub')} style={{ padding: '4px 12px', border: 'none', borderRadius: '6px', cursor: 'pointer', background: animeLanguage === 'sub' ? 'var(--primary)' : 'transparent', color: 'white', fontSize: '0.8rem' }}>SUB</button>
+                                        <button onClick={() => setAnimeLanguage('dub')} style={{ padding: '4px 12px', border: 'none', borderRadius: '6px', cursor: 'pointer', background: animeLanguage === 'dub' ? 'var(--primary)' : 'transparent', color: 'white', fontSize: '0.8rem' }}>DUB</button>
                                     </div>
                                 </div>
-                                {episodesLoading ? (
-                                    <div style={{ textAlign: 'center', padding: '1rem' }}>
-                                        <div className="spinner" style={{ width: '20px', height: '20px', border: '2px solid rgba(255,255,255,0.1)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto' }}></div>
-                                    </div>
-                                ) : animeEpisodes.length > 0 ? (
-                                    <div style={{
-                                        display: 'grid',
-                                        gridTemplateColumns: 'repeat(auto-fill, minmax(60px, 1fr))',
-                                        gap: '0.5rem',
-                                        maxHeight: '200px',
-                                        overflowY: 'auto',
-                                        padding: '0.5rem'
-                                    }}>
+                                {/* Episode Grid */}
+                                {animeEpisodes.length > 0 ? (
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(50px, 1fr))', gap: '0.5rem', maxHeight: '200px', overflowY: 'auto' }}>
                                         {animeEpisodes.map(ep => (
                                             <button
                                                 key={ep.episodeId}
                                                 onClick={() => setSelectedAnimeEp(ep)}
                                                 style={{
-                                                    padding: '0.8rem 0.5rem',
-                                                    borderRadius: '8px',
+                                                    padding: '0.6rem 0',
+                                                    borderRadius: '6px',
                                                     border: '1px solid ' + (selectedAnimeEp?.episodeId === ep.episodeId ? 'var(--primary)' : 'var(--border-glass)'),
                                                     background: selectedAnimeEp?.episodeId === ep.episodeId ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
                                                     color: 'white',
-                                                    cursor: 'pointer',
-                                                    fontSize: '0.9rem',
-                                                    transition: 'all 0.2s ease',
-                                                    textAlign: 'center'
+                                                    cursor: 'pointer'
                                                 }}
                                             >
                                                 {ep.number}
@@ -317,48 +339,25 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
                                         ))}
                                     </div>
                                 ) : (
-                                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: 0 }}>
-                                        No episodes found.
-                                    </p>
+                                    <p style={{ textAlign: 'center', color: 'var(--text-muted)' }}>{episodesLoading ? 'Loading...' : 'No episodes.'}</p>
                                 )}
                             </div>
                         )}
 
-                        {/* Show buttons only if serverMode is 'local' */}
-                        {serverMode === 'local' ? (
+                        {/* --- ACTION BUTTONS (Stream/Download) --- */}
+                        {item.source !== 'cinecli' && (
                             <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
                                 <button className="btn btn-primary" onClick={handleStreamClick} style={{ flex: 1 }}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                                    </svg>
                                     Stream Now
                                 </button>
-                                {/* Only show download for MovieBox content, not HiAnime */}
                                 {item.source !== 'hianime' && (
-                                    <button className="btn btn-glass" onClick={handleDownloadClick} style={{ flex: 1 }}>
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                            <polyline points="7 10 12 15 17 10"></polyline>
-                                            <line x1="12" y1="15" x2="12" y2="3"></line>
-                                        </svg>
+                                    <button className="btn btn-glass" onClick={() => handleDownloadClick()} style={{ flex: 1 }}>
                                         Download
                                     </button>
                                 )}
                             </div>
-                        ) : (
-                            <div style={{
-                                background: 'rgba(255, 193, 7, 0.1)',
-                                border: '1px solid rgba(255, 193, 7, 0.3)',
-                                padding: '1.5rem',
-                                borderRadius: 'var(--radius-md)',
-                                textAlign: 'center',
-                                marginTop: '1.5rem'
-                            }}>
-                                <p style={{ margin: 0, color: 'rgba(255, 193, 7, 0.9)' }}>
-                                    Switch to Local Server to stream or download
-                                </p>
-                            </div>
                         )}
+
                     </div>
                 </div>
             </div>

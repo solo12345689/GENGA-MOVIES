@@ -205,7 +205,14 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack }) =>
 
                 if (activeSource === 'moviebox') {
                     if (data.status === 'success' && data.url) {
-                        setStreamUrl(data.url.startsWith('http') ? data.url : `${API_BASE}${data.url}`);
+                        let finalUrl = data.url;
+                        // Force proxy for external URLs to avoid CORS
+                        if (finalUrl.startsWith('http') && !finalUrl.includes(API_BASE)) {
+                            finalUrl = `${API_BASE}/api/proxy/stream?url=${encodeURIComponent(finalUrl)}`;
+                        } else if (!finalUrl.startsWith('http')) {
+                            finalUrl = `${API_BASE}${finalUrl}`;
+                        }
+                        setStreamUrl(finalUrl);
                         setStreamType('hls');
                     } else throw new Error(data.message || "Failed to get stream");
                 } else {
