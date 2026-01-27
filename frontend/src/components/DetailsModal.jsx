@@ -345,7 +345,8 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
                         )}
 
                         {/* --- ACTION BUTTONS (Stream/Download) --- */}
-                        {item.source !== 'cinecli' && (
+                        {/* Only show stream/download if in LOCAL mode, as requested */}
+                        {item.source !== 'cinecli' && serverMode === 'local' && (
                             <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
                                 <button className="btn btn-primary" onClick={handleStreamClick} style={{ flex: 1 }}>
                                     Stream Now

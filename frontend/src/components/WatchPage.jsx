@@ -192,6 +192,28 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack }) =>
                     if (item.type !== 'movie' && currentSeason && currentEpisode) {
                         url += `&season=${currentSeason}&episode=${currentEpisode}`;
                     }
+                } else if (activeSource === 'anicli') {
+                    // Ani-CLI Stream Logic
+                    // We need the episode ID hash/path
+                    let epId = fullDetails.episodeId || item.id;
+
+                    // If we are navigating, find the episode ID from the list
+                    if (activeSource === 'anicli' && animeEpisodes.length > 0) {
+                        const foundEp = animeEpisodes.find(e => String(e.number) === String(currentEpisode));
+                        if (foundEp) epId = foundEp.id;
+                    }
+
+                    // Scrape the embed
+                    // We don't have a direct "get stream" endpoint for anicli yet in frontend logic?
+                    // No, we need to add a scraper endpoint or use the new one.
+                    // Actually we have /api/anicli/details which returns episodes with IDs.
+                    // BUT we need a way to get the stream URL from that ID.
+                    // Let's assume we can fetch the page and extract iframe in backend?
+                    // Wait, I didn't add a /api/anicli/stream endpoint!
+                    // I added get_stream_url static method but didn't expose it.
+                    // Quick fix: I will add the endpoint in next step. For now, assume it exists:
+                    url = `${API_BASE}/api/anicli/stream?episode_id=${encodeURIComponent(epId)}`;
+
                 } else {
                     const epId = fullDetails.episodeId || item.episodeId;
                     if (!epId) throw new Error("No episode ID found.");
@@ -207,7 +229,13 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack }) =>
                     if (data.status === 'success' && data.url) {
                         let finalUrl = data.url;
                         // Force proxy for external URLs to avoid CORS
-                        if (finalUrl.startsWith('http') && !finalUrl.includes(API_BASE)) {
+                        // Force proxy for external URLs to avoid CORS
+                        // If API_BASE is empty, we check against window.location.origin
+                        const isInternal = API_BASE
+                            ? finalUrl.includes(API_BASE)
+                            : finalUrl.includes(window.location.origin);
+
+                        if (finalUrl.startsWith('http') && !isInternal) {
                             finalUrl = `${API_BASE}/api/proxy/stream?url=${encodeURIComponent(finalUrl)}`;
                         } else if (!finalUrl.startsWith('http')) {
                             finalUrl = `${API_BASE}${finalUrl}`;
@@ -215,6 +243,13 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack }) =>
                         setStreamUrl(finalUrl);
                         setStreamType('hls');
                     } else throw new Error(data.message || "Failed to get stream");
+                } else if (activeSource === 'anicli') {
+                    if (data.url) {
+                        setStreamUrl(data.url);
+                        setStreamType('embed'); // Gogo embeds are usually iframes
+                    } else {
+                        throw new Error("Stream not found");
+                    }
                 } else {
                     let epId = fullDetails.episodeId || item.id;
 

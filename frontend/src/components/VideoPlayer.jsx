@@ -116,6 +116,7 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
         };
     }, [url, autoPlay, showNext, onNext]);
 
+
     const resetControlsTimeout = () => {
         setShowControls(true);
         if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);

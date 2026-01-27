@@ -13,6 +13,7 @@ from moviebox_api.extractor._core import ItemJsonDetailsModel
 from moviebox_api.extractor.models.json import SubjectModel, SubjectTrailerModel
 from moviebox_api.models import SearchResultsItem
 from cinecli_service import CineCLIService
+from mal_service import MALService
 from typing import Optional, Union, get_args, get_origin
 import pydantic
 import asyncio
@@ -509,10 +510,12 @@ async def get_homepage_content() -> dict:
                             subject_type = item.get('subjectType', 1)  # Default to movie if missing
                             
                             # Determine content type
-                            # Check if it's anime based on subjectType or group title
+                            # STRICTER ANIME CHECK: Only if explicitly type 3 or has "anime" in text
+                            # "Hindi" and "Urdu" checks were causing false positives for Indian movies.
+                            normalized_title = title.lower()
                             is_anime = (subject_type == 3 or 
-                                       any(k in group_title.lower() for k in ['anime', 'hindi', 'urdu']) or
-                                       any(k in title.lower() for k in ['[hindi]', '[urdu]', '[tamil]', '[telugu]']))
+                                       'anime' in normalized_title or
+                                       'myanimelist' in normalized_title)
                             
                             if is_anime:
                                 it_type = "anime"
@@ -778,6 +781,17 @@ async def details(item_id: str) -> dict:
             
             response["seasons"] = seasons_data
             print(f"[INFO] Returning {len(seasons_data)} seasons for {item_type}: {response.get('title', 'Unknown')}")
+        
+        # Fetch MAL ID for anime (for Ani-Skip functionality)
+        if item_type == "anime":
+            try:
+                title = response.get('title', '')
+                mal_id = await MALService.search_mal_id(title)
+                if mal_id:
+                    response["mal_id"] = mal_id
+                    print(f"[INFO] Found MAL ID {mal_id} for anime: {title}")
+            except Exception as e:
+                print(f"[WARNING] Failed to fetch MAL ID: {e}")
             
         return response
     except Exception as e:
@@ -1550,49 +1564,223 @@ async def cinecli_details(movie_id: str) -> dict:
         raise HTTPException(status_code=404, detail="Movie not found")
     return details
 
-@router.get("/proxy/stream")
-async def proxy_stream(url: str, request: Request):
-    """
-    Streams content from a remote URL, forwarding Range headers.
-    Essential for playing videos that have hotlink protection or no CORS.
-    """
-    client = get_http_client()
-    
-    # Forward the Range header if present
-    headers = {}
-    range_header = request.headers.get("range")
-    if range_header:
-        headers["Range"] = range_header
-        
-    # Also spoof User-Agent and Referer to bypass basic protections
-    headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    headers["Referer"] = "https://google.com/" # Generic or specific if known
+# --- Ani-CLI (Allmanga/Gogo) Routes ---
+from anicli_service import AniCliService
 
+@router.get("/anicli/search")
+async def anicli_search(query: str) -> dict:
+    """
+    Search for anime via Ani-CLI (GogoAnime scraper).
+    """
+    results = await AniCliService.search(query)
+    return {"results": results}
+
+@router.get("/anicli/details/{anime_id}")
+async def anicli_details(anime_id: str) -> dict:
+    """
+    Get details and episodes for an Ani-CLI anime.
+    """
+    details = await AniCliService.get_details(anime_id)
+    if not details:
+        raise HTTPException(status_code=404, detail="Anime not found")
+    return details
+
+@router.get("/anicli/stream")
+async def anicli_stream(episode_id: str) -> dict:
+    """
+    Get stream URL (embed) for an Ani-CLI episode.
+    """
+    url = await AniCliService.get_stream_url(episode_id)
+    if not url:
+        raise HTTPException(status_code=404, detail="Stream not found")
+    return {"url": url}
+
+@router.get("/anicli/home")
+async def anicli_home() -> dict:
+    """
+    Get homepage content for Ani-CLI (recent releases).
+    """
+    results = await AniCliService.get_homepage()
+    return {"results": results}
+
+
+@router.get("/proxy-stream")
+async def proxy_stream(request: Request, url: str, source: str = None):
+    """
+    Proxies a stream URL through the backend in a single pass.
+    Bypasses 403s and supports range requests via browser headers.
+    """
+    # Cycle through headers until success
+    candidates = get_source_headers(url, source)
+    
+    # Forward Range from browser
+    client_range = request.headers.get('range')
+    
+    # User Request: Fix Format Error (Client closing too early)
+    # We must NOT use 'async with' because StreamingResponse needs the client open!
+    client = httpx.AsyncClient(verify=False, follow_redirects=True)
+    
     try:
-        req = client.build_request("GET", url, headers=headers)
-        r = await client.send(req, stream=True)
-        
-        # Prepare response headers
-        response_headers = {
-            "Content-Type": r.headers.get("Content-Type", "video/mp4"),
-            "Accept-Ranges": "bytes",
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "Range"
-        }
-        
-        if "Content-Length" in r.headers:
-            response_headers["Content-Length"] = r.headers["Content-Length"]
-        if "Content-Range" in r.headers:
-            response_headers["Content-Range"] = r.headers["Content-Range"]
-            
-        return StreamingResponse(
-            r.aiter_bytes(), 
-            status_code=r.status_code, 
-            headers=response_headers,
-            background=asyncio.create_task(r.aclose()) # Ensure client closes on finish
-        )
+        last_error = None
+        for headers in candidates:
+            if client_range:
+                headers['Range'] = client_range
+
+            try:
+                # Check if this is an HLS request
+                # Combine robust checks: URL extension OR Content-Type (from previous check, but here we check URL first optimization)
+                is_m3u8 = url.split("?")[0].endswith(".m3u8")
+                
+                if is_m3u8:
+                    # For playlists, we download and REWRITE absolute URLs to proxy through US
+                    resp = await client.get(url, headers=headers, follow_redirects=True, timeout=15.0)
+                    if resp.status_code != 200:
+                        last_error = f"Source returned {resp.status_code}"
+                        continue
+                    
+                    content = resp.text
+                    base_url = str(resp.url).rsplit('/', 1)[0]
+                    lines = content.splitlines()
+                    new_lines = []
+                    
+                    # Use the endpoint that this function is mounted on
+                    proxy_base = f"{request.url.scheme}://{request.url.netloc}/api/proxy-stream"
+                    
+                    for line in lines:
+                        line = line.strip()
+                        if not line:
+                            new_lines.append(line)
+                            continue
+                        
+                        if line.startswith("#"):
+                            if "URI=" in line:
+                                import re
+                                def wrap_uri(match):
+                                    uri = match.group(2)
+                                    if not uri.startswith("http"):
+                                        uri = f"{base_url}/{uri}"
+                                    return f'{match.group(1)}="{proxy_base}?url={quote(uri)}&source={source or ""}"'
+                                line = re.sub(r'(URI)=["\']([^"\']+)["\']', wrap_uri, line)
+                            new_lines.append(line)
+                        else:
+                            target_url = line
+                            if not target_url.startswith("http"):
+                                target_url = f"{base_url}/{target_url}"
+                            proxied_url = f"{proxy_base}?url={quote(target_url)}&source={source or ''}"
+                            new_lines.append(proxied_url)
+                    
+                    rewritten_content = "\n".join(new_lines)
+                    
+                    # Close client since we are done
+                    await client.aclose()
+                    
+                    return Response(
+                        content=rewritten_content,
+                        media_type="application/vnd.apple.mpegurl",
+                        headers={
+                            "Access-Control-Allow-Origin": "*",
+                            "X-Proxy-Status": "Rewritten-M3U8"
+                        }
+                    )
+
+                # Not M3U8 -> Standard Streaming Proxy
+                req = client.build_request("GET", url, headers=headers)
+                resp = await client.send(req, stream=True, follow_redirects=True)
+                
+                # Check if Content-Type indicates M3U8 even if extension didn't (Second Chance)
+                ct = resp.headers.get("Content-Type", "").lower()
+                if "mpegurl" in ct or "m3u8" in ct:
+                    # It IS M3U8, but we started streaming it.
+                    # We need to read it and rewrite.
+                    content = await resp.read() # Read all
+                    await resp.aclose() # Close stream
+                    
+                    text = content.decode('utf-8', errors='ignore')
+                    base_url = str(resp.url).rsplit('/', 1)[0]
+                    lines = text.splitlines()
+                    new_lines = []
+                    proxy_base = f"{request.url.scheme}://{request.url.netloc}/api/proxy-stream"
+                    
+                    import re
+                    for line in lines:
+                        line = line.strip()
+                        if not line:
+                            new_lines.append(line)
+                            continue
+                        if line.startswith("#"):
+                            if "URI=" in line:
+                                def wrap_uri(match):
+                                    uri = match.group(2)
+                                    if not uri.startswith("http"):
+                                        uri = f"{base_url}/{uri}"
+                                    return f'{match.group(1)}="{proxy_base}?url={quote(uri)}&source={source or ""}"'
+                                line = re.sub(r'(URI)=["\']([^"\']+)["\']', wrap_uri, line)
+                            new_lines.append(line)
+                        else:
+                            target_url = line
+                            if not target_url.startswith("http"):
+                                target_url = f"{base_url}/{target_url}"
+                            proxied_url = f"{proxy_base}?url={quote(target_url)}&source={source or ''}"
+                            new_lines.append(proxied_url)
+                            
+                    rewritten_content = "\n".join(new_lines)
+                    await client.aclose()
+                    
+                    return Response(
+                        content=rewritten_content,
+                        media_type="application/vnd.apple.mpegurl",
+                        headers={
+                            "Access-Control-Allow-Origin": "*",
+                            "X-Proxy-Status": "Rewritten-M3U8-CT"
+                        }
+                    )
+                
+                if resp.status_code >= 400:
+                    print(f"[PROXY ERROR] {resp.status_code} for {url[:50]}")
+                    await resp.aclose()
+                    last_error = f"Source returned {resp.status_code}"
+                    continue
+                
+                # Success!
+                excluded_headers = ["content-encoding", "content-length", "transfer-encoding", "connection", "keep-alive", "content-disposition"]
+                res_headers = {k: v for k, v in resp.headers.items() if k.lower() not in excluded_headers}
+                res_headers.update({
+                    "Access-Control-Allow-Origin": "*",
+                    "Connection": "keep-alive",
+                    "X-Proxy-Status": "One-Shot"
+                })
+                if "Content-Length" in resp.headers:
+                    res_headers["Content-Length"] = resp.headers["Content-Length"]
+
+                from starlette.background import BackgroundTask
+                
+                async def cleanup():
+                    await resp.aclose()
+                    await client.aclose()
+
+                return StreamingResponse(
+                    resp.aiter_raw(),
+                    status_code=resp.status_code,
+                    headers=res_headers,
+                    background=BackgroundTask(cleanup)
+                )
+
+            except Exception as e:
+                print(f"[PROXY ATTEMPT FAILED] {e} for {url[:50]}")
+                last_error = str(e)
+                continue
+                
+        # If we exit loop without returning
+        await client.aclose()
+        raise HTTPException(status_code=502, detail=f"Proxy failed: {last_error}")
+
     except Exception as e:
-        print(f"Proxy Stream Error: {e}")
+        # Fallback closure
+        if 'client' in locals():
+            await client.aclose()
+        print(f"[PROXY FATAL] {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/proxy/download")
@@ -1619,6 +1807,22 @@ async def proxy_download(url: str, filename: str = "download.mp4"):
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/anime/skip-times")
+async def get_skip_times(mal_id: int, episode_number: float):
+    """
+    Proxies request to AniSkip API to get intro/outro timestamps.
+    """
+    url = f"https://api.aniskip.com/v2/skip-times/{mal_id}/{episode_number}?types[]=op&types[]=ed&episodeLength=0"
+    client = get_http_client()
+    try:
+        resp = await client.get(url, timeout=5.0)
+        if resp.status_code == 200:
+            return resp.json()
+        return {"found": False}
+    except Exception as e:
+        print(f"AniSkip error: {e}")
+        return {"found": False}
 
 @router.get("/system/status")
 async def system_status():

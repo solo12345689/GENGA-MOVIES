@@ -8,7 +8,16 @@ import './styles/index.css';
 
 // Auto-detect local server IP
 const detectLocalServer = async (onProgress) => {
-    const hostname = window.location.hostname;
+    // Check relative path first (for Cloudflare Tunnels / Proxy)
+    try {
+        const res = await fetch('/api/health');
+        if (res.ok) {
+            console.log('Found backend on relative path');
+            return ''; // Empty string for relative path
+        }
+    } catch (e) {
+        // Ignore
+    }
 
     // Check specific IP and port
     const checkIP = async (ip, port = 8000) => {
@@ -16,7 +25,15 @@ const detectLocalServer = async (onProgress) => {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 500); // 500ms timeout
 
-            const response = await fetch(`http://${ip}:${port}/api/health`, {
+            // If checking localhost/IP, use http. 
+            // If checking a domain (tunnel), we might need https, but here we scan local network so http is fine usually.
+            // But if 'ip' is actually a hostname, act smart.
+            let protocol = 'http';
+            if (window.location.protocol === 'https:' && ip !== 'localhost' && !ip.match(/^\d+\./)) {
+                protocol = 'https';
+            }
+
+            const response = await fetch(`${protocol}://${ip}:${port}/api/health`, {
                 method: 'GET',
                 signal: controller.signal
             });
@@ -89,7 +106,8 @@ function App() {
     });
 
     const [localServerURL, setLocalServerURL] = useState(() => {
-        return localStorage.getItem('moviebox_local_ip') || 'http://localhost:8000';
+        const saved = localStorage.getItem('moviebox_local_ip');
+        return saved !== null ? saved : 'http://localhost:8000';
     });
 
     const [scanningStatus, setScanningStatus] = useState('');
@@ -161,7 +179,7 @@ function App() {
         setServerStatus(serverMode === 'cloud' ? 'operational' : 'operational');
 
         const fetchHomepage = async () => {
-            if (!API_BASE) return;
+            if (API_BASE === null) return;
 
             // Don't fetch homepage if we are in 'cinecli' or search mode (unless implemented)
             if (activeSource === 'cinecli') {
@@ -222,7 +240,9 @@ function App() {
     React.useEffect(() => {
         // WebSocket URL needs to match the current API_BASE
         // Replace http/https with ws/wss
-        const wsUrl = API_BASE.replace(/^http/, 'ws') + '/api/ws';
+        const wsUrl = API_BASE
+            ? API_BASE.replace(/^http/, 'ws') + '/api/ws'
+            : (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/api/ws';
 
         let ws;
         try {
@@ -272,6 +292,7 @@ function App() {
             } else if (activeSource === 'cinecli') {
                 endpoint = `/api/cinecli/search?query=${encodeURIComponent(query)}`;
             }
+
 
             const res = await fetch(`${API_BASE}${endpoint}`);
             const data = await res.json();
@@ -325,6 +346,15 @@ function App() {
                     ...details,
                     source: 'cinecli'
                 });
+            } else if (item.source === 'anicli') {
+                const res = await fetch(`${API_BASE}/api/anicli/details/${item.id}`);
+                const details = await res.json();
+                setSelectedItem({
+                    ...item,
+                    ...details,
+                    source: 'anicli',
+                    type: 'anime'
+                });
             } else if (item.source !== 'hianime') {
                 const res = await fetch(`${API_BASE}/api/details/${item.id}`);
                 const details = await res.json();
@@ -371,38 +401,48 @@ function App() {
     };
 
     const handleDownload = async (item, season = null, episode = null, url = null) => {
-        // If a direct URL is provided (e.g. from CineCLI magnet or explicit file), use it
+        // If we already have a direct URL (e.g. from CineCLI magnet or explicit file)
         if (url) {
-            window.location.href = url; // Trigger browser download/magnet
+            window.location.href = url;
             return;
         }
 
-        // For MovieBox, use the Proxy Download
+        // For MovieBox items, we need to resolve the stream URL first
         try {
-            // We need to resolve the stream URL first to download it
-            // This is a bit complex for MovieBox items since we don't have the URL handy here without fetching.
-            // But let's assume we want to use the OLD backend downloader for now for MovieBox if no URL.
-            // OR we can try to fetch the stream url then redirect.
+            // 1. Fetch the stream URL from backend
+            let streamUrl = null;
 
-            // Fallback to old behavior for now unless we are in WatchPage
-            let backendUrl = `${API_BASE}/api/download?`;
-            if (item.id) {
-                backendUrl += `id=${encodeURIComponent(item.id)}&`;
+            // Construct args for details/stream fetch
+            let queryUrl = `${API_BASE}/api/details/${item.id}`; // Fallback to details if no dedicated stream resolver endpoint exposed cleanly
+
+            // Actually, we can use the same logic as WatchPage: call /api/details to get streams?
+            // Or better: use the /api/stream endpoint if it exists, or just reuse the logic.
+            // Let's assume we can get the stream url by calling the provider.
+            // Since we don't have a clean "get_stream_url" in frontend, we'll hit the /api/details again or similar.
+
+            // SIMPLER APPROACH: Redirect to a new backend endpoint that handles resolution + download?
+            // OR: Just alert user for now if we can't easily get URL.
+
+            // Let's try to fetch details which usually contains 'streams' or 'sources'.
+            const res = await fetch(`${API_BASE}/api/details/${item.id}`);
+            const data = await res.json();
+
+            if (data.streams && data.streams.length > 0) {
+                streamUrl = data.streams[0].url;
+            } else if (data.sources && data.sources.length > 0) {
+                streamUrl = data.sources[0].url;
             }
-            backendUrl += `query=${encodeURIComponent(item.title)}`;
-            if (season && episode) {
-                backendUrl += `&season=${season}&episode=${episode}`;
+
+            if (streamUrl) {
+                // 2. Redirect to Proxy Download
+                const proxyUrl = `${API_BASE}/api/proxy/download?url=${encodeURIComponent(streamUrl)}&filename=${encodeURIComponent(item.title + '.mp4')}`;
+                window.location.href = proxyUrl;
+            } else {
+                alert("Could not resolve a download link for this item.");
             }
 
-            // Start download in background (Server side)
-            fetch(backendUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            }).catch(err => console.error("Download failed", err));
-
-            alert('Server Download started');
         } catch (err) {
-            console.error("Download failed", err);
+            console.error("Download resolution failed", err);
             alert("Failed to start download");
         }
     };
@@ -587,8 +627,8 @@ function App() {
                                                 gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
                                                 gap: '2rem'
                                             }}>
-                                                {group.items.map((item) => (
-                                                    <MovieCard key={item.id} movie={item} onClick={handleItemClick} />
+                                                {group.items.map((item, idx) => (
+                                                    <MovieCard key={`${item.id}-${index}-${idx}`} movie={item} onClick={handleItemClick} />
                                                 ))}
                                             </div>
                                         </div>
@@ -600,6 +640,11 @@ function App() {
                                         <div>
                                             <h3>CineCLI Integration Ready</h3>
                                             <p>Search for torrents using the search bar above.</p>
+                                        </div>
+                                    ) : activeSource === 'anicli' ? (
+                                        <div>
+                                            <h3>Ani-CLI (Allmanga) Ready</h3>
+                                            <p>Search for anime via the terminal-style scraper.</p>
                                         </div>
                                     ) : (
                                         <>
@@ -662,22 +707,19 @@ function App() {
                 )
             }
 
-            {/* Manual IP Configuration Modal */}
+            {/* Manual IP Modal */}
             {showManualIP && (
                 <div className="modal-backdrop" onClick={() => setShowManualIP(false)}>
-                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', padding: '2rem' }}>
-                        <h3 style={{ marginTop: 0 }}>Configure Server IP</h3>
-                        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-                            If auto-detection fails, enter your computer's local IP address manually.
-                            (e.g., 192.168.31.232)
-                        </p>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+                        <h3 style={{ marginTop: 0 }}>Manual IP</h3>
+                        <p style={{ color: 'var(--text-muted)' }}>Enter local server IP (e.g., 192.168.1.5:8000) or Cloudflare URL.</p>
 
                         <div style={{ marginBottom: '1.5rem' }}>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Server IP Address</label>
+                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Server URL</label>
                             <input
                                 type="text"
                                 className="input-glass"
-                                placeholder="192.168.x.x:8000 or :8080"
+                                placeholder="http://192.168.x.x:8000 or https://tunnel.com"
                                 value={manualIPInput}
                                 onChange={(e) => setManualIPInput(e.target.value)}
                                 style={{ width: '100%', padding: '0.8rem' }}
@@ -696,27 +738,50 @@ function App() {
                                 className="btn btn-primary"
                                 onClick={() => {
                                     if (manualIPInput) {
+                                        // Sanitize URL
                                         let url = manualIPInput.trim();
 
-                                        // Add http:// if missing
+                                        // Auto-add protocol if missing
                                         if (!url.startsWith('http')) {
-                                            url = 'http://' + url;
+                                            // Default to https for tunnels/domains, http for IPs/localhost
+                                            if (url.includes('.') && !url.match(/^\d+\./) && !url.includes('localhost')) {
+                                                url = 'https://' + url;
+                                            } else {
+                                                url = 'http://' + url;
+                                            }
                                         }
 
-                                        // Helper to find correct port
-                                        const findBackendPort = async (baseUrl) => {
-                                            const ip = baseUrl.split('://')[1].split(':')[0];
+                                        // Cloudflare Tunnel specific fix:
+                                        // If using trycloudflare.com, FORCE https and REMOVE wacky ports like 8080/8000 
+                                        // because Tunnels usually accept connection on 80/443 and forward internally.
+                                        // Also remove trailing slash.
+                                        if (url.endsWith('/')) url = url.slice(0, -1);
 
+                                        if (url.includes('trycloudflare.com')) {
+                                            if (url.startsWith('http://')) url = url.replace('http://', 'https://');
+                                            // Strip port if it's 8080 or 8000
+                                            url = url.replace(/:8080$/, '').replace(/:8000$/, '');
+                                        }
+
+                                        const findBackendPort = async (baseUrl) => {
+                                            // Remove port and try scanning 8000, 8080
+                                            const base = baseUrl.replace(/:\d+$/, '');
                                             const check = async (port) => {
                                                 const controller = new AbortController();
                                                 const id = setTimeout(() => controller.abort(), 1000);
                                                 try {
-                                                    const res = await fetch(`http://${ip}:${port}/api/health`, { signal: controller.signal });
+                                                    const res = await fetch(`${base}:${port}/api/health`, { signal: controller.signal });
                                                     clearTimeout(id);
-                                                    if (res.ok) return `http://${ip}:${port}`;
+                                                    if (res.ok) return `${base}:${port}`;
                                                 } catch (e) { }
                                                 return null;
                                             };
+
+                                            // For Tunnels, try NO port first (port 443/80 implicit)
+                                            try {
+                                                const res = await fetch(`${base}/api/health`);
+                                                if (res.ok) return base;
+                                            } catch (e) { }
 
                                             const port8080 = await check(8080);
                                             if (port8080) return port8080;
@@ -746,40 +811,30 @@ function App() {
                                                 .catch(() => alert(`Connected to ${targetUrl} but unreachable.`));
                                         };
 
-                                        // Handle Frontend Port (5173) copy-paste
-                                        if (url.includes(':5173')) {
+                                        // If explicit port set, check if it's a Tunnel and strip it if needed
+                                        if (url.includes('trycloudflare.com') && (url.includes(':8080') || url.includes(':8000'))) {
                                             findBackendPort(url).then(foundUrl => {
-                                                if (foundUrl) {
-                                                    setFoundUrl(foundUrl);
-                                                } else {
-                                                    // Fallback to 8080 if detection fails
-                                                    const fallback = url.replace(':5173', ':8080');
-                                                    setFoundUrl(fallback);
-                                                }
+                                                setFoundUrl(foundUrl || url);
                                             });
                                             return;
                                         }
 
-                                        // If no port specified
-                                        else if ((url.match(/:/g) || []).length < 2) {
+                                        // Handle Frontend Port (5173) copy-paste - usually local
+                                        if (url.includes(':5173')) {
+                                            findBackendPort(url).then(foundUrl => setFoundUrl(foundUrl || url.replace(':5173', ':8080')));
+                                            return;
+                                        }
+
+                                        // If no port specified or it is a tunnel
+                                        if ((url.match(/:/g) || []).length < 2 || url.includes('trycloudflare.com')) {
                                             findBackendPort(url).then(foundUrl => {
-                                                setFoundUrl(foundUrl || (url + ':8080'));
+                                                setFoundUrl(foundUrl || (url.includes('trycloudflare.com') ? url : url + ':8080'));
                                             });
                                             return;
                                         }
 
                                         // Explicit port entered - just use it
                                         setFoundUrl(url);
-
-                                        // Test connection immediately
-                                        fetch(`${url}/api/health`)
-                                            .then(res => {
-                                                if (res.ok) alert(`Successfully connected to ${url}`);
-                                                else throw new Error(res.statusText);
-                                            })
-                                            .catch(err => {
-                                                alert(`Saved ${url}, but connection failed: ${err.message}. \n\nCheck Windows Firewall!`);
-                                            });
                                     }
                                 }}
                             >
@@ -789,7 +844,6 @@ function App() {
                     </div>
                 </div>
             )}
-
             {/* Watch History Modal */}
             {showHistoryModal && (
                 <div className="modal-backdrop" onClick={() => setShowHistoryModal(false)}>
