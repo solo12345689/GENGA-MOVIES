@@ -76,8 +76,10 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack }) =>
         if (!manualId) return;
         // Use the native embed link with the manually entered ID
         const megaplayUrl = `https://megaplay.buzz/stream/s-2/${manualId}/${animeLanguage}`;
-        console.log("[WatchPage] Manual Override:", megaplayUrl);
-        setStreamUrl(megaplayUrl);
+        const proxyUrl = `${API_BASE}/api/iframe-proxy?url=${encodeURIComponent(megaplayUrl)}`;
+
+        console.log("[WatchPage] Manual Override (Proxy):", megaplayUrl);
+        setStreamUrl(proxyUrl);
         setStreamType('embed');
         setStreamError(null);
         setLoadingStream(false);
@@ -278,8 +280,10 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack }) =>
                     // User Request: "user does not enter... it automaticaly enter episode id"
                     if (numericId && /^\d+$/.test(numericId)) {
                         const megaplayUrl = `https://megaplay.buzz/stream/s-2/${numericId}/${animeLanguage}`;
-                        console.log("[WatchPage] Auto-Constructing Megaplay URL with ID:", numericId);
-                        setStreamUrl(megaplayUrl);
+                        const proxyUrl = `${API_BASE}/api/iframe-proxy?url=${encodeURIComponent(megaplayUrl)}`;
+
+                        console.log("[WatchPage] Auto-Constructing Megaplay URL with ID (Proxy):", numericId);
+                        setStreamUrl(proxyUrl);
                         setStreamType('embed');
                         setLoadingStream(false);
                         return; // Stop here. Do not fetch API sources (which return unwanted HLS).
@@ -311,7 +315,8 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack }) =>
                         // If API fails, maybe THEN try the shortcut?
                         if (numericId) {
                             const megaplayUrl = `https://megaplay.buzz/stream/s-2/${numericId}/${animeLanguage}`;
-                            setStreamUrl(megaplayUrl);
+                            const proxyUrl = `${API_BASE}/api/iframe-proxy?url=${encodeURIComponent(megaplayUrl)}`;
+                            setStreamUrl(proxyUrl);
                             setStreamType('embed');
                         } else {
                             throw new Error("No sources found.");
@@ -338,20 +343,29 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack }) =>
 
     return (
         <div style={{ position: 'fixed', inset: 0, background: '#0a0a0f', zIndex: 200, display: 'flex', flexDirection: 'column', color: '#fff', fontFamily: "'Inter', sans-serif" }}>
-            <div style={{ height: '60px', padding: '0 2rem', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', background: 'rgba(10,10,15,0.95)', zIndex: 30 }}>
+            <div style={{ height: '60px', padding: '0 1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', background: 'rgba(10,10,15,0.95)', zIndex: 30, flexShrink: 0 }}>
                 <button onClick={onBack} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', padding: '0.5rem 1rem', borderRadius: '20px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', fontWeight: '500' }}>
                     <span>←</span> Back
                 </button>
-                <div style={{ marginLeft: '1.5rem', display: 'flex', flexDirection: 'column' }}>
-                    <span style={{ fontWeight: '600', fontSize: '1rem' }}>{item.title}</span>
-                    <span style={{ fontSize: '0.8rem', opacity: 0.5 }}>
+                <div style={{ marginLeft: '1rem', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                    <span style={{ fontWeight: '600', fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title}</span>
+                    <span style={{ fontSize: '0.75rem', opacity: 0.5 }}>
                         {activeSource === 'moviebox' ? `S${currentSeason} E${currentEpisode}` : `Episode ${currentEpisode}`}
                     </span>
                 </div>
             </div>
 
             <div style={{ flex: 1, display: 'flex', flexDirection: isMobile ? 'column' : 'row', overflow: 'hidden' }}>
-                <div style={{ flex: isMobile ? '0 0 auto' : 1, height: isMobile ? 'auto' : '100%', aspectRatio: isMobile ? '16/9' : 'auto', position: 'relative', background: 'black' }}>
+                {/* Video Player Container */}
+                <div style={{
+                    flex: isMobile ? '0 0 auto' : 1,
+                    width: '100%',
+                    aspectRatio: isMobile ? '16/9' : 'auto',
+                    height: isMobile ? 'auto' : '100%',
+                    position: 'relative',
+                    background: 'black',
+                    zIndex: 20
+                }}>
                     {loadingStream && (
                         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)', zIndex: 10 }}>
                             <div style={{ width: '40px', height: '40px', border: '3px solid rgba(255,255,255,0.1)', borderTopColor: '#6366f1', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
@@ -377,8 +391,17 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack }) =>
                     )}
                 </div>
 
+                {/* Episode List / Sidebar */}
                 {item.type !== 'movie' && (
-                    <div style={{ width: isMobile ? '100%' : '320px', flex: isMobile ? 1 : 'none', background: '#121216', borderLeft: isMobile ? 'none' : '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{
+                        width: isMobile ? '100%' : '320px',
+                        flex: isMobile ? 1 : 'none',
+                        background: '#121216',
+                        borderLeft: isMobile ? 'none' : '1px solid rgba(255,255,255,0.05)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        minHeight: 0 // Crucial for nested scrolling
+                    }}>
                         <div style={{ padding: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Episodes</h3>

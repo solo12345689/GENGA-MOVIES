@@ -1604,6 +1604,48 @@ async def anicli_home() -> dict:
     return {"results": results}
 
 
+@router.get("/iframe-proxy")
+async def iframe_proxy(url: str, request: Request):
+    """
+    Proxies an iframe page (like Megaplay) to bypass Referer checks.
+    Injects <base> tag to ensure relative links (JS/CSS) work.
+    """
+    client = get_http_client()
+    
+    # Get proper headers (referer spoofing)
+    headers = {
+        'User-Agent': DEFAULT_HEADERS['User-Agent'],
+        'Referer': 'https://hianime.to/',
+        'Origin': 'https://hianime.to'
+    }
+    
+    # Specific handling for known providers
+    if "megaplay.buzz" in url:
+        headers['Referer'] = 'https://megaplay.buzz/'
+        headers['Origin'] = 'https://megaplay.buzz'
+        
+    try:
+        resp = await client.get(url, headers=headers, follow_redirects=True)
+        content = resp.text
+        
+        # Inject <base> tag right after <head>
+        base_to_inject = f'<base href="{url}">'
+        if "<head>" in content:
+            content = content.replace("<head>", f"<head>{base_to_inject}", 1)
+        # Fallback for upper case
+        elif "<HEAD>" in content:
+            content = content.replace("<HEAD>", f"<HEAD>{base_to_inject}", 1)
+        else:
+            # If no head, just prepend (browsers are lenient)
+            content = base_to_inject + content
+            
+        return Response(content=content, media_type="text/html")
+        
+    except Exception as e:
+        print(f"Iframe proxy failed: {e}")
+        return Response(content=f"Proxy Error: {e}", status_code=500)
+
+
 @router.get("/proxy-stream")
 async def proxy_stream(request: Request, url: str, source: str = None):
     """
