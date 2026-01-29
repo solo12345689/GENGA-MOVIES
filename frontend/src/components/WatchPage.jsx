@@ -22,6 +22,7 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack }) =>
 
     // Mobile Responsiveness
     const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
+    const [showEpisodes, setShowEpisodes] = useState(true);
 
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth <= 1024);
@@ -343,23 +344,43 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack }) =>
 
     return (
         <div style={{ position: 'fixed', inset: 0, background: '#0a0a0f', zIndex: 200, display: 'flex', flexDirection: 'column', color: '#fff', fontFamily: "'Inter', sans-serif" }}>
-            <div style={{ height: '60px', padding: '0 1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', background: 'rgba(10,10,15,0.95)', zIndex: 30, flexShrink: 0 }}>
-                <button onClick={onBack} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', padding: '0.5rem 1rem', borderRadius: '20px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', fontWeight: '500' }}>
-                    <span>←</span> Back
-                </button>
-                <div style={{ marginLeft: '1rem', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                    <span style={{ fontWeight: '600', fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title}</span>
-                    <span style={{ fontSize: '0.75rem', opacity: 0.5 }}>
-                        {activeSource === 'moviebox' ? `S${currentSeason} E${currentEpisode}` : `Episode ${currentEpisode}`}
-                    </span>
+            <div style={{ height: '60px', padding: '0 1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(10,10,15,0.95)', zIndex: 30, flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', overflow: 'hidden', flex: 1 }}>
+                    <button onClick={onBack} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', padding: '0.5rem 1rem', borderRadius: '20px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', fontWeight: '500', flexShrink: 0 }}>
+                        <span>←</span> Back
+                    </button>
+                    <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                        <span style={{ fontWeight: '600', fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title}</span>
+                        <span style={{ fontSize: '0.75rem', opacity: 0.5 }}>
+                            {activeSource === 'moviebox' ? `S${currentSeason} E${currentEpisode}` : `Episode ${currentEpisode}`}
+                        </span>
+                    </div>
                 </div>
+                {item.type !== 'movie' && !isMobile && (
+                    <button
+                        onClick={() => setShowEpisodes(!showEpisodes)}
+                        style={{
+                            background: 'rgba(255,255,255,0.1)',
+                            border: 'none',
+                            color: 'white',
+                            padding: '0.5rem 1rem',
+                            borderRadius: '20px',
+                            cursor: 'pointer',
+                            fontSize: '0.9rem',
+                            fontWeight: '500',
+                            flexShrink: 0
+                        }}
+                    >
+                        {showEpisodes ? 'Hide Episodes' : 'Show Episodes'}
+                    </button>
+                )}
             </div>
 
             <div style={{ flex: 1, display: 'flex', flexDirection: isMobile ? 'column' : 'row', overflow: 'hidden' }}>
                 {/* Video Player Container */}
                 <div style={{
                     flex: isMobile ? '0 0 auto' : 1,
-                    width: '100%',
+                    width: isMobile ? '100%' : 'auto',
                     aspectRatio: isMobile ? '16/9' : 'auto',
                     height: isMobile ? 'auto' : '100%',
                     position: 'relative',
@@ -392,7 +413,7 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack }) =>
                 </div>
 
                 {/* Episode List / Sidebar */}
-                {item.type !== 'movie' && (
+                {item.type !== 'movie' && (isMobile || showEpisodes) && (
                     <div style={{
                         width: isMobile ? '100%' : '320px',
                         flex: isMobile ? 1 : 'none',
