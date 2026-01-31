@@ -761,7 +761,10 @@ function App() {
                     initialSeason={videoPlayerData.season}
                     initialEpisode={videoPlayerData.episode}
                     API_BASE={API_BASE}
-                    onBack={() => { navigate('/'); }}
+                    onBack={() => { 
+                        const src = videoPlayerData.item && videoPlayerData.item.source ? videoPlayerData.item.source : 'moviebox';
+                        navigate(`/details/${videoPlayerData.item.id}?source=${encodeURIComponent(src)}`);
+                    }}
                     preloadedEpisodes={videoPlayerData.animeEpisodes}
                 />
             )}
