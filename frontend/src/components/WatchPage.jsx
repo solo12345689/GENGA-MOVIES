@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import VideoPlayer from './VideoPlayer';
 
-const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack }) => {
+const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, preloadedEpisodes }) => {
     // State
     const [currentSeason, setCurrentSeason] = useState(initialSeason || (item.type === 'movie' ? null : 1));
     const [currentEpisode, setCurrentEpisode] = useState(initialEpisode || (item.type === 'movie' ? null : 1));
@@ -143,10 +143,15 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack }) =>
                         }
                     }
                 } else {
-                    const res = await fetch(`${API_BASE}/api/anime/episodes/${item.id}`);
-                    const data = await res.json();
-                    if (data.status === 200 && data.data && data.data.episodes) {
-                        setAnimeEpisodes(data.data.episodes);
+                    // Use preloaded episodes if provided (from App route loader)
+                    if (preloadedEpisodes && preloadedEpisodes.length > 0) {
+                        setAnimeEpisodes(preloadedEpisodes);
+                    } else {
+                        const res = await fetch(`${API_BASE}/api/anime/episodes/${item.id}`);
+                        const data = await res.json();
+                        if (data.status === 200 && data.data && data.data.episodes) {
+                            setAnimeEpisodes(data.data.episodes);
+                        }
                     }
                 }
             } catch (err) {

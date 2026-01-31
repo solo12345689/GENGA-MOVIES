@@ -391,9 +391,11 @@ function App() {
     const handleStream = async (item, season = null, episode = null) => {
         console.log("[App] handleStream called for:", item.title, "Ep:", episode);
         setSelectedItem(null);
-        // Navigate to watch route; router will prepare player
+        // Navigate to watch route; include source so WatchPage loads correct flow
         const ep = episode ? `?episode=${encodeURIComponent(episode)}` : '';
-        navigate(`/watch/${item.id}${ep}`);
+        const src = item.source || 'moviebox';
+        const sep = ep ? '&' : '?';
+        navigate(`/watch/${item.id}${ep}${ep ? `&source=${encodeURIComponent(src)}` : `?source=${encodeURIComponent(src)}`}`);
     };
 
 
@@ -445,8 +447,31 @@ function App() {
             }
         };
 
-        const loadWatch = async (id, ep) => {
+        const loadWatch = async (id, ep, source = 'moviebox') => {
             try {
+                if (source === 'hianime') {
+                    // HiAnime: fetch details and episodes then set player to use embed flow
+                    let details = {};
+                    try {
+                        const dRes = await fetch(`${API_BASE}/api/anime/details/${id}`);
+                        if (dRes.ok) details = await dRes.json();
+                    } catch (e) { /* ignore */ }
+
+                    let episodes = [];
+                    try {
+                        const eRes = await fetch(`${API_BASE}/api/anime/episodes/${id}`);
+                        const eData = await eRes.json();
+                        if (eData.status === 200 && eData.data) episodes = eData.data.episodes || [];
+                    } catch (e) { /* ignore */ }
+
+                    // Provide enough info for WatchPage to construct embed URL / episodeId mapping
+                    const item = { id, ...details, source: 'hianime' };
+                    setVideoPlayerData({ item, season: null, episode: ep || null, animeEpisodes: episodes });
+                    setSelectedItem(null);
+                    return;
+                }
+
+                // Default MovieBox flow
                 const res = await fetch(`${API_BASE}/api/details/${id}`);
                 if (res.ok) {
                     const details = await res.json();
@@ -481,7 +506,8 @@ function App() {
             const id = pathname.replace('/watch/', '').split('/')[0];
             const params = new URLSearchParams(search);
             const ep = params.get('episode');
-            loadWatch(id, ep);
+            const source = params.get('source') || 'moviebox';
+            loadWatch(id, ep, source);
             return;
         }
     }, [location, API_BASE]);
@@ -716,6 +742,7 @@ function App() {
                     initialEpisode={videoPlayerData.episode}
                     API_BASE={API_BASE}
                     onBack={() => { navigate('/'); }}
+                    preloadedEpisodes={videoPlayerData.animeEpisodes}
                 />
             )}
 
