@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import SearchBar from './components/SearchBar';
 import MovieCard from './components/MovieCard';
 import DetailsModal from './components/DetailsModal';
@@ -335,69 +336,9 @@ function App() {
             console.error("Failed to save history", e);
         }
 
-        setDetailsLoading(true);
-        try {
-            // Unambiguous routing based on source field
-            if (item.source === 'cinecli') {
-                const res = await fetch(`${API_BASE}/api/cinecli/details/${item.id}`);
-                const details = await res.json();
-                setSelectedItem({
-                    ...item,
-                    ...details,
-                    source: 'cinecli'
-                });
-            } else if (item.source === 'anicli') {
-                const res = await fetch(`${API_BASE}/api/anicli/details/${item.id}`);
-                const details = await res.json();
-                setSelectedItem({
-                    ...item,
-                    ...details,
-                    source: 'anicli',
-                    type: 'anime'
-                });
-            } else if (item.source !== 'hianime') {
-                const res = await fetch(`${API_BASE}/api/details/${item.id}`);
-                const details = await res.json();
-
-                // If it's a series, it should have seasons
-                setSelectedItem({
-                    ...item,
-                    ...details,
-                    poster_url: details.poster_url || item.poster_url,
-                    source: 'moviebox',
-                    type: item.type || details.type // Preserve original type (anime/series/movie)
-                });
-            } else {
-                // HiAnime Details & Episodes fetch concurrently
-                let details = {};
-                try {
-                    const detailsRes = await fetch(`${API_BASE}/api/anime/details/${item.id}`);
-                    if (detailsRes.ok) details = await detailsRes.json();
-                } catch (e) { console.error("Details fetch failed", e); }
-
-                let episodes = [];
-                try {
-                    const episodesRes = await fetch(`${API_BASE}/api/anime/episodes/${item.id}`);
-                    const episodesData = await episodesRes.json();
-                    if (episodesData.status === 200 && episodesData.data) {
-                        episodes = episodesData.data.episodes || [];
-                    }
-                } catch (e) { console.error("Episodes fetch failed", e); }
-
-                // Merge details into original item to ensure we never lose title/poster
-                setSelectedItem({
-                    ...item,
-                    ...(details.id ? details : {}),
-                    animeEpisodes: episodes,
-                    type: item.type // Ensure type remains 'anime' or 'anime_movie'
-                });
-            }
-        } catch (err) {
-            console.error("Critical failure in handleItemClick", err);
-            setSelectedItem(item);
-        } finally {
-            setDetailsLoading(false);
-        }
+        // Navigate to details route; router will load details
+        const src = item.source || 'moviebox';
+        navigate(`/details/${item.id}?source=${encodeURIComponent(src)}`);
     };
 
     const handleDownload = async (item, season = null, episode = null, url = null) => {
@@ -450,15 +391,100 @@ function App() {
     const handleStream = async (item, season = null, episode = null) => {
         console.log("[App] handleStream called for:", item.title, "Ep:", episode);
         setSelectedItem(null);
-        setVideoPlayerData({
-            item: item,
-            season: season,
-            episode: episode
-        });
+        // Navigate to watch route; router will prepare player
+        const ep = episode ? `?episode=${encodeURIComponent(episode)}` : '';
+        navigate(`/watch/${item.id}${ep}`);
     };
 
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+    const navigate = useNavigate();
+    const location = useLocation();
+
+    useEffect(() => {
+        // Keep UI in sync with React Router location
+        const pathname = location.pathname || '/';
+        const search = location.search || '';
+
+        const loadDetails = async (id, source) => {
+            setDetailsLoading(true);
+            try {
+                if (source === 'cinecli') {
+                    const res = await fetch(`${API_BASE}/api/cinecli/details/${id}`);
+                    const details = await res.json();
+                    setSelectedItem({ ...details, source: 'cinecli' });
+                } else if (source === 'anicli') {
+                    const res = await fetch(`${API_BASE}/api/anicli/details/${id}`);
+                    const details = await res.json();
+                    setSelectedItem({ ...details, source: 'anicli', type: 'anime' });
+                } else if (source === 'hianime') {
+                    let details = {};
+                    try {
+                        const detailsRes = await fetch(`${API_BASE}/api/anime/details/${id}`);
+                        if (detailsRes.ok) details = await detailsRes.json();
+                    } catch (e) { }
+
+                    let episodes = [];
+                    try {
+                        const episodesRes = await fetch(`${API_BASE}/api/anime/episodes/${id}`);
+                        const episodesData = await episodesRes.json();
+                        if (episodesData.status === 200 && episodesData.data) episodes = episodesData.data.episodes || [];
+                    } catch (e) { }
+
+                    setSelectedItem({ ...(details.id ? details : { id, title: details.title || '' }), animeEpisodes: episodes, type: 'anime', source: 'hianime' });
+                } else {
+                    const res = await fetch(`${API_BASE}/api/details/${id}`);
+                    const details = await res.json();
+                    setSelectedItem({ ...details, source: 'moviebox' });
+                }
+            } catch (e) {
+                console.error('Failed to load details for route', e);
+            } finally {
+                setDetailsLoading(false);
+            }
+        };
+
+        const loadWatch = async (id, ep) => {
+            try {
+                const res = await fetch(`${API_BASE}/api/details/${id}`);
+                if (res.ok) {
+                    const details = await res.json();
+                    setVideoPlayerData({ item: { ...details, id }, season: null, episode: ep || null });
+                    setSelectedItem(null);
+                } else {
+                    setVideoPlayerData({ item: { id }, season: null, episode: ep || null });
+                }
+            } catch (e) {
+                setVideoPlayerData({ item: { id }, season: null, episode: ep || null });
+            }
+        };
+
+        // Route handling
+        if (pathname === '/' || pathname === '') {
+            setSelectedItem(null);
+            setVideoPlayerData(null);
+            return;
+        }
+
+        if (pathname.startsWith('/details/')) {
+            const id = pathname.replace('/details/', '').split('/')[0];
+            const params = new URLSearchParams(search);
+            const source = params.get('source') || 'moviebox';
+            if (!selectedItem || String(selectedItem.id) !== String(id)) {
+                loadDetails(id, source);
+            }
+            return;
+        }
+
+        if (pathname.startsWith('/watch/')) {
+            const id = pathname.replace('/watch/', '').split('/')[0];
+            const params = new URLSearchParams(search);
+            const ep = params.get('episode');
+            loadWatch(id, ep);
+            return;
+        }
+    }, [location, API_BASE]);
 
     return (
         <div className="app" style={{ display: 'flex', flexDirection: 'row', maxWidth: '100vw', overflow: 'hidden' }}>
@@ -665,7 +691,7 @@ function App() {
                 selectedItem && (
                     <DetailsModal
                         item={selectedItem}
-                        onClose={() => setSelectedItem(null)}
+                        onClose={() => { setSelectedItem(null); navigate('/'); }}
                         onDownload={handleDownload}
                         onStream={handleStream}
                         onLanguageChange={(newLanguage) => {
@@ -689,7 +715,7 @@ function App() {
                     initialSeason={videoPlayerData.season}
                     initialEpisode={videoPlayerData.episode}
                     API_BASE={API_BASE}
-                    onBack={() => setVideoPlayerData(null)}
+                    onBack={() => { navigate('/'); }}
                 />
             )}
 
