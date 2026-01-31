@@ -28,7 +28,8 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
     const isSmartTV = (() => {
         try {
             const ua = navigator.userAgent || '';
-            return /SMART-TV|SmartTV|SmartTV|TV|GoogleTV|Android TV|AppleTV|Apple TV|NetCast|BRAVIA|AFT|HbbTV/i.test(ua);
+            // Add common Smart TV / set-top / Jio browser identifiers
+            return /SMART-TV|SmartTV|GoogleTV|Android TV|AndroidTV|AppleTV|Apple TV|NetCast|BRAVIA|AFT|HbbTV|SMARTTV|Set-Top|SetTop|STB|JioBrowser|Jio|JioTV/i.test(ua);
         } catch (e) {
             return false;
         }
@@ -41,7 +42,7 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
         const handleResize = () => setIsMobile(!isSmartTV && window.innerWidth <= 1024);
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
-    }, []);
+    }, [isSmartTV]);
 
     const navigate = useNavigate();
     const location = useLocation();
@@ -408,7 +409,7 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                         </span>
                     </div>
                 </div>
-                {item.type !== 'movie' && !isMobile && (
+                {item.type !== 'movie' && (!isMobile || isSmartTV) && (
                     <button
                         onClick={() => setShowEpisodes(!showEpisodes)}
                         style={{
@@ -468,7 +469,7 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                 </div>
 
                 {/* Episode List / Sidebar */}
-                {item.type !== 'movie' && (isMobile || showEpisodes) && (
+                {item.type !== 'movie' && ((!isMobile || isSmartTV) || showEpisodes) && (
                     <div style={{
                         width: isMobile ? '100%' : '320px',
                         flex: isMobile ? 1 : 'none',
