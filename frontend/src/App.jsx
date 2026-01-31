@@ -389,13 +389,33 @@ function App() {
     };
 
     const handleStream = async (item, season = null, episode = null) => {
-        console.log("[App] handleStream called for:", item.title, "Ep:", episode);
+        console.log("[App] handleStream called for:", item && item.title, "Ep arg:", episode, "itemEp:", item && (item.episodeNo || item.episodeId || item.episode));
+
+        // Determine episode value from explicit arg or from item payload (HiAnime uses episodeNo/episodeId)
+        let epValue = null;
+        if (episode !== null && episode !== undefined) epValue = episode;
+        else if (item && (item.episodeNo !== undefined && item.episodeNo !== null)) epValue = item.episodeNo;
+        else if (item && (item.episode !== undefined && item.episode !== null)) epValue = item.episode;
+
+        const src = (item && item.source) ? item.source : 'moviebox';
+
+        // Pre-populate videoPlayerData so the Watch UI appears immediately (avoid flashing Home)
+        const preload = {
+            item: { ...item, source: src },
+            season: season || null,
+            episode: epValue || null,
+            animeEpisodes: item && item.animeEpisodes ? item.animeEpisodes : null
+        };
+        setVideoPlayerData(preload);
+
+        // Navigate to watch route with episode and source params
+        const params = new URLSearchParams();
+        if (epValue !== null && epValue !== undefined) params.set('episode', String(epValue));
+        params.set('source', src);
+        navigate(`/watch/${item.id}?${params.toString()}`);
+
+        // Close the modal after navigation to avoid onClose navigations interfering
         setSelectedItem(null);
-        // Navigate to watch route; include source so WatchPage loads correct flow
-        const ep = episode ? `?episode=${encodeURIComponent(episode)}` : '';
-        const src = item.source || 'moviebox';
-        const sep = ep ? '&' : '?';
-        navigate(`/watch/${item.id}${ep}${ep ? `&source=${encodeURIComponent(src)}` : `?source=${encodeURIComponent(src)}`}`);
     };
 
 

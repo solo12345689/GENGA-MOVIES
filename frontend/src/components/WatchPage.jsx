@@ -4,8 +4,8 @@ import VideoPlayer from './VideoPlayer';
 
 const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, preloadedEpisodes }) => {
     // State
-    const [currentSeason, setCurrentSeason] = useState(initialSeason || (item.type === 'movie' ? null : 1));
-    const [currentEpisode, setCurrentEpisode] = useState(initialEpisode || (item.type === 'movie' ? null : 1));
+    const [currentSeason, setCurrentSeason] = useState(initialSeason != null ? Number(initialSeason) : (item.type === 'movie' ? null : 1));
+    const [currentEpisode, setCurrentEpisode] = useState(initialEpisode != null ? Number(initialEpisode) : (item.type === 'movie' ? null : 1));
     const [streamUrl, setStreamUrl] = useState(null);
     const [streamType, setStreamType] = useState('hls');
     const [subtitles, setSubtitles] = useState([]);
@@ -20,13 +20,25 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
     // Manual Megaplay ID Override
     const [showManualInput, setShowManualInput] = useState(false);
     const [manualId, setManualId] = useState('');
+    // Retry counter to re-trigger stream fetch without full page reload
+    const [retryCounter, setRetryCounter] = useState(0);
 
     // Mobile Responsiveness
-    const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
+    // Detect Smart TV user agents to avoid mobile-stacked layout on TV devices
+    const isSmartTV = (() => {
+        try {
+            const ua = navigator.userAgent || '';
+            return /SMART-TV|SmartTV|SmartTV|TV|GoogleTV|Android TV|AppleTV|Apple TV|NetCast|BRAVIA|AFT|HbbTV/i.test(ua);
+        } catch (e) {
+            return false;
+        }
+    })();
+
+    const [isMobile, setIsMobile] = useState(!isSmartTV && window.innerWidth <= 1024);
     const [showEpisodes, setShowEpisodes] = useState(true);
 
     useEffect(() => {
-        const handleResize = () => setIsMobile(window.innerWidth <= 1024);
+        const handleResize = () => setIsMobile(!isSmartTV && window.innerWidth <= 1024);
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, []);
@@ -54,6 +66,16 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
         }
         // Only run when episode/season change
     }, [currentEpisode, currentSeason]);
+
+    // Respond to prop changes (when App navigates to a different /watch link)
+    useEffect(() => {
+        if (initialSeason != null && Number(initialSeason) !== currentSeason) {
+            setCurrentSeason(Number(initialSeason));
+        }
+        if (initialEpisode != null && Number(initialEpisode) !== currentEpisode) {
+            setCurrentEpisode(Number(initialEpisode));
+        }
+    }, [initialSeason, initialEpisode]);
 
     const getMaxEpisodes = () => {
         if (activeSource === 'moviebox') {
@@ -370,7 +392,7 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
 
         const timer = setTimeout(fetchStream, 500); // Small debounce
         return () => clearTimeout(timer);
-    }, [currentSeason, currentEpisode, activeSource, item, API_BASE, fullDetails.episodeId, animeLanguage]);
+    }, [currentSeason, currentEpisode, activeSource, item, API_BASE, fullDetails.episodeId, animeLanguage, retryCounter]);
 
     return (
         <div style={{ position: 'fixed', inset: 0, background: '#0a0a0f', zIndex: 200, display: 'flex', flexDirection: 'column', color: '#fff', fontFamily: "'Inter', sans-serif" }}>
@@ -425,7 +447,10 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                     {streamError && (
                         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.9)', zIndex: 11, padding: '20px', gap: '15px' }}>
                             <p style={{ color: '#ef4444', textAlign: 'center' }}>Play Error: {streamError}</p>
-                            <button onClick={() => window.location.reload()} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid #6366f1', color: '#6366f1', borderRadius: '8px', cursor: 'pointer', fontSize: '0.9rem' }}>Retry</button>
+                            <div style={{ display: 'flex', gap: '10px' }}>
+                                <button onClick={() => { setStreamError(null); setRetryCounter(c => c + 1); }} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid #6366f1', color: '#6366f1', borderRadius: '8px', cursor: 'pointer', fontSize: '0.9rem' }}>Retry</button>
+                                <button onClick={() => setShowManualInput(true)} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', color: 'white', borderRadius: '8px', cursor: 'pointer', fontSize: '0.9rem' }}>Enter ID</button>
+                            </div>
                         </div>
                     )}
                     {streamUrl && (
