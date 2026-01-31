@@ -93,9 +93,34 @@ npm run dev -- --host
 ```
 *Access application at: `http://localhost:5173`*
 
----
 
-## ⚖️ Legal Disclaimer
+## 🔁 Client-side Routing (Deep Links)
+
+The frontend is a single-page React application that uses React Router for navigation. By default the app is shipped with a hash-based router (`HashRouter`) so deep links work when hosting the built files on simple static servers or via preview services.
+
+Key routes
+- `/` — Home / Discover view
+- `/details/:id?source=<source>` — Item details modal (source defaults to `moviebox`). Example: `/#/details/dispatches-from-elsewhere-hindi-smkbnADWAJ2?source=moviebox`
+- `/watch/:id?season=<n>&episode=<m>` — Watch page for a given item. Example: `/#/watch/3a594f5d-f540-4236-bfd9-73f7b7c1bfa6?episode=1`
+
+Notes
+- The watch page syncs the currently selected `season` and `episode` into the URL query string so you can copy/paste or bookmark an exact player state.
+- `HashRouter` is used intentionally for compatibility with static hosting. If you prefer clean URLs (no `#`), switch to `BrowserRouter` and configure your server to return `index.html` for unknown paths (SPA fallback).
+
+Testing deep links locally
+1. Run the frontend dev server:
+```bash
+cd frontend
+npm run dev
+```
+2. Open a deep-link in the browser (Vite dev server also serves hash routes):
+```text
+http://localhost:5173/#/watch/<ITEM_ID>?episode=1
+```
+
+Programmatic navigation
+- The app uses `useNavigate()` from `react-router-dom` for internal navigation and replaces history entries when updating episode/season so the back button remains intuitive.
+
 
 This software is for educational and research purposes only. The developers of this project do not host, own, or upload any media content. The application acts solely as a client-side interface for existing third-party APIs. Users are responsible for ensuring their usage complies with all applicable local laws and regulations.
 
