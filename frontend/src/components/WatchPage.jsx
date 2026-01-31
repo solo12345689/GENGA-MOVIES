@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import VideoPlayer from './VideoPlayer';
 
 const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack }) => {
@@ -29,6 +30,30 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack }) =>
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, []);
+
+    const navigate = useNavigate();
+    const location = useLocation();
+
+    // Sync current season/episode with URL search params
+    useEffect(() => {
+        try {
+            // Build new search params
+            const params = new URLSearchParams(location.search || '');
+            if (currentEpisode != null) params.set('episode', String(currentEpisode));
+            else params.delete('episode');
+
+            if (currentSeason != null) params.set('season', String(currentSeason));
+            else params.delete('season');
+
+            const search = params.toString();
+            // Replace the current history entry so navigation doesn't spam back-stack
+            navigate(`${location.pathname}${search ? `?${search}` : ''}`, { replace: true });
+        } catch (e) {
+            // ignore navigation errors
+            console.error('Failed to sync episode to URL', e);
+        }
+        // Only run when episode/season change
+    }, [currentEpisode, currentSeason]);
 
     const getMaxEpisodes = () => {
         if (activeSource === 'moviebox') {
