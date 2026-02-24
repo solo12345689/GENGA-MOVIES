@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import VideoPlayer from './VideoPlayer';
 
@@ -10,7 +10,7 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
     const [streamType, setStreamType] = useState('hls');
     const [subtitles, setSubtitles] = useState([]);
     const [loadingStream, setLoadingStream] = useState(false);
-    const [seasonsData, setSeasonsData] = useState([]); // For MovieBox
+    const [seasonsData, setSeasonsData] = useState(item.seasons || []); // For MovieBox
     const [animeEpisodes, setAnimeEpisodes] = useState([]); // For HiAnime
     const [streamError, setStreamError] = useState(null);
     const [fullDetails, setFullDetails] = useState(item);
@@ -107,7 +107,7 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
 
     const hasNext = !!getNextEpisode();
 
-    const handleNextEpisode = () => {
+    const handleNextEpisode = useCallback(() => {
         const next = getNextEpisode();
         if (next) {
             if (activeSource === 'moviebox') {
@@ -119,7 +119,7 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                 setCurrentEpisode(next.episodeNo);
             }
         }
-    };
+    }, [activeSource, currentEpisode, currentSeason, animeEpisodes, seasonsData]);
 
     const handleManualLoad = () => {
         if (!manualId) return;
@@ -148,22 +148,6 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                     setFullDetails({ ...item, ...data });
                     if (data.seasons) {
                         setSeasonsData(data.seasons);
-
-                        // Auto-detect correct season based on current episode
-                        if (currentEpisode && data.seasons.length > 0) {
-                            let episodeSum = 0;
-                            for (const season of data.seasons) {
-                                const seasonStart = episodeSum + 1;
-                                const seasonEnd = episodeSum + season.max_episodes;
-
-                                if (currentEpisode >= seasonStart && currentEpisode <= seasonEnd) {
-                                    console.log(`[WatchPage] Auto-detected Season ${season.season_number} for Episode ${currentEpisode}`);
-                                    setCurrentSeason(season.season_number);
-                                    break;
-                                }
-                                episodeSum += season.max_episodes;
-                            }
-                        }
                     }
                 } else {
                     // Use preloaded episodes if provided (from App route loader)
@@ -201,9 +185,10 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
     // Fetch Stream URL
     useEffect(() => {
         const fetchStream = async () => {
+            // Avoid clearing streamUrl if we're just retrying or if the URL hasn't been fetched yet
+            // Only clear it if we are actually switching to a new context
             setLoadingStream(true);
             setStreamError(null);
-            setStreamUrl(null);
             setSubtitles([]);
 
             try {
@@ -391,9 +376,9 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
             }
         };
 
-        const timer = setTimeout(fetchStream, 500); // Small debounce
+        const timer = setTimeout(fetchStream, 400); // Slightly faster debounce
         return () => clearTimeout(timer);
-    }, [currentSeason, currentEpisode, activeSource, item, API_BASE, fullDetails.episodeId, animeLanguage, retryCounter]);
+    }, [currentSeason, currentEpisode, activeSource, item.id, item.type, API_BASE, fullDetails.episodeId, animeLanguage, retryCounter]);
 
     return (
         <div style={{ position: 'fixed', inset: 0, background: '#0a0a0f', zIndex: 200, display: 'flex', flexDirection: 'column', color: '#fff', fontFamily: "'Inter', sans-serif" }}>
@@ -469,7 +454,7 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                 </div>
 
                 {/* Episode List / Sidebar */}
-                {item.type !== 'movie' && ((!isMobile || isSmartTV) || showEpisodes) && (
+                {item.type !== 'movie' && (showEpisodes) && (
                     <div style={{
                         width: isMobile ? '100%' : '320px',
                         flex: isMobile ? 1 : 'none',
@@ -494,23 +479,41 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
 
                             {/* Season Selector for MovieBox */}
                             {activeSource === 'moviebox' && seasonsData.length > 0 && (
-                                <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '8px', marginTop: '12px', scrollbarWidth: 'none' }}>
+                                <div style={{
+                                    display: 'flex',
+                                    gap: '8px',
+                                    overflowX: 'auto',
+                                    paddingBottom: '12px',
+                                    marginTop: '8px',
+                                    scrollbarWidth: 'thin',
+                                    WebkitOverflowScrolling: 'touch',
+                                    flexWrap: seasonsData.length > 6 ? 'wrap' : 'nowrap',
+                                    maxHeight: seasonsData.length > 6 ? '120px' : 'auto',
+                                    overflowY: 'auto'
+                                }}>
                                     {seasonsData.map(s => (
                                         <button
                                             key={s.season_number}
-                                            onClick={() => { setCurrentSeason(s.season_number); setCurrentEpisode(1); }}
+                                            onClick={() => {
+                                                if (currentSeason !== s.season_number) {
+                                                    setStreamUrl(null); // Clear URL only when season actually changes
+                                                    setCurrentSeason(s.season_number);
+                                                    setCurrentEpisode(1);
+                                                }
+                                            }}
                                             style={{
-                                                padding: '6px 12px',
+                                                padding: '6px 14px',
                                                 borderRadius: '16px',
                                                 border: '1px solid ' + (currentSeason === s.season_number ? '#6366f1' : 'rgba(255,255,255,0.1)'),
-                                                background: currentSeason === s.season_number ? '#6366f1' : 'transparent',
+                                                background: currentSeason === s.season_number ? '#6366f1' : 'rgba(255,255,255,0.05)',
                                                 color: 'white',
                                                 cursor: 'pointer',
                                                 whiteSpace: 'nowrap',
-                                                fontSize: '0.8rem'
+                                                fontSize: '0.85rem',
+                                                transition: 'all 0.2s'
                                             }}
                                         >
-                                            Season {s.season_number}
+                                            S{s.season_number}
                                         </button>
                                     ))}
                                 </div>
@@ -522,7 +525,13 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                                 animeEpisodes.map(ep => (
                                     <button
                                         key={ep.episodeId}
-                                        onClick={() => { setFullDetails(prev => ({ ...prev, episodeId: ep.episodeId })); setCurrentEpisode(ep.number); }}
+                                        onClick={() => {
+                                            if (currentEpisode !== ep.number) {
+                                                setStreamUrl(null); // Clear URL only when episode actually changes
+                                                setFullDetails(prev => ({ ...prev, episodeId: ep.episodeId }));
+                                                setCurrentEpisode(ep.number);
+                                            }
+                                        }}
                                         style={{ padding: '12px 8px', borderRadius: '8px', border: '1px solid ' + (currentEpisode === ep.number ? '#6366f1' : 'rgba(255,255,255,0.1)'), background: currentEpisode === ep.number ? 'rgba(99, 102, 241, 0.1)' : 'transparent', color: 'white', cursor: 'pointer' }}
                                     >
                                         {ep.number}
@@ -532,7 +541,12 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                                 Array.from({ length: getMaxEpisodes() }, (_, i) => i + 1).map(ep => (
                                     <button
                                         key={ep}
-                                        onClick={() => setCurrentEpisode(ep)}
+                                        onClick={() => {
+                                            if (currentEpisode !== ep) {
+                                                setStreamUrl(null); // Clear URL only when episode actually changes
+                                                setCurrentEpisode(ep);
+                                            }
+                                        }}
                                         style={{ padding: '12px 8px', borderRadius: '8px', border: '1px solid ' + (currentEpisode === ep ? '#6366f1' : 'rgba(255,255,255,0.1)'), background: currentEpisode === ep ? 'rgba(99, 102, 241, 0.1)' : 'transparent', color: 'white', cursor: 'pointer' }}
                                     >
                                         {ep}

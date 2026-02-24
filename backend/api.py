@@ -14,6 +14,7 @@ from moviebox_api.extractor.models.json import SubjectModel, SubjectTrailerModel
 from moviebox_api.models import SearchResultsItem
 from cinecli_service import CineCLIService
 from mal_service import MALService
+from manga_service import MangaService
 from typing import Optional, Union, get_args, get_origin
 import pydantic
 import asyncio
@@ -750,7 +751,14 @@ async def details(item_id: str) -> dict:
                 elif hasattr(details_model, 'resource') and hasattr(details_model.resource, 'seasons'):
                     seasons_list = details_model.resource.seasons
 
+                # Path 3: details_model.seasons
+                elif hasattr(details_model, 'seasons'):
+                    seasons_list = details_model.seasons
                 
+                # Path 4: details_model.item.seasons
+                elif hasattr(details_model, 'item') and hasattr(details_model.item, 'seasons'):
+                    seasons_list = details_model.item.seasons
+
                 # Path 5: data.seasons
                 elif hasattr(details_model, 'data'):
                     data_obj = details_model.data
@@ -1865,6 +1873,79 @@ async def get_skip_times(mal_id: int, episode_number: float):
     except Exception as e:
         print(f"AniSkip error: {e}")
         return {"found": False}
+
+# --- Manga Endpoints ---
+
+@router.get("/manga/search")
+async def manga_search(query: str):
+    return {"results": await MangaService.search(query)}
+
+@router.get("/manga/details/{manga_id:path}")
+async def manga_details(manga_id: str):
+    info = await MangaService.get_info(manga_id)
+    if not info:
+        raise HTTPException(status_code=404, detail="Manga not found")
+    return info
+
+@router.get("/manga/read/{chapter_id:path}")
+async def manga_read(chapter_id: str):
+    pages = await MangaService.get_pages(chapter_id)
+    return {"pages": pages}
+
+@router.get("/manga/pdf/{chapter_id:path}")
+async def manga_pdf(chapter_id: str):
+    pdf_buffer = await MangaService.generate_pdf(chapter_id)
+    if not pdf_buffer:
+        raise HTTPException(status_code=500, detail="Failed to generate PDF")
+    
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"inline; filename=chapter_{chapter_id.replace('/', '_')}.pdf"}
+    )
+
+@router.get("/manga/download/{chapter_id:path}")
+async def manga_download(chapter_id: str, title: str = "chapter"):
+    zip_buffer = await MangaService.create_chapter_zip(chapter_id, title)
+    if not zip_buffer:
+        raise HTTPException(status_code=500, detail="Failed to create ZIP")
+    
+    return StreamingResponse(
+        zip_buffer,
+        media_type="application/zip",
+        headers={"Content-Disposition": f"attachment; filename={title.replace('/', '_')}.zip"}
+    )
+
+@router.get("/manga/save-local/{chapter_id:path}")
+async def manga_save_local(chapter_id: str, manga_title: str, chapter_title: str):
+    result = await MangaService.save_chapter_locally(chapter_id, manga_title, chapter_title)
+    if result["status"] == "error":
+        raise HTTPException(status_code=500, detail=result["message"])
+    return result
+
+@router.get("/manga/image-proxy")
+async def manga_image_proxy(url: str):
+    """
+    Proxies manga images with the correct referer.
+    """
+    headers = {
+        "Referer": "https://mangapill.com/",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
+    client = get_http_client()
+    try:
+        resp = await client.get(url, headers=headers, follow_redirects=True)
+        if resp.status_code != 200:
+            raise HTTPException(status_code=resp.status_code, detail="Failed to fetch image")
+        
+        return StreamingResponse(
+            resp.aiter_bytes(),
+            media_type=resp.headers.get("Content-Type", "image/jpeg"),
+            headers={"Cache-Control": "public, max-age=31536000"}
+        )
+    except Exception as e:
+        print(f"[MANGA IMAGE PROXY FAILED] {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/system/status")
 async def system_status():

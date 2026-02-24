@@ -4,6 +4,7 @@ import SearchBar from './components/SearchBar';
 import MovieCard from './components/MovieCard';
 import DetailsModal from './components/DetailsModal';
 import WatchPage from './components/WatchPage';
+import MangaReader from './components/MangaReader';
 import Sidebar from './components/Sidebar';
 import './styles/index.css';
 
@@ -49,6 +50,7 @@ const detectLocalServer = async (onProgress) => {
     };
 
     // 1. First check the current hostname on common ports (8000, 8080)
+    const hostname = window.location.hostname; // Define hostname here
     if (onProgress) onProgress(`Checking ${hostname}...`);
     const port8000 = await checkIP(hostname, 8000);
     if (port8000) return port8000;
@@ -142,10 +144,11 @@ function App() {
 
     const [results, setResults] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [selectedItem, setSelectedItem] = useState(null);
+    const [selectedItem, setSelectedItem] = useState(null); // For DetailsModal
+    const [watchItem, setWatchItem] = useState(null); // For WatchPage
+    const [mangaReaderItem, setMangaReaderItem] = useState(null); // For MangaReader
     const [detailsLoading, setDetailsLoading] = useState(false);
     const [downloadProgress, setDownloadProgress] = useState(null);
-    const [videoPlayerData, setVideoPlayerData] = useState(null); // { url, title }
     const [homepageContent, setHomepageContent] = useState(null);
     const [homepageLoading, setHomepageLoading] = useState(false);
 
@@ -197,6 +200,7 @@ function App() {
 
                 let endpoint = '/api/homepage';
                 if (activeSource === 'hianime') endpoint = '/api/anime/home';
+                if (activeSource === 'manga') endpoint = '/api/manga/search?query=popular'; // Fetching some 'popular' manga for home
 
                 const res = await fetch(`${API_BASE}${endpoint}`);
                 if (res.ok) {
@@ -292,6 +296,8 @@ function App() {
                 endpoint = `/api/anime/search?query=${encodeURIComponent(query)}`;
             } else if (activeSource === 'cinecli') {
                 endpoint = `/api/cinecli/search?query=${encodeURIComponent(query)}`;
+            } else if (activeSource === 'manga') {
+                endpoint = `/api/manga/search?query=${encodeURIComponent(query)}`;
             }
 
 
@@ -313,6 +319,12 @@ function App() {
                 } else {
                     setResults([]);
                 }
+            } else if (activeSource === 'manga') {
+                setResults(data.results.map(it => ({
+                    ...it,
+                    source: 'manga',
+                    poster_url: `${API_BASE}/api/manga/image-proxy?url=${encodeURIComponent(it.poster_url)}`
+                })));
             } else {
                 // MovieBox results
                 setResults(data.results.map(it => ({ ...it, source: 'moviebox' })));
@@ -336,8 +348,11 @@ function App() {
             console.error("Failed to save history", e);
         }
 
-        // Navigate to details route; router will load details
         const src = item.source || 'moviebox';
+        // Set selected item immediately to preserve poster/metadata for the modal
+        setSelectedItem({ ...item, source: src });
+
+        // Navigate to details route; router will load remaining details (like chapters/episodes)
         navigate(`/details/${item.id}?source=${encodeURIComponent(src)}`);
     };
 
@@ -389,6 +404,12 @@ function App() {
     };
 
     const handleStream = async (item, season = null, episode = null) => {
+        if (item.type === 'manga') {
+            setMangaReaderItem({ item, chapterId: item.chapterId, chapterTitle: item.chapterTitle });
+            setSelectedItem(null); // Close details modal
+            return;
+        }
+
         console.log("[App] handleStream called for:", item && item.title, "Ep arg:", episode, "itemEp:", item && (item.episodeNo || item.episodeId || item.episode));
 
         // Determine episode value from explicit arg or from item payload (HiAnime uses episodeNo/episodeId)
@@ -399,18 +420,19 @@ function App() {
 
         const src = (item && item.source) ? item.source : 'moviebox';
 
-        // Pre-populate videoPlayerData so the Watch UI appears immediately (avoid flashing Home)
+        // Pre-populate watchItem so the Watch UI appears immediately (avoid flashing Home)
         const preload = {
             item: { ...item, source: src },
             season: season || null,
             episode: epValue || null,
             animeEpisodes: item && item.animeEpisodes ? item.animeEpisodes : null
         };
-        setVideoPlayerData(preload);
+        setWatchItem(preload);
 
         // Navigate to watch route with episode and source params
         const params = new URLSearchParams();
         if (epValue !== null && epValue !== undefined) params.set('episode', String(epValue));
+        if (season !== null && season !== undefined) params.set('season', String(season));
         params.set('source', src);
         navigate(`/watch/${item.id}?${params.toString()}`);
 
@@ -442,19 +464,43 @@ function App() {
                     setSelectedItem({ ...details, source: 'anicli', type: 'anime' });
                 } else if (source === 'hianime') {
                     let details = {};
-                    try {
-                        const detailsRes = await fetch(`${API_BASE}/api/anime/details/${id}`);
-                        if (detailsRes.ok) details = await detailsRes.json();
-                    } catch (e) { }
-
                     let episodes = [];
                     try {
-                        const episodesRes = await fetch(`${API_BASE}/api/anime/episodes/${id}`);
-                        const episodesData = await episodesRes.json();
-                        if (episodesData.status === 200 && episodesData.data) episodes = episodesData.data.episodes || [];
+                        const [detailsRes, episodesRes] = await Promise.all([
+                            fetch(`${API_BASE}/api/anime/details/${id}`),
+                            fetch(`${API_BASE}/api/anime/episodes/${id}`)
+                        ]);
+                        if (detailsRes.ok) details = await detailsRes.json();
+                        if (episodesRes.ok) {
+                            const episodesData = await episodesRes.json();
+                            if (episodesData.status === 200 && episodesData.data) episodes = episodesData.data.episodes || [];
+                        }
                     } catch (e) { }
 
                     setSelectedItem({ ...(details.id ? details : { id, title: details.title || '' }), animeEpisodes: episodes, type: 'anime', source: 'hianime' });
+                } else if (source === 'manga') {
+                    const res = await fetch(`${API_BASE}/api/manga/details/${id}`);
+                    const details = await res.json();
+                    setSelectedItem(prev => {
+                        const rawPoster = details.poster_url || details.poster || details.image;
+                        let finalPoster = prev?.poster_url || null;
+
+                        if (rawPoster && typeof rawPoster === 'string' && rawPoster.startsWith('http')) {
+                            if (rawPoster.includes('/api/manga/image-proxy')) {
+                                finalPoster = rawPoster;
+                            } else {
+                                finalPoster = `${API_BASE}/api/manga/image-proxy?url=${encodeURIComponent(rawPoster)}`;
+                            }
+                        }
+
+                        return {
+                            ...(prev || {}),
+                            ...details,
+                            source: 'manga',
+                            type: 'manga',
+                            poster_url: finalPoster || prev?.poster_url
+                        };
+                    });
                 } else {
                     const res = await fetch(`${API_BASE}/api/details/${id}`);
                     const details = await res.json();
@@ -467,7 +513,7 @@ function App() {
             }
         };
 
-        const loadWatch = async (id, ep, source = 'moviebox') => {
+        const loadWatch = async (id, ep, source = 'moviebox', season = null) => {
             try {
                 if (source === 'hianime') {
                     // HiAnime: fetch details and episodes then set player to use embed flow
@@ -486,7 +532,7 @@ function App() {
 
                     // Provide enough info for WatchPage to construct embed URL / episodeId mapping
                     const item = { id, ...details, source: 'hianime' };
-                    setVideoPlayerData({ item, season: null, episode: ep || null, animeEpisodes: episodes });
+                    setWatchItem({ item, season: season || null, episode: ep || null, animeEpisodes: episodes });
                     setSelectedItem(null);
                     return;
                 }
@@ -495,20 +541,21 @@ function App() {
                 const res = await fetch(`${API_BASE}/api/details/${id}`);
                 if (res.ok) {
                     const details = await res.json();
-                    setVideoPlayerData({ item: { ...details, id }, season: null, episode: ep || null });
+                    setWatchItem({ item: { ...details, id }, season: season || null, episode: ep || null });
                     setSelectedItem(null);
                 } else {
-                    setVideoPlayerData({ item: { id }, season: null, episode: ep || null });
+                    setWatchItem({ item: { id }, season: season || null, episode: ep || null });
                 }
             } catch (e) {
-                setVideoPlayerData({ item: { id }, season: null, episode: ep || null });
+                setWatchItem({ item: { id }, season: season || null, episode: ep || null });
             }
         };
 
         // Route handling
         if (pathname === '/' || pathname === '') {
             setSelectedItem(null);
-            setVideoPlayerData(null);
+            setWatchItem(null);
+            setMangaReaderItem(null);
             return;
         }
 
@@ -516,9 +563,27 @@ function App() {
             const id = pathname.replace('/details/', '').split('/')[0];
             const params = new URLSearchParams(search);
             const source = params.get('source') || 'moviebox';
-            if (!selectedItem || String(selectedItem.id) !== String(id)) {
+
+            // IF we are coming back from watch page for the SAME item, restore it immediately
+            if (!selectedItem && watchItem && String(watchItem.item.id) === String(id)) {
+                setSelectedItem(watchItem.item);
+            }
+
+            const needsDetails = !selectedItem ||
+                String(selectedItem.id) !== String(id) ||
+                (source === 'manga' && !selectedItem.volumes) ||
+                (source === 'moviebox' && !selectedItem.plot) ||
+                (source === 'hianime' && (!selectedItem.animeEpisodes || selectedItem.animeEpisodes.length === 0));
+
+            if (needsDetails) {
                 loadDetails(id, source);
             }
+            // IMPORTANT: Don't setWatchItem(null) immediately if it's the same ID, 
+            // as we use it for the instant-back transition above.
+            if (!watchItem || String(watchItem.item.id) !== String(id)) {
+                setWatchItem(null);
+            }
+            setMangaReaderItem(null);
             return;
         }
 
@@ -526,8 +591,11 @@ function App() {
             const id = pathname.replace('/watch/', '').split('/')[0];
             const params = new URLSearchParams(search);
             const ep = params.get('episode');
+            const season = params.get('season');
             const source = params.get('source') || 'moviebox';
-            loadWatch(id, ep, source);
+            loadWatch(id, ep, source, season);
+            setSelectedItem(null); // Close details modal if navigating to watch
+            setMangaReaderItem(null); // Close manga reader if navigating to watch
             return;
         }
     }, [location, API_BASE]);
@@ -637,7 +705,8 @@ function App() {
                     <div style={{ marginBottom: '1rem', marginLeft: '0.5rem', opacity: 0.6, fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px' }}>
                         {activeSource === 'home' ? 'Discover' :
                             activeSource === 'moviebox' ? 'Library' :
-                                activeSource === 'hianime' ? 'Anime World' : 'Torrents (CineCLI)'}
+                                activeSource === 'hianime' ? 'Anime World' :
+                                    activeSource === 'manga' ? 'Manga Collection' : 'Genga Movies'}
                     </div>
 
                     <SearchBar onSearch={handleSearch} />
@@ -750,38 +819,39 @@ function App() {
                         progress={downloadProgress}
                         serverMode={serverMode}
                         API_BASE={API_BASE}
+                        detailsLoading={detailsLoading}
                     />
                 )
             }
 
             {/* In-App Watch Page */}
-            {videoPlayerData && (
+            {watchItem && (
                 <WatchPage
-                    item={videoPlayerData.item}
-                    initialSeason={videoPlayerData.season}
-                    initialEpisode={videoPlayerData.episode}
+                    item={watchItem.item}
+                    initialSeason={watchItem.season}
+                    initialEpisode={watchItem.episode}
                     API_BASE={API_BASE}
-                    onBack={() => { 
-                        const src = videoPlayerData.item && videoPlayerData.item.source ? videoPlayerData.item.source : 'moviebox';
-                        navigate(`/details/${videoPlayerData.item.id}?source=${encodeURIComponent(src)}`);
+                    onBack={() => {
+                        const src = watchItem.item && watchItem.item.source ? watchItem.item.source : 'moviebox';
+                        navigate(`/details/${watchItem.item.id}?source=${encodeURIComponent(src)}`);
                     }}
-                    preloadedEpisodes={videoPlayerData.animeEpisodes}
+                    preloadedEpisodes={watchItem.animeEpisodes}
                 />
             )}
 
-            {
-                detailsLoading && (
-                    <div className="modal-backdrop">
-                        <div className="spinner" style={{
-                            width: '50px', height: '50px',
-                            border: '3px solid rgba(255,255,255,0.1)',
-                            borderTopColor: 'var(--primary)',
-                            borderRadius: '50%',
-                            animation: 'spin 1s linear infinite'
-                        }}></div>
-                    </div>
-                )
-            }
+            {mangaReaderItem && (
+                <MangaReader
+                    item={mangaReaderItem.item}
+                    chapterId={mangaReaderItem.chapterId}
+                    chapterTitle={mangaReaderItem.chapterTitle}
+                    API_BASE={API_BASE}
+                    onBack={() => {
+                        const src = mangaReaderItem.item && mangaReaderItem.item.source ? mangaReaderItem.item.source : 'manga';
+                        navigate(`/details/${mangaReaderItem.item.id}?source=${encodeURIComponent(src)}`);
+                    }}
+                />
+            )}
+
 
             {/* Manual IP Modal */}
             {showManualIP && (

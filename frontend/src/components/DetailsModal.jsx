@@ -1,11 +1,13 @@
 import React from 'react';
 
-const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMode, API_BASE }) => {
+const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMode, API_BASE, detailsLoading }) => {
     const [selectedSeason, setSelectedSeason] = React.useState(null);
     const [selectedEpisode, setSelectedEpisode] = React.useState(1);
     const [animeEpisodes, setAnimeEpisodes] = React.useState([]);
     const [episodesLoading, setEpisodesLoading] = React.useState(false);
     const [selectedAnimeEp, setSelectedAnimeEp] = React.useState(null);
+    const [selectedMangaVol, setSelectedMangaVol] = React.useState(null);
+    const [selectedMangaCh, setSelectedMangaCh] = React.useState(null);
 
     React.useEffect(() => {
         if (item && item.animeEpisodes) {
@@ -14,11 +16,12 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
                 setSelectedAnimeEp(item.animeEpisodes[0]);
             }
             setEpisodesLoading(false);
-            return; // Skip fetch if data is already present
+            return;
         }
 
-        setAnimeEpisodes([]); // Clear previous episodes
+        setAnimeEpisodes([]);
         setSelectedAnimeEp(null);
+        setSelectedMangaCh(null); // Reset for manga
 
         if (item && item.source === 'hianime') {
             const fetchEpisodes = async () => {
@@ -49,7 +52,12 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
     }, [item, API_BASE]);
 
     React.useEffect(() => {
-        if (item && item.seasons && item.seasons.length > 0) {
+        if (item && item.source === 'manga') {
+            const allChapters = item.volumes ? Object.values(item.volumes).flat() : [];
+            if (allChapters.length > 0) {
+                setSelectedMangaCh(allChapters[0]);
+            }
+        } else if (item && item.seasons && item.seasons.length > 0) {
             setSelectedSeason(item.seasons[0]);
             setSelectedEpisode(1);
         }
@@ -92,6 +100,17 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
             } else {
                 alert('Please select an episode');
             }
+        } else if (item.source === 'manga') {
+            if (selectedMangaCh) {
+                // Navigate to reader
+                // We'll pass information to App.jsx via a callback if needed, 
+                // but usually handleStream/onStream is used for video. 
+                // Let's repurpose or add a new callback.
+                // For now, let's use onStream with a 'manga' type.
+                onStream({ ...item, type: 'manga', chapterId: selectedMangaCh.id, chapterTitle: selectedMangaCh.title });
+            } else {
+                alert('Please select a chapter');
+            }
         } else {
             onStream({ ...item, type: 'movie' });
         }
@@ -120,6 +139,15 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
                 onDownload(item, selectedSeason.season_number, selectedEpisode);
             } else {
                 alert('Please select a season and episode');
+            }
+        } else if (item.source === 'manga') {
+            if (selectedMangaCh) {
+                // Default to ZIP download
+                const filename = `${item.title} - ${selectedMangaCh.title}`.replace(/[/\\?%*:|"<>]/g, '-');
+                const url = `${API_BASE}/api/manga/download/${selectedMangaCh.id}?title=${encodeURIComponent(filename)}`;
+                window.location.href = url;
+            } else {
+                alert('Please select a chapter');
             }
         } else {
             onDownload(item);
@@ -154,13 +182,34 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
                     minHeight: '300px',
                     height: 'auto'
                 }}>
-                    {item.poster_url || item.poster ? (
+                    {item.poster_url || item.poster || item.image ? (
                         <div onClick={item.source !== 'cinecli' ? handleStreamClick : undefined} style={{ cursor: item.source !== 'cinecli' ? 'pointer' : 'default', height: '100%', position: 'relative', zIndex: 0 }}>
                             <img
-                                src={item.poster_url || item.poster}
+                                src={item.poster_url || item.poster || item.image}
                                 alt={item.title}
                                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                onError={(e) => {
+                                    console.warn("DetailsModal poster failed to load");
+                                    e.target.style.display = 'none';
+                                    if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
+                                }}
                             />
+                            <div className="poster-placeholder" style={{
+                                width: '100%',
+                                height: '100%',
+                                display: 'none',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: 'var(--text-muted)',
+                                background: '#1a1a20',
+                                flexDirection: 'column',
+                                gap: '0.5rem',
+                                position: 'absolute',
+                                inset: 0
+                            }}>
+                                <span style={{ fontSize: '2rem' }}>🖼️</span>
+                                <span>No Poster</span>
+                            </div>
                         </div>
                     ) : null}
                     <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, transparent 80%, var(--bg-surface) 100%)', zIndex: 1 }}></div>
@@ -179,7 +228,7 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
                     <div style={{ display: 'flex', gap: '1rem', color: 'var(--text-muted)', marginBottom: '2rem', fontSize: '0.95rem', alignItems: 'center', flexWrap: 'wrap' }}>
                         <span style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '4px' }}>{item.year}</span>
                         <span style={{ textTransform: 'capitalize', color: 'var(--primary)' }}>
-                            {item.source === 'cinecli' ? 'Torpedo' : (item.type || 'Movie')}
+                            {item.source === 'cinecli' ? 'Torpedo' : (item.type === 'anime' ? 'Anime' : (item.type === 'series' || (item.seasons && item.seasons.length > 0) ? 'Series' : 'Movie'))}
                         </span>
                         {item.runtime && <span>{item.runtime} min</span>}
                     </div>
@@ -205,7 +254,13 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
                         </div>
                     )}
 
-                    {item.description || item.plot ? (
+                    {detailsLoading && !item.plot && !item.description ? (
+                        <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', marginBottom: '2.5rem', animation: 'pulse 1.5s infinite' }}>
+                            <div style={{ height: '1rem', background: 'rgba(255,255,255,0.1)', width: '90%', marginBottom: '0.5rem', borderRadius: '4px' }}></div>
+                            <div style={{ height: '1rem', background: 'rgba(255,255,255,0.1)', width: '80%', marginBottom: '0.5rem', borderRadius: '4px' }}></div>
+                            <div style={{ height: '1rem', background: 'rgba(255,255,255,0.1)', width: '70%', borderRadius: '4px' }}></div>
+                        </div>
+                    ) : item.description || item.plot ? (
                         <p style={{ lineHeight: '1.7', marginBottom: '2.5rem', color: 'var(--text-dim)', fontSize: '1.05rem' }}>
                             {item.description || item.plot}
                         </p>
@@ -267,7 +322,12 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
                                 border: '1px solid rgba(255, 255, 255, 0.08)'
                             }}>
                                 <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem', marginTop: 0 }}>Select Episode</h3>
-                                {item.seasons && item.seasons.length > 0 ? (
+                                {detailsLoading && (!item.seasons || item.seasons.length === 0) ? (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-muted)' }}>
+                                        <div className="spinner-small" style={{ width: '16px', height: '16px', border: '2px solid rgba(255,255,255,0.1)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+                                        <span>Loading seasons...</span>
+                                    </div>
+                                ) : item.seasons && item.seasons.length > 0 ? (
                                     <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                             <label style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Season</label>
@@ -344,18 +404,96 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
                             </div>
                         )}
 
+                        {/* --- MANGA CHAPTERS (No volume selection as requested) --- */}
+                        {item.source === 'manga' && (
+                            <div style={{
+                                marginBottom: '2rem',
+                                background: 'rgba(255, 255, 255, 0.03)',
+                                padding: '1.5rem',
+                                borderRadius: '12px',
+                                border: '1px solid rgba(255, 255, 255, 0.08)'
+                            }}>
+                                <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem', marginTop: 0 }}>Select Chapter</h3>
+                                {detailsLoading && (!item.volumes || Object.keys(item.volumes || {}).length === 0) ? (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-muted)' }}>
+                                        <div className="spinner-small" style={{ width: '16px', height: '16px', border: '2px solid rgba(255,255,255,0.1)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+                                        <span>Loading chapters...</span>
+                                    </div>
+                                ) : item.volumes ? (
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '0.5rem', maxHeight: '250px', overflowY: 'auto', padding: '10px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
+                                        {(item.volumes ? Object.values(item.volumes).flat() : []).map(ch => (
+                                            <button
+                                                key={ch.id}
+                                                onClick={() => setSelectedMangaCh(ch)}
+                                                style={{
+                                                    padding: '0.6rem 0',
+                                                    borderRadius: '6px',
+                                                    fontSize: '0.8rem',
+                                                    border: '1px solid ' + (selectedMangaCh?.id === ch.id ? 'var(--primary)' : 'var(--border-glass)'),
+                                                    background: selectedMangaCh?.id === ch.id ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
+                                                    color: 'white',
+                                                    cursor: 'pointer'
+                                                }}
+                                                title={ch.title}
+                                            >
+                                                {ch.number || ch.title}
+                                            </button>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p style={{ color: 'var(--text-muted)' }}>Chapter information not available.</p>
+                                )}
+                            </div>
+                        )}
+
                         {/* --- ACTION BUTTONS (Stream/Download) --- */}
                         {/* Only show stream/download if in LOCAL mode, as requested */}
                         {item.source !== 'cinecli' && serverMode === 'local' && (
-                            <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
-                                <button className="btn btn-primary" onClick={handleStreamClick} style={{ flex: 1 }}>
-                                    Stream Now
-                                </button>
-                                {item.source !== 'hianime' && (
-                                    <button className="btn btn-glass" onClick={() => handleDownloadClick()} style={{ flex: 1 }}>
-                                        Download
+                            <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', flexDirection: 'column' }}>
+                                <div style={{ display: 'flex', gap: '1rem' }}>
+                                    <button className="btn btn-primary" onClick={handleStreamClick} style={{ flex: 1 }}>
+                                        {item.source === 'manga' ? 'Read Now' : 'Stream Now'}
                                     </button>
-                                )}
+                                    {item.source !== 'hianime' && (
+                                        <div style={{ display: 'flex', gap: '1rem', flex: 1 }}>
+                                            <button className="btn btn-glass" onClick={() => handleDownloadClick()} style={{ flex: 1 }}>
+                                                {item.source === 'manga' ? 'Download ZIP' : 'Download'}
+                                            </button>
+
+                                            {item.source === 'manga' && (
+                                                <button
+                                                    className="btn btn-glass"
+                                                    style={{ flex: 1, position: 'relative' }}
+                                                    onClick={async (e) => {
+                                                        const btn = e.currentTarget;
+                                                        const originalContent = btn.innerHTML;
+                                                        btn.disabled = true;
+                                                        btn.innerHTML = 'Saving...';
+
+                                                        try {
+                                                            const res = await fetch(`${API_BASE}/api/manga/save-local/${selectedMangaCh.id}?manga_title=${encodeURIComponent(item.title)}&chapter_title=${encodeURIComponent(selectedMangaCh.title)}`);
+                                                            const data = await res.json();
+                                                            if (data.status === 'success') {
+                                                                alert(`Successfully saved to: ${data.path}`);
+                                                            } else {
+                                                                alert(`Error: ${data.message}`);
+                                                            }
+                                                        } catch (err) {
+                                                            alert('Failed to save locally.');
+                                                        } finally {
+                                                            btn.disabled = false;
+                                                            btn.innerHTML = originalContent;
+                                                        }
+                                                    }}
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+                                                    Save to Local Folder
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+
                             </div>
                         )}
 

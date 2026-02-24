@@ -180,6 +180,24 @@ h1 {
   animation: fadeIn 0.6s var(--ease-out) forwards;
 }
 
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.6;
+  }
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
