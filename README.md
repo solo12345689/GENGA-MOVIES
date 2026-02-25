@@ -59,12 +59,12 @@
     -   **Local Mode**: Frontend talks to your running `localhost:8080` server. Recommended for maximum speed and proxy capabilities.
     -   **Cloud Mode**: Frontend connects to a public community instance. Useful if you can't run Python locally.
 
-### 3. HiAnime (Anime)
+### 2. HiAnime (Anime)
 *Specialized Anime scraper.*
 -   **How it works**: Scrapes episode lists and IDs from HiAnime.
 -   **Stream Button**: Instead of a direct file, it loads a third-party **Embed Player** (iframe) inside the app. This ensures 99% availability for anime episodes without complex proxying.
 
-### 4. Manga (Scans)
+### 3. Manga (Scans)
 *Dedicated Manga discovery and reading.*
 -   **How it works**: Aggregates manga titles and chapter lists from global databases.
 -   **Reader**: Integrated image-based reader with **Next/Previous Chapter** navigation and automatic page preloading.
