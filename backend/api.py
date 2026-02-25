@@ -14,6 +14,7 @@ from moviebox_api.extractor.models.json import SubjectModel, SubjectTrailerModel
 from moviebox_api.models import SearchResultsItem
 from cinecli_service import CineCLIService
 from mal_service import MALService
+from manga_service import MangaService
 from typing import Optional, Union, get_args, get_origin
 import pydantic
 import asyncio
@@ -88,7 +89,7 @@ def get_http_client() -> httpx.AsyncClient:
         _http_client = httpx.AsyncClient(
             timeout=httpx.Timeout(60.0, connect=10.0),
             follow_redirects=True,
-            limits=httpx.Limits(max_connections=100, max_keepalive_connections=20),
+            limits=httpx.Limits(max_connections=500, max_keepalive_connections=50),
             headers=DEFAULT_HEADERS
         )
     return _http_client
@@ -729,58 +730,57 @@ async def details(item_id: str) -> dict:
             "type": item_type
         }
         
-        # Extract seasons for TV series and anime
-        if item_type in ["series", "anime", "anime_movie"]:
-            seasons_data = []
-            try:
-                # Try multiple paths to find season data
-                seasons_list = None
-                
+        # Extract seasons for MovieBox items (robust detection)
+        seasons_data = []
+        try:
+            seasons_list = None
+            # Path 1: details_model.resData.resource.seasons
+            if hasattr(details_model, 'resData'):
+                if hasattr(details_model.resData, 'resource') and hasattr(details_model.resData.resource, 'seasons'):
+                    seasons_list = details_model.resData.resource.seasons
+                elif hasattr(details_model.resData, 'seasons'):
+                    seasons_list = details_model.resData.seasons
+            # Path 2: details_model.resource.seasons
+            elif hasattr(details_model, 'resource') and hasattr(details_model.resource, 'seasons'):
+                seasons_list = details_model.resource.seasons
+            # Path 3: details_model.seasons
+            elif hasattr(details_model, 'seasons'):
+                seasons_list = details_model.seasons
+            # Path 4: details_model.item.seasons
+            elif hasattr(details_model, 'item') and hasattr(details_model.item, 'seasons'):
+                seasons_list = details_model.item.seasons
+            # Path 5: data.seasons
+            elif hasattr(details_model, 'data'):
+                data_obj = details_model.data
+                if hasattr(data_obj, 'seasons'):
+                    seasons_list = data_obj.seasons
 
-                # Path 1: details_model.resData.resource.seasons
-                if hasattr(details_model, 'resData'):
-                    if hasattr(details_model.resData, 'resource') and hasattr(details_model.resData.resource, 'seasons'):
-                        seasons_list = details_model.resData.resource.seasons
+            if seasons_list:
+                for season in seasons_list:
+                    if isinstance(season, dict):
+                        s_num = season.get('se', season.get('number', season.get('season_number', 0)))
+                        m_ep = season.get('maxEp', season.get('max_episodes', season.get('episode_count', season.get('episodeCount', 0))))
+                    else:
+                        s_num = getattr(season, 'se', getattr(season, 'number', getattr(season, 'season_number', 0)))
+                        m_ep = getattr(season, 'maxEp', getattr(season, 'max_episodes', getattr(season, 'episode_count', getattr(season, 'episodeCount', 0))))
+                    
+                    if s_num is not None:
+                        seasons_data.append({
+                            "season_number": int(s_num),
+                            "max_episodes": int(m_ep) if m_ep else 0,
+                        })
 
-                    elif hasattr(details_model.resData, 'seasons'):
-                        seasons_list = details_model.resData.seasons
-
-                
-                # Path 2: details_model.resource.seasons
-                elif hasattr(details_model, 'resource') and hasattr(details_model.resource, 'seasons'):
-                    seasons_list = details_model.resource.seasons
-
-                
-                # Path 5: data.seasons
-                elif hasattr(details_model, 'data'):
-                    data_obj = details_model.data
-                    if hasattr(data_obj, 'seasons'):
-                        seasons_list = data_obj.seasons
-
-
-                if seasons_list:
-
-                    for season in seasons_list:
-                        # Handle both object and dict formats
-                        if isinstance(season, dict):
-                            s_num = season.get('se', season.get('number', season.get('season_number', 0)))
-                            m_ep = season.get('maxEp', season.get('max_episodes', season.get('episode_count', season.get('episodeCount', 0))))
-                        else:
-                            s_num = getattr(season, 'se', getattr(season, 'number', getattr(season, 'season_number', 0)))
-                            m_ep = getattr(season, 'maxEp', getattr(season, 'max_episodes', getattr(season, 'episode_count', getattr(season, 'episodeCount', 0))))
-                        
-                        if s_num is not None:
-                            seasons_data.append({
-                                "season_number": int(s_num),
-                                "max_episodes": int(m_ep) if m_ep else 0,
-                            })
-
-            except Exception as e:
-                print(f"Error extracting seasons: {e}")
-                traceback.print_exc()
-            
-            response["seasons"] = seasons_data
-            print(f"[INFO] Returning {len(seasons_data)} seasons for {item_type}: {response.get('title', 'Unknown')}")
+            if seasons_data:
+                response["seasons"] = seasons_data
+                # If we found seasons, it MUST be a series or anime
+                if item_type == "movie":
+                    response["type"] = "series"
+                    item_type = "series"
+                print(f"[INFO] Returning {len(seasons_data)} seasons for {item_type}: {response.get('title', 'Unknown')}")
+        except Exception as e:
+            print(f"Error extracting seasons: {e}")
+            import traceback
+            traceback.print_exc()
         
         # Fetch MAL ID for anime (for Ani-Skip functionality)
         if item_type == "anime":
@@ -1865,6 +1865,109 @@ async def get_skip_times(mal_id: int, episode_number: float):
     except Exception as e:
         print(f"AniSkip error: {e}")
         return {"found": False}
+
+# --- Manga Endpoints ---
+
+@router.get("/manga/search")
+async def manga_search(query: str):
+    return {"results": await MangaService.search(query)}
+
+@router.get("/manga/details/{manga_id:path}")
+async def manga_details(manga_id: str):
+    info = await MangaService.get_info(manga_id)
+    if not info:
+        raise HTTPException(status_code=404, detail="Manga not found")
+    return info
+
+@router.get("/manga/read/{chapter_id:path}")
+async def manga_read(chapter_id: str):
+    pages = await MangaService.get_pages(chapter_id)
+    return {"pages": pages}
+
+@router.get("/manga/pdf/{chapter_id:path}")
+async def manga_pdf(chapter_id: str):
+    pdf_buffer = await MangaService.generate_pdf(chapter_id)
+    if not pdf_buffer:
+        raise HTTPException(status_code=500, detail="Failed to generate PDF")
+    
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"inline; filename=chapter_{chapter_id.replace('/', '_')}.pdf"}
+    )
+
+@router.get("/manga/download/{chapter_id:path}")
+async def manga_download(chapter_id: str, title: str = "chapter"):
+    zip_buffer = await MangaService.create_chapter_zip(chapter_id, title)
+    if not zip_buffer:
+        raise HTTPException(status_code=500, detail="Failed to create ZIP")
+    
+    return StreamingResponse(
+        zip_buffer,
+        media_type="application/zip",
+        headers={"Content-Disposition": f"attachment; filename={title.replace('/', '_')}.zip"}
+    )
+
+@router.get("/manga/save-local/{chapter_id:path}")
+async def manga_save_local(chapter_id: str, manga_title: str, chapter_title: str):
+    result = await MangaService.save_chapter_locally(chapter_id, manga_title, chapter_title)
+    if result["status"] == "error":
+        raise HTTPException(status_code=500, detail=result["message"])
+    return result
+
+@router.get("/manga/image-proxy")
+async def manga_image_proxy(url: str):
+    """
+    Proxies manga images with the correct referer and implements a local disk cache.
+    """
+    import hashlib
+    import os
+    from pathlib import Path
+    
+    # Generate a unique cache key for the URL
+    cache_key = hashlib.md5(url.encode()).hexdigest()
+    cache_dir = Path(__file__).parent.parent / "cache" / "manga_images"
+    os.makedirs(cache_dir, exist_ok=True)
+    cache_path = cache_dir / cache_key
+
+    # Check cache first
+    if cache_path.exists():
+        # Try to guess media type from extension if we want, but usually octet-stream is fine for images
+        # Or we can store the content-type in a companion file.
+        # For simplicity, we'll just serve it.
+        return Response(
+            content=cache_path.read_bytes(),
+            media_type="image/jpeg", # Most manga images are jpeg/png
+            headers={"Cache-Control": "public, max-age=31536000", "X-Cache": "HIT"}
+        )
+
+    headers = {
+        "Referer": "https://mangapill.com/",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
+    client = get_http_client()
+    try:
+        resp = await client.get(url, headers=headers, follow_redirects=True)
+        if resp.status_code != 200:
+            raise HTTPException(status_code=resp.status_code, detail="Failed to fetch image")
+        
+        content = resp.content
+        
+        # Save to cache asynchronously or synchronously (simple sync for now)
+        try:
+            with open(cache_path, "wb") as f:
+                f.write(content)
+        except Exception as cache_err:
+            print(f"[CACHE WRITE FAILED] {cache_err}")
+
+        return Response(
+            content=content,
+            media_type=resp.headers.get("Content-Type", "image/jpeg"),
+            headers={"Cache-Control": "public, max-age=31536000", "X-Cache": "MISS"}
+        )
+    except Exception as e:
+        print(f"[MANGA IMAGE PROXY FAILED] {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/system/status")
 async def system_status():

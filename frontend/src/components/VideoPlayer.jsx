@@ -18,6 +18,54 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
     // FIX 1: Add a ref to track if the user is using touch (Mobile)
     const isTouch = useRef(false);
 
+    // Unified source loading effect
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video || type === 'embed' || !url) return;
+
+        // --- HLS and Standard Source Setup ---
+        let hls = null;
+        const setupSource = () => {
+            if (url.includes('.m3u8')) {
+                if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                    video.src = url;
+                } else if (window.Hls) {
+                    hls = new window.Hls();
+                    hls.loadSource(url);
+                    hls.attachMedia(video);
+                } else {
+                    const script = document.createElement('script');
+                    script.src = "https://cdn.jsdelivr.net/npm/hls.js@latest";
+                    script.onload = () => {
+                        const Hls = window.Hls;
+                        if (Hls.isSupported()) {
+                            hls = new Hls();
+                            hls.loadSource(url);
+                            hls.attachMedia(video);
+                        } else {
+                            video.src = url;
+                        }
+                    };
+                    document.head.appendChild(script);
+                }
+            } else {
+                video.src = url;
+            }
+
+            if (autoPlay) {
+                video.play().catch(e => console.log("Autoplay prevented:", e));
+            }
+        };
+
+        setupSource();
+
+        return () => {
+            if (hls) hls.destroy();
+            video.src = ''; // Clear source to stop potential memory leaks/hangs
+        };
+    }, [url, type, autoPlay]);
+
+    // Separate effect for event listeners and progress tracking
     useEffect(() => {
         const video = videoRef.current;
         if (!video || type === 'embed') return;
@@ -54,7 +102,6 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
         const handleWaiting = () => setIsBuffering(true);
         const handleCanPlay = () => setIsBuffering(false);
         const handlePlaying = () => setIsBuffering(false);
-
         const handleEnded = () => {
             setShowControls(true);
         };
@@ -68,43 +115,7 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
         video.addEventListener('playing', handlePlaying);
         video.addEventListener('ended', handleEnded);
 
-        // HLS Logic
-        let hls = null;
-        if (url.includes('.m3u8')) {
-            if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                // Native support (Safari)
-                video.src = url;
-            } else if (window.Hls) {
-                // Hls.js support
-                hls = new window.Hls();
-                hls.loadSource(url);
-                hls.attachMedia(video);
-            } else {
-                // Try to load Hls.js dynamically
-                const script = document.createElement('script');
-                script.src = "https://cdn.jsdelivr.net/npm/hls.js@latest";
-                script.onload = () => {
-                    const Hls = window.Hls;
-                    if (Hls.isSupported()) {
-                        hls = new Hls();
-                        hls.loadSource(url);
-                        hls.attachMedia(video);
-                    } else {
-                        video.src = url; // Fallback
-                    }
-                };
-                document.head.appendChild(script);
-            }
-        } else {
-            video.src = url;
-        }
-
-        if (autoPlay) {
-            video.play().catch(e => console.log("Autoplay prevented:", e));
-        }
-
         return () => {
-            if (hls) hls.destroy();
             video.removeEventListener('timeupdate', updateProgress);
             video.removeEventListener('progress', updateProgress);
             video.removeEventListener('play', handlePlay);
@@ -114,7 +125,7 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
             video.removeEventListener('playing', handlePlaying);
             video.removeEventListener('ended', handleEnded);
         };
-    }, [url, autoPlay, showNext, onNext]);
+    }, [type]); // Event listeners only depend on the type of player
 
 
     const resetControlsTimeout = () => {

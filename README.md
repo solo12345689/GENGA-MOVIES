@@ -21,9 +21,10 @@
 ## ✨ Key Features
 
 ### Navigation & UI
--   **Unified Sidebar**: Vertical navigation for switching between standard, anime, and torrent sources.
--   **Source Filtering**: Dedicated views for **MovieBox** (Web), **HiAnime** (Anime), and **CineCLI** (Torrents).
--   **Responsive Layout**: Adapts to different screen sizes with a clean, dark-mode/glassmorphism design.
+-   **Unified Sidebar**: Vertical navigation for switching between standard, anime, and manga sources.
+-   **Source Filtering**: Dedicated views for **MovieBox** (Web), **HiAnime** (Anime), **Manga** (Scans), and **CineCLI** (Torrents).
+-   **Instant Back Navigation**: State-merging logic ensures posters and metadata persist when returning from the player or reader.
+-   **Loading UI**: High-contrast global loading spinner with silent background updates for improved performance.
 
 ### Backend Capabilities
 -   **CineCLI Integration**: Searches decentralized networks (YTS) with automatic mirror fallback and magnet link resolution.
@@ -68,6 +69,12 @@
 *Specialized Anime scraper.*
 -   **How it works**: Scrapes episode lists and IDs from HiAnime.
 -   **Stream Button**: Instead of a direct file, it loads a third-party **Embed Player** (iframe) inside the app. This ensures 99% availability for anime episodes without complex proxying.
+
+### 4. Manga (Scans)
+*Dedicated Manga discovery and reading.*
+-   **How it works**: Aggregates manga titles and chapter lists from global databases.
+-   **Reader**: Integrated image-based reader with **Next/Previous Chapter** navigation and automatic page preloading.
+-   **Downloads**: Facilitates direct ZIP downloads of chapters for offline reading.
 
 ---
 
