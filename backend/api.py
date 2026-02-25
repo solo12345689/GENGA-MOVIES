@@ -136,6 +136,39 @@ def extract_numeric_id(ep_id: str) -> str:
         
     return ""  # Return empty if we cannot safely determine the numeric episode ID
 
+def extract_seasons_from_title(title: str) -> List[dict]:
+    """
+    Extracts season information from titles like "Naruto [Hindi] S1-S2" or "Loki S2".
+    Returns a list of season dictionaries.
+    """
+    import re
+    seasons = []
+    # Match S1, S2, S1-S2, Season 1, etc.
+    # Pattern for ranges like S1-S2 or S01-S02
+    range_match = re.search(r'[sS](?P<start>\d+)-(?:[sS])?(?P<end>\d+)', title)
+    if range_match:
+        try:
+            start = int(range_match.group('start'))
+            end = int(range_match.group('end'))
+            # Safety check to avoid crazy ranges
+            if 0 < start <= end < 100:
+                for s in range(start, end + 1):
+                    seasons.append({"season_number": s, "max_episodes": 0})
+                return seasons
+        except: pass
+
+    # Pattern for single season like S2 or Season 2
+    single_match = re.search(r'(?:[sS]eason\s+|[sS])(?P<num>\d+)', title)
+    if single_match:
+        try:
+            s = int(single_match.group('num'))
+            if 0 < s < 100:
+                seasons.append({"season_number": s, "max_episodes": 0})
+                return seasons
+        except: pass
+        
+    return seasons
+
 def get_source_headers(url: str, source: str = None) -> list[dict]:
     """
     Returns a LIST of dictionary headers to try.
@@ -602,46 +635,74 @@ async def details(item_id: str) -> dict:
     item_type = cached.get("type", "movie")
     
     try:
-        # If this is a homepage item, we need to do a fresh search first
+        # If this is a homepage item, we can often bypass the fresh search
         if cached.get("needs_search", False):
-
-            # Use appropriate SubjectType based on content type
-            if item_type == "anime":
-                subject_type = SubjectType.ALL  # Anime might not have dedicated type, use ALL
-            elif item_type == "series":
-                subject_type = SubjectType.TV_SERIES
+            print(f"[FAST-PATH] Bypassing search for homepage item: {getattr(item, 'title', 'Unknown')}")
+            
+            # Construct a mock search item that moviebox_api can accept
+            class MockSearchItem:
+                def __init__(self, fields_dict, sid, stype):
+                    # Set id and subject fields explicitly as they are most common
+                    self.id = sid
+                    self.subjectId = sid
+                    self.subjectType = stype
+                    # Copy all other fields from original item (like rating, year, etc)
+                    for k, v in fields_dict.items():
+                        if not hasattr(self, k):
+                            setattr(self, k, v)
+            
+            # Use original subjectType if available, fallback to normalized logic
+            raw_stype = getattr(item, 'subjectType', None)
+            if raw_stype == 1: subject_type = SubjectType.MOVIES
+            elif raw_stype == 2: subject_type = SubjectType.TV_SERIES
+            elif raw_stype == 3: subject_type = SubjectType.ALL # Anime
             else:
-                subject_type = SubjectType.MOVIES
-            search_instance = Search(session=session, query=item['title'], subject_type=subject_type)
-            results = await search_instance.get_content_model()
+                # Fallback based on item_type
+                if item_type == "anime": subject_type = SubjectType.ALL
+                elif item_type == "series": subject_type = SubjectType.TV_SERIES
+                else: subject_type = SubjectType.MOVIES
             
-            if not results.items:
-                raise HTTPException(status_code=404, detail="Content not found via search")
+            # Use this mock item
+            item_fields = cached.get("item", {})
+            item = MockSearchItem(item_fields, item_fields['id'], raw_stype or (1 if subject_type == SubjectType.MOVIES else 2))
             
-            # Find the matching item by ID (don't just take first result)
-            original_id = item['id']
-            matched_item = None
-            for search_item in results.items:
-                if str(getattr(search_item, 'id', '')) == str(original_id) or str(getattr(search_item, 'subjectId', '')) == str(original_id):
-                    matched_item = search_item
-
-                    break
+            # We still need a search instance to call get_item_details
+            # An empty query search instance is fine for details fetching
+            from moviebox_api import Search
+            search_instance = Search(session=session, query='', subject_type=subject_type)
             
-            # If no ID match, fall back to first result (but log warning)
-            if not matched_item:
-                matched_item = results.items[0]
-            
-            item = matched_item
-            
-            # Update cache with proper SearchResultsItem
+            # Update cache so we don't do this again if refreshed
             search_cache[item_id]["item"] = item
             search_cache[item_id]["search_instance"] = search_instance
             search_cache[item_id]["needs_search"] = False
+            print(f"[FAST-PATH] Mock item constructed successfully for {item_id}")
 
         
         # Use the search instance to get details for this item
         details_provider = search_instance.get_item_details(item)
-        details_model = await details_provider.get_content_model()
+        
+        # PARALLELIZE: Fetch details and MAL ID at the same time
+        tasks = [details_provider.get_content_model()]
+        
+        # Only add MAL search if it's an anime
+        mal_task_idx = -1
+        if item_type == "anime":
+            title = getattr(item, 'title', '')
+            tasks.append(MALService.search_mal_id(title))
+            mal_task_idx = 1
+            
+        results_parallel = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        details_model = results_parallel[0]
+        if isinstance(details_model, Exception):
+            print(f"[RETRY] First details fetch failed: {details_model}. Retrying...")
+            details_model = await details_provider.get_content_model()
+            
+        mal_id = None
+        if mal_task_idx != -1:
+            mal_res = results_parallel[mal_task_idx]
+            if not isinstance(mal_res, Exception):
+                mal_id = mal_res
         
         # Extract IMDB rating if available
         imdb_rating = None
@@ -777,21 +838,39 @@ async def details(item_id: str) -> dict:
                     response["type"] = "series"
                     item_type = "series"
                 print(f"[INFO] Returning {len(seasons_data)} seasons for {item_type}: {response.get('title', 'Unknown')}")
+            
+            # FALLBACK: If API returned no seasons but title has season info (e.g. "S1-S2")
+            if not seasons_data:
+                title_for_extract = getattr(details_model, 'title', getattr(item, 'title', ''))
+                seasons_data = extract_seasons_from_title(title_for_extract)
+                if seasons_data:
+                    response["seasons"] = seasons_data
+                    if item_type == "movie":
+                        response["type"] = "series"
+                        item_type = "series"
+                    print(f"[INFO] Extracted {len(seasons_data)} seasons from title: {title_for_extract}")
+
+            # FINAL FALLBACK: If it's a series type but still no seasons, assume Season 1
+            if not seasons_data and (item_type == "series" or item_type == "anime"):
+                seasons_data = [{"season_number": 1, "max_episodes": 0}]
+                response["seasons"] = seasons_data
+                print(f"[INFO] Fallback to Season 1 for series/anime: {response.get('title', 'Unknown')}")
         except Exception as e:
             print(f"Error extracting seasons: {e}")
-            import traceback
             traceback.print_exc()
         
-        # Fetch MAL ID for anime (for Ani-Skip functionality)
-        if item_type == "anime":
+        # Add pre-fetched MAL ID if available
+        if item_type == "anime" and mal_id:
+            response["mal_id"] = mal_id
+            print(f"[INFO] Using pre-fetched MAL ID {mal_id}")
+        elif item_type == "anime":
+            # Fallback (shouldn't happen often with parallel catch)
             try:
                 title = response.get('title', '')
                 mal_id = await MALService.search_mal_id(title)
                 if mal_id:
                     response["mal_id"] = mal_id
-                    print(f"[INFO] Found MAL ID {mal_id} for anime: {title}")
-            except Exception as e:
-                print(f"[WARNING] Failed to fetch MAL ID: {e}")
+            except: pass
             
         return response
     except Exception as e:

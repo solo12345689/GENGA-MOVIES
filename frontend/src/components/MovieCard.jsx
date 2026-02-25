@@ -33,7 +33,11 @@ const MovieCard = ({ movie, onClick }) => {
             </div>
             <div className="movie-card-overlay">
                 <h3 style={{ fontSize: '1.1rem', marginBottom: '0.25rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'white' }}>{movie.title}</h3>
-                <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>{movie.year || 'Unknown Year'}</p>
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+                    {movie.source === 'hianime' ? 'Anime' :
+                        movie.source === 'manga' ? 'Manga' :
+                            movie.year || 'Unknown Year'}
+                </p>
             </div>
         </div>
     );

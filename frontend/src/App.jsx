@@ -114,7 +114,24 @@ function App() {
     const [scanningStatus, setScanningStatus] = useState('');
     const [showManualIP, setShowManualIP] = useState(false);
     const [showHistoryModal, setShowHistoryModal] = useState(false);
+    const [historyFilter, setHistoryFilter] = useState('all');
     const [manualIPInput, setManualIPInput] = useState('');
+    const [activeSource, setActiveSource] = useState(() => {
+        // Default to 'home' which aggregates or shows default homepage
+        return localStorage.getItem('moviebox_active_source') || 'home';
+    });
+
+    // Update localStorage when activeSource changes
+    useEffect(() => {
+        localStorage.setItem('moviebox_active_source', activeSource);
+        // Clear results when switching sources to avoid mixing
+        setResults([]);
+
+        // If switching to home, we typically want to clear search and show aggregation
+        // If switching to a specific source, we might auto-fetch its specific homepage variant
+        setHomepageContent(null);
+
+    }, [activeSource]);
 
     // Auto-detect local server on mount
     useEffect(() => {
@@ -158,22 +175,6 @@ function App() {
     // Server status (simple polling or just static 'operational' for now, can be updated by backend)
     const [serverStatus, setServerStatus] = useState('operational');
 
-    const [activeSource, setActiveSource] = useState(() => {
-        // Default to 'home' which aggregates or shows default homepage
-        return localStorage.getItem('moviebox_active_source') || 'home';
-    });
-
-    // Update localStorage when activeSource changes
-    useEffect(() => {
-        localStorage.setItem('moviebox_active_source', activeSource);
-        // Clear results when switching sources to avoid mixing
-        setResults([]);
-
-        // If switching to home, we typically want to clear search and show aggregation
-        // If switching to a specific source, we might auto-fetch its specific homepage variant
-        setHomepageContent(null);
-
-    }, [activeSource]);
 
     useEffect(() => {
         // Just a simple status check simulation
@@ -233,7 +234,7 @@ function App() {
         };
 
         fetchHomepage();
-    }, [API_BASE, activeSource, serverMode]);
+    }, [API_BASE, activeSource]);
 
     const toggleServer = () => {
         // Toggle is now deprecated but kept as a no-op to avoid breaking refs if any
@@ -349,6 +350,11 @@ function App() {
         // Set selected item immediately to preserve poster/metadata for the modal
         setSelectedItem({ ...item, source: src });
 
+        // Ensure we show loading state if details are missing
+        if (!item.hasFullDetails) {
+            setDetailsLoading(true);
+        }
+
         // Navigate to details route; router will load remaining details (like chapters/episodes)
         navigate(`/details/${item.id}?source=${encodeURIComponent(src)}`);
     };
@@ -449,24 +455,19 @@ function App() {
         const search = location.search || '';
 
         const loadDetails = async (id, source) => {
-            // Only show blocking loading state if we DON'T have this item already (fresh navigation)
-            setSelectedItem(prev => {
-                const isSameItem = prev && String(prev.id) === String(id);
-                if (!isSameItem) {
-                    setDetailsLoading(true);
-                }
-                return prev;
-            });
+            // If loadDetails is called, it means we definitely need to fetch more data.
+            // We set detailsLoading(true) to show the prominent spinner.
+            setDetailsLoading(true);
 
             try {
                 if (source === 'cinecli') {
                     const res = await fetch(`${API_BASE}/api/cinecli/details/${id}`);
                     const details = await res.json();
-                    setSelectedItem(prev => ({ ...prev, ...details, source: 'cinecli' }));
+                    setSelectedItem(prev => ({ ...prev, ...details, source: 'cinecli', hasFullDetails: true }));
                 } else if (source === 'anicli') {
                     const res = await fetch(`${API_BASE}/api/anicli/details/${id}`);
                     const details = await res.json();
-                    setSelectedItem(prev => ({ ...prev, ...details, source: 'anicli', type: 'anime' }));
+                    setSelectedItem(prev => ({ ...prev, ...details, source: 'anicli', type: 'anime', hasFullDetails: true }));
                 } else if (source === 'hianime') {
                     let details = {};
                     let episodes = [];
@@ -483,7 +484,8 @@ function App() {
                         ...(details.id ? details : { id, title: details.title || (prev && prev.title) || '' }),
                         animeEpisodes: episodes,
                         type: 'anime',
-                        source: 'hianime'
+                        source: 'hianime',
+                        hasFullDetails: true
                     }));
                 } else if (source === 'manga') {
                     const res = await fetch(`${API_BASE}/api/manga/details/${id}`);
@@ -505,13 +507,14 @@ function App() {
                             ...details,
                             source: 'manga',
                             type: 'manga',
-                            poster_url: finalPoster || prev?.poster_url
+                            poster_url: finalPoster || prev?.poster_url,
+                            hasFullDetails: true
                         };
                     });
                 } else {
                     const res = await fetch(`${API_BASE}/api/details/${id}`);
                     const details = await res.json();
-                    setSelectedItem(prev => ({ ...prev, ...details, source: 'moviebox' }));
+                    setSelectedItem(prev => ({ ...prev, ...details, source: 'moviebox', hasFullDetails: true }));
                 }
             } catch (e) {
                 console.error('Failed to load details for route', e);
@@ -585,10 +588,7 @@ function App() {
                 restored = true;
             }
 
-            const needsDetails = (!selectedItem || String(selectedItem.id) !== String(id) ||
-                (source === 'manga' && !selectedItem.volumes) ||
-                (source === 'moviebox' && !selectedItem.plot) ||
-                (source === 'hianime' && (!selectedItem.animeEpisodes || selectedItem.animeEpisodes.length === 0)));
+            const needsDetails = (!selectedItem || String(selectedItem.id) !== String(id) || !selectedItem.hasFullDetails);
 
             if (needsDetails) {
                 loadDetails(id, source);
@@ -638,43 +638,27 @@ function App() {
                         </span>
                     )}
 
-                    <button
-                        onClick={() => setShowHistoryModal(true)}
-                        style={{
-                            background: 'transparent',
-                            border: 'none',
-                            color: 'var(--text-muted)',
-                            cursor: 'pointer',
-                            padding: '0.5rem',
-                            display: 'flex',
-                            alignItems: 'center'
-                        }}
-                        title="Search History"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <polyline points="12 6 12 12 16 14"></polyline>
-                        </svg>
-                    </button>
 
-                    <button
-                        onClick={() => setShowManualIP(true)}
-                        style={{
-                            background: 'transparent',
-                            border: 'none',
-                            color: 'var(--text-muted)',
-                            cursor: 'pointer',
-                            padding: '0.5rem',
-                            display: 'flex',
-                            alignItems: 'center'
-                        }}
-                        title="Configure IP"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <circle cx="12" cy="12" r="3"></circle>
-                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-                        </svg>
-                    </button>
+                    {(activeSource === 'moviebox' || activeSource === 'home') && (
+                        <button
+                            onClick={() => setShowManualIP(true)}
+                            style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: 'var(--text-muted)',
+                                cursor: 'pointer',
+                                padding: '0.5rem',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}
+                            title="Configure IP"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="12" cy="12" r="3"></circle>
+                                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                            </svg>
+                        </button>
+                    )}
 
                 </div>
 
@@ -686,10 +670,77 @@ function App() {
                         {activeSource === 'home' ? 'Discover' :
                             activeSource === 'moviebox' ? 'Library' :
                                 activeSource === 'hianime' ? 'Anime World' :
-                                    activeSource === 'manga' ? 'Manga Collection' : 'Genga Movies'}
+                                    activeSource === 'manga' ? 'Manga Collection' :
+                                        activeSource === 'history' ? 'Watch History' : 'Genga Movies'}
                     </div>
 
-                    <SearchBar onSearch={handleSearch} />
+                    {activeSource !== 'history' && <SearchBar onSearch={handleSearch} />}
+
+                    {activeSource === 'history' && (
+                        <div style={{ padding: '1rem 0' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    {['all', 'moviebox', 'hianime', 'manga'].map(f => (
+                                        <button
+                                            key={f}
+                                            onClick={() => setHistoryFilter(f)}
+                                            style={{
+                                                padding: '0.5rem 1.2rem',
+                                                borderRadius: '20px',
+                                                border: '1px solid var(--border-glass)',
+                                                background: historyFilter === f ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
+                                                color: historyFilter === f ? '#fff' : 'var(--text-muted)',
+                                                cursor: 'pointer',
+                                                fontSize: '0.85rem',
+                                                textTransform: 'capitalize',
+                                                transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            {f === 'hianime' ? 'Anime' : f}
+                                        </button>
+                                    ))}
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        if (window.confirm("Are you sure you want to clear your entire history?")) {
+                                            localStorage.removeItem('moviebox_watch_history');
+                                            window.location.reload();
+                                        }
+                                    }}
+                                    style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.9rem' }}
+                                >
+                                    Clear All
+                                </button>
+                            </div>
+
+                            <div className="movie-card-grid" style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+                                gap: '2rem'
+                            }}>
+                                {(() => {
+                                    try {
+                                        const h = JSON.parse(localStorage.getItem('moviebox_watch_history') || '[]');
+                                        const filtered = h.filter(item => historyFilter === 'all' || item.source === historyFilter);
+
+                                        if (filtered.length === 0) return (
+                                            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>
+                                                No history found for this category.
+                                            </div>
+                                        );
+
+                                        return filtered.map((item, idx) => (
+                                            <MovieCard
+                                                key={`history-${item.id}-${idx}`}
+                                                movie={item}
+                                                onClick={handleItemClick}
+                                            />
+                                        ));
+                                    } catch (e) { return null; }
+                                })()}
+                            </div>
+                        </div>
+                    )}
 
                     {loading && (
                         <div style={{ textAlign: 'center', padding: '4rem' }}>
@@ -716,7 +767,7 @@ function App() {
                         ))}
                     </div>
 
-                    {results.length === 0 && !loading && (
+                    {results.length === 0 && !loading && activeSource !== 'history' && (
                         <>
                             {homepageLoading ? (
                                 <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>
@@ -786,7 +837,11 @@ function App() {
                 selectedItem && (
                     <DetailsModal
                         item={selectedItem}
-                        onClose={() => { setSelectedItem(null); navigate('/'); }}
+                        onClose={() => {
+                            setSelectedItem(null);
+                            setDetailsLoading(false); // Reset loading state
+                            navigate('/');
+                        }}
                         onDownload={handleDownload}
                         onStream={handleStream}
                         onLanguageChange={(newLanguage) => {
@@ -966,72 +1021,6 @@ function App() {
                                 }}
                             >
                                 Save & Connect
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-            {/* Watch History Modal */}
-            {showHistoryModal && (
-                <div className="modal-backdrop" onClick={() => setShowHistoryModal(false)}>
-                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px', padding: '2rem', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexShrink: 0 }}>
-                            <h3 style={{ margin: 0 }}>History</h3>
-                            <button onClick={() => { localStorage.removeItem('moviebox_watch_history'); setShowHistoryModal(false); }} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.9rem' }}>Clear All</button>
-                        </div>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', overflowY: 'auto', paddingRight: '5px', flex: 1 }}>
-                            {(() => {
-                                try {
-                                    const h = JSON.parse(localStorage.getItem('moviebox_watch_history') || '[]');
-                                    if (h.length === 0) return <p style={{ color: 'var(--text-muted)', textAlign: 'center', margin: '2rem 0' }}>No history yet.</p>;
-                                    return h.slice(0, 50).map((item, idx) => (
-                                        <div
-                                            key={idx}
-                                            onClick={() => {
-                                                handleItemClick(item);
-                                                setShowHistoryModal(false);
-                                            }}
-                                            style={{
-                                                display: 'flex',
-                                                gap: '15px',
-                                                cursor: 'pointer',
-                                                background: 'rgba(255,255,255,0.02)',
-                                                borderRadius: '8px',
-                                                padding: '10px',
-                                                transition: 'background 0.2s',
-                                                position: 'relative',
-                                                border: '1px solid transparent'
-                                            }}
-                                            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
-                                            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; e.currentTarget.style.borderColor = 'transparent'; }}
-                                        >
-                                            <div style={{ width: '80px', height: '120px', flexShrink: 0, borderRadius: '6px', overflow: 'hidden', background: '#222' }}>
-                                                {item.poster_url ? (
-                                                    <img src={item.poster_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                ) : (
-                                                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555' }}>No Img</div>
-                                                )}
-                                            </div>
-                                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                                                <h4 style={{ margin: '0 0 6px 0', fontSize: '1rem', lineHeight: '1.3' }}>{item.title}</h4>
-                                                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'inline-block', background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px', alignSelf: 'flex-start' }}>
-                                                    {item.year || (item.type === 'anime' ? 'Anime' : 'Movie/TV')}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    ));
-                                } catch (e) { return null; }
-                            })()}
-                        </div>
-
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem', flexShrink: 0 }}>
-                            <button
-                                className="btn"
-                                onClick={() => setShowHistoryModal(false)}
-                                style={{ background: 'transparent', border: '1px solid var(--border-glass)' }}
-                            >
-                                Close
                             </button>
                         </div>
                     </div>
