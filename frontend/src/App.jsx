@@ -145,7 +145,7 @@ function App() {
     const [results, setResults] = useState([]);
     const [loading, setLoading] = useState(false);
     const [selectedItem, setSelectedItem] = useState(null); // For DetailsModal
-    const [watchItem, setWatchItem] = useState(null); // For WatchPage
+    const [videoPlayerData, setVideoPlayerData] = useState(null); // For WatchPage
     const [mangaReaderItem, setMangaReaderItem] = useState(null); // For MangaReader
     const [detailsLoading, setDetailsLoading] = useState(false);
     const [downloadProgress, setDownloadProgress] = useState(null);
@@ -427,7 +427,7 @@ function App() {
             episode: epValue || null,
             animeEpisodes: item && item.animeEpisodes ? item.animeEpisodes : null
         };
-        setWatchItem(preload);
+        setVideoPlayerData(preload);
 
         // Navigate to watch route with episode and source params
         const params = new URLSearchParams();
@@ -452,32 +452,42 @@ function App() {
         const search = location.search || '';
 
         const loadDetails = async (id, source) => {
-            setDetailsLoading(true);
+            // Only show blocking loading state if we DON'T have this item already (fresh navigation)
+            setSelectedItem(prev => {
+                const isSameItem = prev && String(prev.id) === String(id);
+                if (!isSameItem) {
+                    setDetailsLoading(true);
+                }
+                return prev;
+            });
+
             try {
                 if (source === 'cinecli') {
                     const res = await fetch(`${API_BASE}/api/cinecli/details/${id}`);
                     const details = await res.json();
-                    setSelectedItem({ ...details, source: 'cinecli' });
+                    setSelectedItem(prev => ({ ...prev, ...details, source: 'cinecli' }));
                 } else if (source === 'anicli') {
                     const res = await fetch(`${API_BASE}/api/anicli/details/${id}`);
                     const details = await res.json();
-                    setSelectedItem({ ...details, source: 'anicli', type: 'anime' });
+                    setSelectedItem(prev => ({ ...prev, ...details, source: 'anicli', type: 'anime' }));
                 } else if (source === 'hianime') {
                     let details = {};
                     let episodes = [];
                     try {
-                        const [detailsRes, episodesRes] = await Promise.all([
-                            fetch(`${API_BASE}/api/anime/details/${id}`),
-                            fetch(`${API_BASE}/api/anime/episodes/${id}`)
-                        ]);
-                        if (detailsRes.ok) details = await detailsRes.json();
-                        if (episodesRes.ok) {
-                            const episodesData = await episodesRes.json();
-                            if (episodesData.status === 200 && episodesData.data) episodes = episodesData.data.episodes || [];
-                        }
+                        const dTask = fetch(`${API_BASE}/api/anime/details/${id}`).then(r => r.ok ? r.json() : {});
+                        const eTask = fetch(`${API_BASE}/api/anime/episodes/${id}`).then(r => r.ok ? r.json() : {});
+                        const [d, e] = await Promise.all([dTask, eTask]);
+                        details = d;
+                        if (e.status === 200 && e.data) episodes = e.data.episodes || [];
                     } catch (e) { }
 
-                    setSelectedItem({ ...(details.id ? details : { id, title: details.title || '' }), animeEpisodes: episodes, type: 'anime', source: 'hianime' });
+                    setSelectedItem(prev => ({
+                        ...prev,
+                        ...(details.id ? details : { id, title: details.title || (prev && prev.title) || '' }),
+                        animeEpisodes: episodes,
+                        type: 'anime',
+                        source: 'hianime'
+                    }));
                 } else if (source === 'manga') {
                     const res = await fetch(`${API_BASE}/api/manga/details/${id}`);
                     const details = await res.json();
@@ -504,7 +514,7 @@ function App() {
                 } else {
                     const res = await fetch(`${API_BASE}/api/details/${id}`);
                     const details = await res.json();
-                    setSelectedItem({ ...details, source: 'moviebox' });
+                    setSelectedItem(prev => ({ ...prev, ...details, source: 'moviebox' }));
                 }
             } catch (e) {
                 console.error('Failed to load details for route', e);
@@ -513,7 +523,7 @@ function App() {
             }
         };
 
-        const loadWatch = async (id, ep, source = 'moviebox', season = null) => {
+        const loadWatch = async (id, ep, source = 'moviebox') => {
             try {
                 if (source === 'hianime') {
                     // HiAnime: fetch details and episodes then set player to use embed flow
@@ -532,7 +542,7 @@ function App() {
 
                     // Provide enough info for WatchPage to construct embed URL / episodeId mapping
                     const item = { id, ...details, source: 'hianime' };
-                    setWatchItem({ item, season: season || null, episode: ep || null, animeEpisodes: episodes });
+                    setVideoPlayerData({ item, season: season || null, episode: ep || null, animeEpisodes: episodes });
                     setSelectedItem(null);
                     return;
                 }
@@ -541,20 +551,20 @@ function App() {
                 const res = await fetch(`${API_BASE}/api/details/${id}`);
                 if (res.ok) {
                     const details = await res.json();
-                    setWatchItem({ item: { ...details, id }, season: season || null, episode: ep || null });
+                    setVideoPlayerData({ item: { ...details, id }, season: season || null, episode: ep || null });
                     setSelectedItem(null);
                 } else {
-                    setWatchItem({ item: { id }, season: season || null, episode: ep || null });
+                    setVideoPlayerData({ item: { id }, season: season || null, episode: ep || null });
                 }
             } catch (e) {
-                setWatchItem({ item: { id }, season: season || null, episode: ep || null });
+                setVideoPlayerData({ item: { id }, season: season || null, episode: ep || null });
             }
         };
 
         // Route handling
         if (pathname === '/' || pathname === '') {
             setSelectedItem(null);
-            setWatchItem(null);
+            setVideoPlayerData(null);
             setMangaReaderItem(null);
             return;
         }
@@ -564,26 +574,28 @@ function App() {
             const params = new URLSearchParams(search);
             const source = params.get('source') || 'moviebox';
 
-            // IF we are coming back from watch page for the SAME item, restore it immediately
-            if (!selectedItem && watchItem && String(watchItem.item.id) === String(id)) {
-                setSelectedItem(watchItem.item);
+            // IF we are coming back from watch page or manga reader for the SAME item, restore it immediately
+            let restored = false;
+            if (!selectedItem || String(selectedItem.id) !== String(id)) {
+                if (videoPlayerData && String(videoPlayerData.item.id) === String(id)) {
+                    setSelectedItem(videoPlayerData.item);
+                    restored = true;
+                } else if (mangaReaderItem && String(mangaReaderItem.item.id) === String(id)) {
+                    setSelectedItem(mangaReaderItem.item);
+                    restored = true;
+                }
+            } else if (String(selectedItem.id) === String(id)) {
+                restored = true;
             }
 
-            const needsDetails = !selectedItem ||
-                String(selectedItem.id) !== String(id) ||
+            const needsDetails = (!selectedItem || String(selectedItem.id) !== String(id) ||
                 (source === 'manga' && !selectedItem.volumes) ||
                 (source === 'moviebox' && !selectedItem.plot) ||
-                (source === 'hianime' && (!selectedItem.animeEpisodes || selectedItem.animeEpisodes.length === 0));
+                (source === 'hianime' && (!selectedItem.animeEpisodes || selectedItem.animeEpisodes.length === 0)));
 
             if (needsDetails) {
                 loadDetails(id, source);
             }
-            // IMPORTANT: Don't setWatchItem(null) immediately if it's the same ID, 
-            // as we use it for the instant-back transition above.
-            if (!watchItem || String(watchItem.item.id) !== String(id)) {
-                setWatchItem(null);
-            }
-            setMangaReaderItem(null);
             return;
         }
 
@@ -594,8 +606,6 @@ function App() {
             const season = params.get('season');
             const source = params.get('source') || 'moviebox';
             loadWatch(id, ep, source, season);
-            setSelectedItem(null); // Close details modal if navigating to watch
-            setMangaReaderItem(null); // Close manga reader if navigating to watch
             return;
         }
     }, [location, API_BASE]);
@@ -825,22 +835,24 @@ function App() {
             }
 
             {/* In-App Watch Page */}
-            {watchItem && (
+            {videoPlayerData && (
                 <WatchPage
-                    item={watchItem.item}
-                    initialSeason={watchItem.season}
-                    initialEpisode={watchItem.episode}
+                    key={`watch-${videoPlayerData.item.id}`}
+                    item={videoPlayerData.item}
+                    initialSeason={videoPlayerData.season}
+                    initialEpisode={videoPlayerData.episode}
                     API_BASE={API_BASE}
                     onBack={() => {
-                        const src = watchItem.item && watchItem.item.source ? watchItem.item.source : 'moviebox';
-                        navigate(`/details/${watchItem.item.id}?source=${encodeURIComponent(src)}`);
+                        const src = videoPlayerData.item && videoPlayerData.item.source ? videoPlayerData.item.source : 'moviebox';
+                        navigate(`/details/${videoPlayerData.item.id}?source=${encodeURIComponent(src)}`);
                     }}
-                    preloadedEpisodes={watchItem.animeEpisodes}
+                    preloadedEpisodes={videoPlayerData.animeEpisodes}
                 />
             )}
 
             {mangaReaderItem && (
                 <MangaReader
+                    key={`manga-${mangaReaderItem.item.id}`}
                     item={mangaReaderItem.item}
                     chapterId={mangaReaderItem.chapterId}
                     chapterTitle={mangaReaderItem.chapterTitle}

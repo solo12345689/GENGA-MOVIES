@@ -454,7 +454,7 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                 </div>
 
                 {/* Episode List / Sidebar */}
-                {item.type !== 'movie' && (showEpisodes) && (
+                {item.type !== 'movie' && showEpisodes && (
                     <div style={{
                         width: isMobile ? '100%' : '320px',
                         flex: isMobile ? 1 : 'none',

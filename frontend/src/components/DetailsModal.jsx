@@ -228,7 +228,10 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
                     <div style={{ display: 'flex', gap: '1rem', color: 'var(--text-muted)', marginBottom: '2rem', fontSize: '0.95rem', alignItems: 'center', flexWrap: 'wrap' }}>
                         <span style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '4px' }}>{item.year}</span>
                         <span style={{ textTransform: 'capitalize', color: 'var(--primary)' }}>
-                            {item.source === 'cinecli' ? 'Torpedo' : (item.type === 'anime' ? 'Anime' : (item.type === 'series' || (item.seasons && item.seasons.length > 0) ? 'Series' : 'Movie'))}
+                            {item.source === 'cinecli' ? 'Torpedo' :
+                                (item.type === 'manga' ? 'Manga' :
+                                    (item.type === 'anime' ? 'Anime' :
+                                        (item.type === 'series' || (item.seasons && item.seasons.length > 0) ? 'Series' : 'Movie')))}
                         </span>
                         {item.runtime && <span>{item.runtime} min</span>}
                     </div>
