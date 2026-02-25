@@ -27,12 +27,16 @@ const MangaReader = ({ item, chapterId, chapterTitle, onBack, API_BASE }) => {
                 const res = await fetch(`${API_BASE}/api/manga/read/${localChapterId}`);
                 if (!res.ok) throw new Error("Failed to fetch pages");
                 const data = await res.json();
+<<<<<<< HEAD
                 const fetchedPages = data.pages || [];
                 setPages(fetchedPages);
 
                 if (fetchedPages.length === 0) {
                     setError("No pages found for this chapter.");
                 }
+=======
+                setPages(data.pages || []);
+>>>>>>> 7331270cbbdde291cbfc63e5066cfc32573bd672
 
                 // Scroll to top
                 if (contentRef.current) contentRef.current.scrollTop = 0;
@@ -105,6 +109,7 @@ const MangaReader = ({ item, chapterId, chapterTitle, onBack, API_BASE }) => {
 
                 {!loading && !error && (
                     <div style={{ width: '100%', maxWidth: '800px' }}>
+<<<<<<< HEAD
                         {pages.length === 0 && !loading && !error && (
                             <div style={{ padding: '50px', textAlign: 'center', opacity: 0.5 }}>
                                 <p>This chapter seems to be empty or failed to load.</p>
@@ -129,6 +134,15 @@ const MangaReader = ({ item, chapterId, chapterTitle, onBack, API_BASE }) => {
                                     // Could add a retry button or secondary proxy here
                                     e.target.style.opacity = 0.5;
                                 }}
+=======
+                        {pages.map((p, i) => (
+                            <img
+                                key={i}
+                                src={`${API_BASE}/api/manga/image-proxy?url=${encodeURIComponent(p.img || p)}`}
+                                alt={`Page ${i + 1}`}
+                                style={{ width: '100%', display: 'block', height: 'auto' }}
+                                loading="lazy"
+>>>>>>> 7331270cbbdde291cbfc63e5066cfc32573bd672
                             />
                         ))}
 

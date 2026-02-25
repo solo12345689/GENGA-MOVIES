@@ -59,18 +59,16 @@
     -   **Local Mode**: Frontend talks to your running `localhost:8080` server. Recommended for maximum speed and proxy capabilities.
     -   **Cloud Mode**: Frontend connects to a public community instance. Useful if you can't run Python locally.
 
-### 2. CineCLI (Torrents)
-*Decentralized P2P network search.*
--   **How it works**: The backend acts as a "Meta-Search Engine" for YTS. It automatically cycles through **10+ active mirrors** (like `yts.lt`, `yts.rs`) to bypass ISP blocks.
--   **Buttons**:
-    -   **Magnet**: CineCLI content is P2P-based. Clicking "Magnet" will open your system's default Torrent Client (e.g., qBittorrent, Transmission) to handle the file. It does not stream directly in the browser.
-
-### 3. HiAnime (Anime)
+### 2. HiAnime (Anime)
 *Specialized Anime scraper.*
 -   **How it works**: Scrapes episode lists and IDs from HiAnime.
 -   **Stream Button**: Instead of a direct file, it loads a third-party **Embed Player** (iframe) inside the app. This ensures 99% availability for anime episodes without complex proxying.
 
+<<<<<<< HEAD
 ### 4. Manga (Scans)
+=======
+### 3. Manga (Scans)
+>>>>>>> 7331270cbbdde291cbfc63e5066cfc32573bd672
 *Dedicated Manga discovery and reading.*
 -   **How it works**: Aggregates manga titles and chapter lists from global databases.
 -   **Reader**: Integrated image-based reader with **Next/Previous Chapter** navigation and automatic page preloading.
