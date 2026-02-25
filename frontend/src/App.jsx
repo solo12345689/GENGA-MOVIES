@@ -97,16 +97,14 @@ const detectLocalServer = async (onProgress) => {
 };
 
 // Define available backends
+const CLOUD_BASE = 'https://moviebox-3xxv.onrender.com';
 const BACKENDS = {
     local: null, // Will be set dynamically
-    cloud: 'https://moviebox-3xxv.onrender.com'
+    cloud: CLOUD_BASE
 };
 
 function App() {
-    // State for server selection (persist in localStorage)
-    const [serverMode, setServerMode] = useState(() => {
-        return localStorage.getItem('moviebox_server_mode') || 'cloud';
-    });
+    // State for local server configuration
 
     const [localServerURL, setLocalServerURL] = useState(() => {
         const saved = localStorage.getItem('moviebox_local_ip');
@@ -140,7 +138,12 @@ function App() {
         }
     }, []);
 
-    const API_BASE = serverMode === 'local' ? localServerURL : BACKENDS[serverMode];
+    // Determine base URL based on active source
+    // Manga and HiAnime are hard-routed to Cloud
+    // Home, MovieBox, CineCLI use Local (Manual IP)
+    const API_BASE = (activeSource === 'hianime' || activeSource === 'manga' || activeSource === 'anicli')
+        ? CLOUD_BASE
+        : localServerURL;
 
     const [results, setResults] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -172,15 +175,9 @@ function App() {
 
     }, [activeSource]);
 
-    // Update localStorage when mode changes
-    useEffect(() => {
-        localStorage.setItem('moviebox_server_mode', serverMode);
-    }, [serverMode]);
-
-    // Fetch homepage content on mount or server/source change
     useEffect(() => {
         // Just a simple status check simulation
-        setServerStatus(serverMode === 'cloud' ? 'operational' : 'operational');
+        setServerStatus('operational');
 
         const fetchHomepage = async () => {
             if (API_BASE === null) return;
@@ -239,7 +236,7 @@ function App() {
     }, [API_BASE, activeSource, serverMode]);
 
     const toggleServer = () => {
-        setServerMode(prev => prev === 'cloud' ? 'local' : 'cloud');
+        // Toggle is now deprecated but kept as a no-op to avoid breaking refs if any
     };
 
     React.useEffect(() => {
@@ -679,33 +676,6 @@ function App() {
                         </svg>
                     </button>
 
-                    {(activeSource === 'moviebox' || activeSource === 'home') && (
-                        <button
-                            onClick={toggleServer}
-                            style={{
-                                background: 'rgba(0, 0, 0, 0.4)',
-                                border: '1px solid var(--border-glass)',
-                                color: 'var(--text-primary)',
-                                padding: '0.4rem 0.8rem',
-                                borderRadius: '20px',
-                                cursor: 'pointer',
-                                fontSize: '0.75rem',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.5rem',
-                                backdropFilter: 'blur(4px)'
-                            }}
-                        >
-                            <span style={{
-                                width: '6px',
-                                height: '6px',
-                                borderRadius: '50%',
-                                background: serverMode === 'cloud' ? '#10b981' : '#f59e0b',
-                                display: 'inline-block'
-                            }}></span>
-                            {serverMode === 'cloud' ? 'Cloud' : 'Local'}
-                        </button>
-                    )}
                 </div>
 
 
@@ -827,7 +797,7 @@ function App() {
                             handleSearch(searchQuery, selectedItem.type); // Trigger search
                         }}
                         progress={downloadProgress}
-                        serverMode={serverMode}
+                        serverMode="local"
                         API_BASE={API_BASE}
                         detailsLoading={detailsLoading}
                     />
@@ -869,8 +839,8 @@ function App() {
             {showManualIP && (
                 <div className="modal-backdrop" onClick={() => setShowManualIP(false)}>
                     <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
-                        <h3 style={{ marginTop: 0 }}>Manual IP</h3>
-                        <p style={{ color: 'var(--text-muted)' }}>Enter local server IP (e.g., 192.168.1.5:8000) or Cloudflare URL.</p>
+                        <h3 style={{ marginTop: 0 }}>MovieBox Settings</h3>
+                        <p style={{ color: 'var(--text-muted)' }}>Enter your Local MovieBox Server IP or Tunnel URL. (Note: HiAnime and Manga use Cloud automatically).</p>
 
                         <div style={{ marginBottom: '1.5rem' }}>
                             <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Server URL</label>
@@ -957,7 +927,6 @@ function App() {
                                             setLocalServerURL(targetUrl);
                                             BACKENDS.local = targetUrl;
                                             localStorage.setItem('moviebox_local_ip', targetUrl);
-                                            setServerMode('local');
                                             setShowManualIP(false);
 
                                             // Test connection

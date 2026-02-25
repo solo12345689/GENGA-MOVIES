@@ -770,7 +770,6 @@ async def details(item_id: str) -> dict:
                             "max_episodes": int(m_ep) if m_ep else 0,
                         })
 
-<<<<<<< HEAD
             if seasons_data:
                 response["seasons"] = seasons_data
                 # If we found seasons, it MUST be a series or anime
@@ -782,54 +781,6 @@ async def details(item_id: str) -> dict:
             print(f"Error extracting seasons: {e}")
             import traceback
             traceback.print_exc()
-=======
-                    elif hasattr(details_model.resData, 'seasons'):
-                        seasons_list = details_model.resData.seasons
-
-                
-                # Path 2: details_model.resource.seasons
-                elif hasattr(details_model, 'resource') and hasattr(details_model.resource, 'seasons'):
-                    seasons_list = details_model.resource.seasons
-
-                # Path 3: details_model.seasons
-                elif hasattr(details_model, 'seasons'):
-                    seasons_list = details_model.seasons
-                
-                # Path 4: details_model.item.seasons
-                elif hasattr(details_model, 'item') and hasattr(details_model.item, 'seasons'):
-                    seasons_list = details_model.item.seasons
-
-                # Path 5: data.seasons
-                elif hasattr(details_model, 'data'):
-                    data_obj = details_model.data
-                    if hasattr(data_obj, 'seasons'):
-                        seasons_list = data_obj.seasons
-
-
-                if seasons_list:
-
-                    for season in seasons_list:
-                        # Handle both object and dict formats
-                        if isinstance(season, dict):
-                            s_num = season.get('se', season.get('number', season.get('season_number', 0)))
-                            m_ep = season.get('maxEp', season.get('max_episodes', season.get('episode_count', season.get('episodeCount', 0))))
-                        else:
-                            s_num = getattr(season, 'se', getattr(season, 'number', getattr(season, 'season_number', 0)))
-                            m_ep = getattr(season, 'maxEp', getattr(season, 'max_episodes', getattr(season, 'episode_count', getattr(season, 'episodeCount', 0))))
-                        
-                        if s_num is not None:
-                            seasons_data.append({
-                                "season_number": int(s_num),
-                                "max_episodes": int(m_ep) if m_ep else 0,
-                            })
-
-            except Exception as e:
-                print(f"Error extracting seasons: {e}")
-                traceback.print_exc()
-            
-            response["seasons"] = seasons_data
-            print(f"[INFO] Returning {len(seasons_data)} seasons for {item_type}: {response.get('title', 'Unknown')}")
->>>>>>> 7331270cbbdde291cbfc63e5066cfc32573bd672
         
         # Fetch MAL ID for anime (for Ani-Skip functionality)
         if item_type == "anime":
@@ -1965,10 +1916,9 @@ async def manga_save_local(chapter_id: str, manga_title: str, chapter_title: str
     return result
 
 @router.get("/manga/image-proxy")
-async def manga_image_proxy(url: str):
+async def manga_image_proxy(url: str, background_tasks: BackgroundTasks):
     """
-<<<<<<< HEAD
-    Proxies manga images with the correct referer and implements a local disk cache.
+    Proxies manga images with the correct referer and implements an optimized local disk cache.
     """
     import hashlib
     import os
@@ -1982,19 +1932,12 @@ async def manga_image_proxy(url: str):
 
     # Check cache first
     if cache_path.exists():
-        # Try to guess media type from extension if we want, but usually octet-stream is fine for images
-        # Or we can store the content-type in a companion file.
-        # For simplicity, we'll just serve it.
         return Response(
             content=cache_path.read_bytes(),
-            media_type="image/jpeg", # Most manga images are jpeg/png
+            media_type="image/jpeg",
             headers={"Cache-Control": "public, max-age=31536000", "X-Cache": "HIT"}
         )
 
-=======
-    Proxies manga images with the correct referer.
-    """
->>>>>>> 7331270cbbdde291cbfc63e5066cfc32573bd672
     headers = {
         "Referer": "https://mangapill.com/",
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
@@ -2005,26 +1948,22 @@ async def manga_image_proxy(url: str):
         if resp.status_code != 200:
             raise HTTPException(status_code=resp.status_code, detail="Failed to fetch image")
         
-<<<<<<< HEAD
         content = resp.content
         
-        # Save to cache asynchronously or synchronously (simple sync for now)
-        try:
-            with open(cache_path, "wb") as f:
-                f.write(content)
-        except Exception as cache_err:
-            print(f"[CACHE WRITE FAILED] {cache_err}")
+        # Save to cache in the background to avoid blocking the response
+        def save_to_cache(path, data):
+            try:
+                with open(path, "wb") as f:
+                    f.write(data)
+            except Exception as e:
+                print(f"[CACHE WRITE FAILED] {e}")
+
+        background_tasks.add_task(save_to_cache, cache_path, content)
 
         return Response(
             content=content,
             media_type=resp.headers.get("Content-Type", "image/jpeg"),
             headers={"Cache-Control": "public, max-age=31536000", "X-Cache": "MISS"}
-=======
-        return StreamingResponse(
-            resp.aiter_bytes(),
-            media_type=resp.headers.get("Content-Type", "image/jpeg"),
-            headers={"Cache-Control": "public, max-age=31536000"}
->>>>>>> 7331270cbbdde291cbfc63e5066cfc32573bd672
         )
     except Exception as e:
         print(f"[MANGA IMAGE PROXY FAILED] {e}")
