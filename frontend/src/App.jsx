@@ -908,19 +908,21 @@ function App() {
             {/* Manual IP Modal */}
             {showManualIP && (
                 <div className="modal-backdrop" onClick={() => setShowManualIP(false)}>
-                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
-                        <h3 style={{ marginTop: 0 }}>MovieBox Settings</h3>
-                        <p style={{ color: 'var(--text-muted)' }}>Enter your Local MovieBox Server IP or Tunnel URL. (Note: HiAnime and Manga use Cloud automatically).</p>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '450px', flexDirection: 'column', padding: '1.5rem' }}>
+                        <h3 style={{ marginTop: 0, marginBottom: '0.5rem' }}>MovieBox Settings</h3>
+                        <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
+                            Enter your Local MovieBox Server URL or Tunnel address.
+                        </p>
 
                         <div style={{ marginBottom: '1.5rem' }}>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Server URL</label>
+                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>SERVER URL</label>
                             <input
                                 type="text"
                                 className="input-glass"
-                                placeholder="http://192.168.x.x:8000 or https://tunnel.com"
+                                placeholder="http://192.168.x.x:8080 or https://tunnel.com"
                                 value={manualIPInput}
                                 onChange={(e) => setManualIPInput(e.target.value)}
-                                style={{ width: '100%', padding: '0.8rem' }}
+                                style={{ width: '100%', padding: '0.8rem 1.2rem' }}
                             />
                         </div>
 
@@ -949,37 +951,37 @@ function App() {
                                             }
                                         }
 
-                                        // Cloudflare Tunnel specific fix:
-                                        // If using trycloudflare.com, FORCE https and REMOVE wacky ports like 8080/8000 
-                                        // because Tunnels usually accept connection on 80/443 and forward internally.
-                                        // Also remove trailing slash.
                                         if (url.endsWith('/')) url = url.slice(0, -1);
 
-                                        if (url.includes('trycloudflare.com')) {
-                                            if (url.startsWith('http://')) url = url.replace('http://', 'https://');
-                                            // Strip port if it's 8080 or 8000
-                                            url = url.replace(/:8080$/, '').replace(/:8000$/, '');
-                                        }
+                                        // Cloud/Tunnel specific handling: do NOT append ports for these
+                                        const isCloudUrl = url.includes('trycloudflare.com') ||
+                                            url.includes('.github.dev') ||
+                                            url.includes('.onrender.com') ||
+                                            url.includes('.localtunnel.me') ||
+                                            url.includes('.ngrok.io') ||
+                                            url.includes('.vercel.app');
 
                                         const findBackendPort = async (baseUrl) => {
-                                            // Remove port and try scanning 8000, 8080
-                                            const base = baseUrl.replace(/:\d+$/, '');
+                                            // If it's a known cloud URL or already has a port, try it as is first
+                                            if (isCloudUrl || baseUrl.match(/:\d+$/)) {
+                                                try {
+                                                    const res = await fetch(`${baseUrl}/api/health`, { timeout: 2000 });
+                                                    if (res.ok) return baseUrl;
+                                                } catch (e) { }
+                                            }
+
+                                            // Fallback logic for IPs or broken ports
+                                            const baseWithoutPort = baseUrl.replace(/:\d+$/, '');
                                             const check = async (port) => {
                                                 const controller = new AbortController();
-                                                const id = setTimeout(() => controller.abort(), 1000);
+                                                const id = setTimeout(() => controller.abort(), 1500);
                                                 try {
-                                                    const res = await fetch(`${base}:${port}/api/health`, { signal: controller.signal });
+                                                    const res = await fetch(`${baseWithoutPort}:${port}/api/health`, { signal: controller.signal });
                                                     clearTimeout(id);
-                                                    if (res.ok) return `${base}:${port}`;
+                                                    if (res.ok) return `${baseWithoutPort}:${port}`;
                                                 } catch (e) { }
                                                 return null;
                                             };
-
-                                            // For Tunnels, try NO port first (port 443/80 implicit)
-                                            try {
-                                                const res = await fetch(`${base}/api/health`);
-                                                if (res.ok) return base;
-                                            } catch (e) { }
 
                                             const port8080 = await check(8080);
                                             if (port8080) return port8080;
@@ -1008,30 +1010,23 @@ function App() {
                                                 .catch(() => alert(`Connected to ${targetUrl} but unreachable.`));
                                         };
 
-                                        // If explicit port set, check if it's a Tunnel and strip it if needed
-                                        if (url.includes('trycloudflare.com') && (url.includes(':8080') || url.includes(':8000'))) {
-                                            findBackendPort(url).then(foundUrl => {
-                                                setFoundUrl(foundUrl || url);
+                                        // Decide strategy
+                                        if (isCloudUrl) {
+                                            // For cloud URLs, try as is (strip :8080 if accidentally entered or detected)
+                                            let directUrl = url;
+                                            if (directUrl.includes('github.dev') || directUrl.includes('render.com')) {
+                                                directUrl = directUrl.replace(/:8080$/, '').replace(/:8000$/, '');
+                                            }
+
+                                            findBackendPort(directUrl).then(foundUrl => {
+                                                setFoundUrl(foundUrl || directUrl);
                                             });
-                                            return;
-                                        }
-
-                                        // Handle Frontend Port (5173) copy-paste - usually local
-                                        if (url.includes(':5173')) {
-                                            findBackendPort(url).then(foundUrl => setFoundUrl(foundUrl || url.replace(':5173', ':8080')));
-                                            return;
-                                        }
-
-                                        // If no port specified or it is a tunnel
-                                        if ((url.match(/:/g) || []).length < 2 || url.includes('trycloudflare.com')) {
+                                        } else {
+                                            // For standard IPs, use the fallback scanner
                                             findBackendPort(url).then(foundUrl => {
-                                                setFoundUrl(foundUrl || (url.includes('trycloudflare.com') ? url : url + ':8080'));
+                                                setFoundUrl(foundUrl || (url.includes(':') && (url.match(/:/g) || []).length >= 2 ? url : url + ':8080'));
                                             });
-                                            return;
                                         }
-
-                                        // Explicit port entered - just use it
-                                        setFoundUrl(url);
                                     }
                                 }}
                             >
