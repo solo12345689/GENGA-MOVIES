@@ -496,11 +496,14 @@ function App() {
                         const rawPoster = details.poster_url || details.poster || details.image;
                         let finalPoster = prev?.poster_url || null;
 
-                        if (rawPoster && typeof rawPoster === 'string' && rawPoster.startsWith('http')) {
+                        if (rawPoster && typeof rawPoster === 'string') {
                             if (rawPoster.includes('/api/manga/image-proxy')) {
                                 finalPoster = rawPoster;
+                            } else if (rawPoster.startsWith('http') || rawPoster.startsWith('//')) {
+                                const fullUrl = rawPoster.startsWith('//') ? `https:${rawPoster}` : rawPoster;
+                                finalPoster = `${base}/api/manga/image-proxy?url=${encodeURIComponent(fullUrl)}`;
                             } else {
-                                finalPoster = `${base}/api/manga/image-proxy?url=${encodeURIComponent(rawPoster)}`;
+                                finalPoster = rawPoster;
                             }
                         }
 
@@ -577,35 +580,32 @@ function App() {
             const source = params.get('source') || 'moviebox';
             const type = params.get('type') || 'movie';
 
-            let restored = false;
-            // First check if it's already in active state
-            if (activeSource === 'history') {
-                if (videoPlayerData && String(videoPlayerData.item.id) === String(id)) {
-                    setSelectedItem(videoPlayerData.item);
-                    restored = true;
-                } else if (mangaReaderItem && String(mangaReaderItem.item.id) === String(id)) {
-                    setSelectedItem(mangaReaderItem.item);
-                    restored = true;
-                }
-            } else if (selectedItem && String(selectedItem.id) === String(id)) {
-                restored = true;
+            let effectiveItem = selectedItem;
+
+            // First check if it's already in active state (e.g. from Reader/Player)
+            if (videoPlayerData && String(videoPlayerData.item.id) === String(id)) {
+                setSelectedItem(videoPlayerData.item);
+                effectiveItem = videoPlayerData.item;
+            } else if (mangaReaderItem && String(mangaReaderItem.item.id) === String(id)) {
+                setSelectedItem(mangaReaderItem.item);
+                effectiveItem = mangaReaderItem.item;
             }
 
-            // Determine if the currently selected item is "full enough" for the requested ID
-            const isFullItem = (item) => {
-                if (!item || String(item.id) !== String(id)) return false;
-                if (!item.hasFullDetails) return false;
+            // Determine if the item is "full enough" for the requested ID
+            const isFullItem = (it) => {
+                if (!it || String(it.id) !== String(id)) return false;
+                if (!it.hasFullDetails) return false;
 
                 // Source-specific checks to ensure we don't show "information not available"
-                if (source === 'hianime') return item.animeEpisodes && item.animeEpisodes.length > 0;
-                if (source === 'manga') return item.volumes && Object.keys(item.volumes).length > 0;
-                if (item.type === 'series' || item.type === 'anime') return item.seasons && item.seasons.length > 0;
+                if (source === 'hianime') return it.animeEpisodes && it.animeEpisodes.length > 0;
+                if (source === 'manga') return it.volumes && Object.keys(it.volumes).length > 0;
+                if (it.type === 'series' || it.type === 'anime') return it.seasons && it.seasons.length > 0;
 
                 // For movies, just check for a plot/description
-                return !!(item.plot || item.description);
+                return !!(it.plot || it.description || (source === 'manga' && it.poster_url));
             };
 
-            if (!isFullItem(selectedItem)) {
+            if (!isFullItem(effectiveItem)) {
                 loadDetails(id, source, type);
             }
             return;
