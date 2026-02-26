@@ -350,8 +350,17 @@ function App() {
         // Set selected item immediately to preserve poster/metadata for the modal
         setSelectedItem({ ...item, source: src });
 
-        // Ensure we show loading state if details are missing
-        if (!item.hasFullDetails) {
+        // Ensure we show loading state if details are missing (e.g. from History)
+        const isComplete = (it) => {
+            if (!it || !it.hasFullDetails) return false;
+            const s = it.source || src;
+            if (s === 'hianime') return it.animeEpisodes && it.animeEpisodes.length > 0;
+            if (s === 'manga') return it.volumes && Object.keys(it.volumes).length > 0;
+            if (it.type === 'series' || it.type === 'anime') return it.seasons && it.seasons.length > 0;
+            return !!(it.plot || it.description);
+        };
+
+        if (!isComplete(item)) {
             setDetailsLoading(true);
         }
 
@@ -588,9 +597,21 @@ function App() {
                 restored = true;
             }
 
-            const needsDetails = (!selectedItem || String(selectedItem.id) !== String(id) || !selectedItem.hasFullDetails);
+            // Determine if the currently selected item is "full enough" for the requested ID
+            const isFullItem = (item) => {
+                if (!item || String(item.id) !== String(id)) return false;
+                if (!item.hasFullDetails) return false;
 
-            if (needsDetails) {
+                // Source-specific checks to ensure we don't show "information not available"
+                if (source === 'hianime') return item.animeEpisodes && item.animeEpisodes.length > 0;
+                if (source === 'manga') return item.volumes && Object.keys(item.volumes).length > 0;
+                if (item.type === 'series' || item.type === 'anime') return item.seasons && item.seasons.length > 0;
+
+                // For movies, just check for a plot/description
+                return !!(item.plot || item.description);
+            };
+
+            if (!isFullItem(selectedItem)) {
                 loadDetails(id, source);
             }
             return;

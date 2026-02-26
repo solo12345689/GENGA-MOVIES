@@ -10,11 +10,9 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
     const [selectedMangaCh, setSelectedMangaCh] = React.useState(null);
 
     React.useEffect(() => {
-        if (item && item.animeEpisodes) {
+        if (item && item.animeEpisodes && item.animeEpisodes.length > 0) {
             setAnimeEpisodes(item.animeEpisodes);
-            if (item.animeEpisodes.length > 0) {
-                setSelectedAnimeEp(item.animeEpisodes[0]);
-            }
+            setSelectedAnimeEp(item.animeEpisodes[0]);
             setEpisodesLoading(false);
             return;
         }
