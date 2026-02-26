@@ -1995,28 +1995,11 @@ async def manga_save_local(chapter_id: str, manga_title: str, chapter_title: str
     return result
 
 @router.get("/manga/image-proxy")
-async def manga_image_proxy(url: str, background_tasks: BackgroundTasks):
+async def manga_image_proxy(url: str):
     """
-    Proxies manga images with the correct referer and implements an optimized local disk cache.
+    Proxies manga images with the correct referer. 
+    Disk caching is disabled as this is intended for ephemeral environments.
     """
-    import hashlib
-    import os
-    from pathlib import Path
-    
-    # Generate a unique cache key for the URL
-    cache_key = hashlib.md5(url.encode()).hexdigest()
-    cache_dir = Path(__file__).parent.parent / "cache" / "manga_images"
-    os.makedirs(cache_dir, exist_ok=True)
-    cache_path = cache_dir / cache_key
-
-    # Check cache first
-    if cache_path.exists():
-        return Response(
-            content=cache_path.read_bytes(),
-            media_type="image/jpeg",
-            headers={"Cache-Control": "public, max-age=31536000", "X-Cache": "HIT"}
-        )
-
     headers = {
         "Referer": "https://mangapill.com/",
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
@@ -2027,22 +2010,10 @@ async def manga_image_proxy(url: str, background_tasks: BackgroundTasks):
         if resp.status_code != 200:
             raise HTTPException(status_code=resp.status_code, detail="Failed to fetch image")
         
-        content = resp.content
-        
-        # Save to cache in the background to avoid blocking the response
-        def save_to_cache(path, data):
-            try:
-                with open(path, "wb") as f:
-                    f.write(data)
-            except Exception as e:
-                print(f"[CACHE WRITE FAILED] {e}")
-
-        background_tasks.add_task(save_to_cache, cache_path, content)
-
         return Response(
-            content=content,
+            content=resp.content,
             media_type=resp.headers.get("Content-Type", "image/jpeg"),
-            headers={"Cache-Control": "public, max-age=31536000", "X-Cache": "MISS"}
+            headers={"Cache-Control": "public, max-age=31536000", "X-Cache": "BYPASS"}
         )
     except Exception as e:
         print(f"[MANGA IMAGE PROXY FAILED] {e}")

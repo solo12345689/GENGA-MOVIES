@@ -340,7 +340,7 @@ function App() {
         // Save to Watch History
         try {
             const h = JSON.parse(localStorage.getItem('moviebox_watch_history') || '[]');
-            const newH = [item, ...h.filter(x => String(x.id) !== String(item.id))].slice(0, 50);
+            const newH = [item, ...h.filter(x => String(x.id) !== String(item.id))];
             localStorage.setItem('moviebox_watch_history', JSON.stringify(newH));
         } catch (e) {
             console.error("Failed to save history", e);
