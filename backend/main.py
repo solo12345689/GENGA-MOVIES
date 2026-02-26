@@ -21,10 +21,12 @@ app.add_middleware(
 app.include_router(api_router, prefix="/api")
 
 @app.get("/")
+@app.head("/")
 async def root():
     return {"message": "Welcome to MovieBox API"}
 
 @app.get("/api/health")
+@app.head("/api/health")
 async def health_check():
     return {"status": "ok"}
 
