@@ -1984,7 +1984,7 @@ async def manga_download(chapter_id: str, title: str = "chapter"):
     return StreamingResponse(
         zip_buffer,
         media_type="application/zip",
-        headers={"Content-Disposition": f"attachment; filename={title.replace('/', '_')}.zip"}
+        headers={"Content-Disposition": f'attachment; filename="{title.replace("/", "_")}.zip"'}
     )
 
 @router.get("/manga/save-local/{chapter_id:path}")

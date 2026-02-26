@@ -487,36 +487,6 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
                                                         {item.source === 'manga' ? 'Download ZIP' : 'Download'}
                                                     </button>
 
-                                                    {item.source === 'manga' && (
-                                                        <button
-                                                            className="btn btn-glass"
-                                                            style={{ flex: 1, position: 'relative' }}
-                                                            onClick={async (e) => {
-                                                                const btn = e.currentTarget;
-                                                                const originalContent = btn.innerHTML;
-                                                                btn.disabled = true;
-                                                                btn.innerHTML = 'Saving...';
-
-                                                                try {
-                                                                    const res = await fetch(`${API_BASE}/api/manga/save-local/${selectedMangaCh.id}?manga_title=${encodeURIComponent(item.title)}&chapter_title=${encodeURIComponent(selectedMangaCh.title)}`);
-                                                                    const data = await res.json();
-                                                                    if (data.status === 'success') {
-                                                                        alert(`Successfully saved to: ${data.path}`);
-                                                                    } else {
-                                                                        alert(`Error: ${data.message}`);
-                                                                    }
-                                                                } catch (err) {
-                                                                    alert('Failed to save locally.');
-                                                                } finally {
-                                                                    btn.disabled = false;
-                                                                    btn.innerHTML = originalContent;
-                                                                }
-                                                            }}
-                                                        >
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
-                                                            Save to Local Folder
-                                                        </button>
-                                                    )}
                                                 </div>
                                             )}
                                         </div>
