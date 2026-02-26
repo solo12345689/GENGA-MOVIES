@@ -289,6 +289,7 @@ function App() {
             // 'cinecli' -> Not implemented yet in backend, but we'll prepare for it
 
             let endpoint = `/api/search?query=${encodeURIComponent(query)}&content_type=${type}`;
+            const base = (activeSource === 'hianime' || activeSource === 'manga' || activeSource === 'anicli') ? CLOUD_BASE : localServerURL;
 
             if (activeSource === 'hianime') {
                 endpoint = `/api/anime/search?query=${encodeURIComponent(query)}`;
@@ -298,8 +299,7 @@ function App() {
                 endpoint = `/api/manga/search?query=${encodeURIComponent(query)}`;
             }
 
-
-            const res = await fetch(`${API_BASE}${endpoint}`);
+            const res = await fetch(`${base}${endpoint}`);
             const data = await res.json();
 
             if (activeSource === 'hianime') {
@@ -321,7 +321,7 @@ function App() {
                 setResults(data.results.map(it => ({
                     ...it,
                     source: 'manga',
-                    poster_url: `${API_BASE}/api/manga/image-proxy?url=${encodeURIComponent(it.poster_url)}`
+                    poster_url: `${base}/api/manga/image-proxy?url=${encodeURIComponent(it.poster_url)}`
                 })));
             } else {
                 // MovieBox results
@@ -330,7 +330,7 @@ function App() {
         } catch (err) {
             console.error("Search failed", err);
             // Detailed error alerting for debugging
-            alert(`Connection Failed!\n\nTarget: ${API_BASE}${endpoint}\nError: ${err.message}\n\nPlease ensure the backend is running on Port 8000.`);
+            alert(`Connection Failed!\n\nError: ${err.message}\n\nPlease ensure your backend is reachable.`);
         } finally {
             setLoading(false);
         }
@@ -365,7 +365,7 @@ function App() {
         }
 
         // Navigate to details route; router will load remaining details (like chapters/episodes)
-        navigate(`/details/${item.id}?source=${encodeURIComponent(src)}`);
+        navigate(`/details/${item.id}?source=${encodeURIComponent(src)}&type=${item.type || 'movie'}`);
     };
 
     const handleDownload = async (item, season = null, episode = null, url = null) => {
@@ -378,21 +378,11 @@ function App() {
         // For MovieBox items, we need to resolve the stream URL first
         try {
             // 1. Fetch the stream URL from backend
-            let streamUrl = null;
-
-            // Construct args for details/stream fetch
-            let queryUrl = `${API_BASE}/api/details/${item.id}`; // Fallback to details if no dedicated stream resolver endpoint exposed cleanly
-
-            // Actually, we can use the same logic as WatchPage: call /api/details to get streams?
-            // Or better: use the /api/stream endpoint if it exists, or just reuse the logic.
-            // Let's assume we can get the stream url by calling the provider.
-            // Since we don't have a clean "get_stream_url" in frontend, we'll hit the /api/details again or similar.
-
-            // SIMPLER APPROACH: Redirect to a new backend endpoint that handles resolution + download?
-            // OR: Just alert user for now if we can't easily get URL.
+            // Determine appropriate base URL for this specific item
+            const base = (item.source === 'hianime' || item.source === 'manga' || item.source === 'anicli') ? CLOUD_BASE : localServerURL;
 
             // Let's try to fetch details which usually contains 'streams' or 'sources'.
-            const res = await fetch(`${API_BASE}/api/details/${item.id}`);
+            const res = await fetch(`${base}/api/details/${item.id}?type=${item.type || 'movie'}`);
             const data = await res.json();
 
             if (data.streams && data.streams.length > 0) {
@@ -403,7 +393,7 @@ function App() {
 
             if (streamUrl) {
                 // 2. Redirect to Proxy Download
-                const proxyUrl = `${API_BASE}/api/proxy/download?url=${encodeURIComponent(streamUrl)}&filename=${encodeURIComponent(item.title + '.mp4')}`;
+                const proxyUrl = `${base}/api/proxy/download?url=${encodeURIComponent(streamUrl)}&filename=${encodeURIComponent(item.title + '.mp4')}`;
                 window.location.href = proxyUrl;
             } else {
                 alert("Could not resolve a download link for this item.");
@@ -463,26 +453,29 @@ function App() {
         const pathname = location.pathname || '/';
         const search = location.search || '';
 
-        const loadDetails = async (id, source) => {
+        const loadDetails = async (id, source, type = 'movie') => {
             // If loadDetails is called, it means we definitely need to fetch more data.
             // We set detailsLoading(true) to show the prominent spinner.
             setDetailsLoading(true);
 
+            // Determine appropriate base URL for this source
+            const base = (source === 'hianime' || source === 'manga' || source === 'anicli') ? CLOUD_BASE : localServerURL;
+
             try {
                 if (source === 'cinecli') {
-                    const res = await fetch(`${API_BASE}/api/cinecli/details/${id}`);
+                    const res = await fetch(`${base}/api/cinecli/details/${id}`);
                     const details = await res.json();
                     setSelectedItem(prev => ({ ...prev, ...details, source: 'cinecli', hasFullDetails: true }));
                 } else if (source === 'anicli') {
-                    const res = await fetch(`${API_BASE}/api/anicli/details/${id}`);
+                    const res = await fetch(`${base}/api/anicli/details/${id}`);
                     const details = await res.json();
                     setSelectedItem(prev => ({ ...prev, ...details, source: 'anicli', type: 'anime', hasFullDetails: true }));
                 } else if (source === 'hianime') {
                     let details = {};
                     let episodes = [];
                     try {
-                        const dTask = fetch(`${API_BASE}/api/anime/details/${id}`).then(r => r.ok ? r.json() : {});
-                        const eTask = fetch(`${API_BASE}/api/anime/episodes/${id}`).then(r => r.ok ? r.json() : {});
+                        const dTask = fetch(`${base}/api/anime/details/${id}`).then(r => r.ok ? r.json() : {});
+                        const eTask = fetch(`${base}/api/anime/episodes/${id}`).then(r => r.ok ? r.json() : {});
                         const [d, e] = await Promise.all([dTask, eTask]);
                         details = d;
                         if (e.status === 200 && e.data) episodes = e.data.episodes || [];
@@ -497,7 +490,7 @@ function App() {
                         hasFullDetails: true
                     }));
                 } else if (source === 'manga') {
-                    const res = await fetch(`${API_BASE}/api/manga/details/${id}`);
+                    const res = await fetch(`${base}/api/manga/details/${id}`);
                     const details = await res.json();
                     setSelectedItem(prev => {
                         const rawPoster = details.poster_url || details.poster || details.image;
@@ -507,7 +500,7 @@ function App() {
                             if (rawPoster.includes('/api/manga/image-proxy')) {
                                 finalPoster = rawPoster;
                             } else {
-                                finalPoster = `${API_BASE}/api/manga/image-proxy?url=${encodeURIComponent(rawPoster)}`;
+                                finalPoster = `${base}/api/manga/image-proxy?url=${encodeURIComponent(rawPoster)}`;
                             }
                         }
 
@@ -521,7 +514,7 @@ function App() {
                         };
                     });
                 } else {
-                    const res = await fetch(`${API_BASE}/api/details/${id}`);
+                    const res = await fetch(`${base}/api/details/${id}?type=${type}`);
                     const details = await res.json();
                     setSelectedItem(prev => ({ ...prev, ...details, source: 'moviebox', hasFullDetails: true }));
                 }
@@ -579,13 +572,14 @@ function App() {
         }
 
         if (pathname.startsWith('/details/')) {
-            const id = pathname.replace('/details/', '').split('/')[0];
+            const id = pathname.replace('/details/', '').split('?')[0];
             const params = new URLSearchParams(search);
             const source = params.get('source') || 'moviebox';
+            const type = params.get('type') || 'movie';
 
-            // IF we are coming back from watch page or manga reader for the SAME item, restore it immediately
             let restored = false;
-            if (!selectedItem || String(selectedItem.id) !== String(id)) {
+            // First check if it's already in active state
+            if (activeSource === 'history') {
                 if (videoPlayerData && String(videoPlayerData.item.id) === String(id)) {
                     setSelectedItem(videoPlayerData.item);
                     restored = true;
@@ -593,7 +587,7 @@ function App() {
                     setSelectedItem(mangaReaderItem.item);
                     restored = true;
                 }
-            } else if (String(selectedItem.id) === String(id)) {
+            } else if (selectedItem && String(selectedItem.id) === String(id)) {
                 restored = true;
             }
 
@@ -612,7 +606,7 @@ function App() {
             };
 
             if (!isFullItem(selectedItem)) {
-                loadDetails(id, source);
+                loadDetails(id, source, type);
             }
             return;
         }
@@ -874,7 +868,7 @@ function App() {
                         }}
                         progress={downloadProgress}
                         serverMode="local"
-                        API_BASE={API_BASE}
+                        API_BASE={selectedItem.source === 'hianime' || selectedItem.source === 'manga' || selectedItem.source === 'anicli' ? CLOUD_BASE : localServerURL}
                         detailsLoading={detailsLoading}
                     />
                 )
@@ -887,7 +881,7 @@ function App() {
                     item={videoPlayerData.item}
                     initialSeason={videoPlayerData.season}
                     initialEpisode={videoPlayerData.episode}
-                    API_BASE={API_BASE}
+                    API_BASE={videoPlayerData.item.source === 'hianime' ? CLOUD_BASE : localServerURL}
                     onBack={() => {
                         const src = videoPlayerData.item && videoPlayerData.item.source ? videoPlayerData.item.source : 'moviebox';
                         navigate(`/details/${videoPlayerData.item.id}?source=${encodeURIComponent(src)}`);
@@ -902,7 +896,7 @@ function App() {
                     item={mangaReaderItem.item}
                     chapterId={mangaReaderItem.chapterId}
                     chapterTitle={mangaReaderItem.chapterTitle}
-                    API_BASE={API_BASE}
+                    API_BASE={CLOUD_BASE}
                     onBack={() => {
                         const src = mangaReaderItem.item && mangaReaderItem.item.source ? mangaReaderItem.item.source : 'manga';
                         navigate(`/details/${mangaReaderItem.item.id}?source=${encodeURIComponent(src)}`);
