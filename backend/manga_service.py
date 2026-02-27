@@ -5,7 +5,7 @@ import zipfile
 from typing import List, Optional, Any
 
 class MangaService:
-    BASE_URL = "https://api-consumet-org-x46x.onrender.com"
+    BASE_URL = "https://api-consumet-org-mswp.onrender.com"
     PROVIDER = "mangapill"
 
     @staticmethod
@@ -18,20 +18,25 @@ class MangaService:
                 url = f"{MangaService.BASE_URL}/manga/{MangaService.PROVIDER}/{query}"
                 resp = await client.get(url)
                 if resp.status_code != 200:
+                    print(f"[MangaService] Search error {resp.status_code} for {url}: {resp.text[:200]}")
                     return []
                 
-                data = resp.json()
-                results = data.get('results', data)
-                if not isinstance(results, list):
+                try:
+                    data = resp.json()
+                    results = data.get('results', data)
+                    if not isinstance(results, list):
+                        return []
+                    
+                    return [{
+                        "id": item.get('id'),
+                        "title": item.get('title'),
+                        "poster_url": item.get('image') or item.get('poster') or item.get('cover'),
+                        "type": "manga",
+                        "source": "manga"
+                    } for item in results]
+                except Exception as json_err:
+                    print(f"[MangaService] JSON error for {url}: {json_err} | Body: {resp.text[:500]}")
                     return []
-                
-                return [{
-                    "id": item.get('id'),
-                    "title": item.get('title'),
-                    "poster_url": item.get('image') or item.get('poster') or item.get('cover'),
-                    "type": "manga",
-                    "source": "manga"
-                } for item in results]
             except Exception as e:
                 print(f"[MangaService] Search error: {e}")
                 return []

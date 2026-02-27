@@ -97,11 +97,8 @@ const detectLocalServer = async (onProgress) => {
 };
 
 // Define available backends
-const CLOUD_BASE = 'https://moviebox-3xxv.onrender.com';
-const BACKENDS = {
-    local: null, // Will be set dynamically
-    cloud: CLOUD_BASE
-};
+const CLOUD_BASE = 'https://moviebox-knh8.onrender.com';
+
 
 function App() {
     // State for local server configuration
@@ -144,14 +141,14 @@ function App() {
             setScanningStatus('Scanning network...');
             detectLocalServer((status) => setScanningStatus(status)).then(url => {
                 setLocalServerURL(url);
-                BACKENDS.local = url;
+
                 setScanningStatus('');
                 if (url !== 'http://localhost:8000') {
                     localStorage.setItem('moviebox_local_ip', url);
                 }
             });
         } else {
-            BACKENDS.local = savedIP;
+
         }
     }, []);
 
@@ -224,6 +221,18 @@ function App() {
                             if (d.topUpcomingAnimes) normalizedGroups.push({ title: 'Upcoming', items: d.topUpcomingAnimes.map(a => ({ id: a.id, title: a.name, poster_url: a.poster, year: a.type || 'Anime', type: 'anime', source: 'hianime' })) });
                         }
                         setHomepageContent(normalizedGroups);
+                    } else if (activeSource === 'manga') {
+                        // Manga normalization
+                        const data = await res.json();
+                        const results = data.results || [];
+                        setHomepageContent([{
+                            title: 'Popular Manga',
+                            items: results.map(it => ({
+                                ...it,
+                                source: 'manga',
+                                poster_url: `${API_BASE}/api/manga/image-proxy?url=${encodeURIComponent(it.poster_url)}`
+                            }))
+                        }]);
                     }
                 }
             } catch (err) {
@@ -236,9 +245,7 @@ function App() {
         fetchHomepage();
     }, [API_BASE, activeSource]);
 
-    const toggleServer = () => {
-        // Toggle is now deprecated but kept as a no-op to avoid breaking refs if any
-    };
+
 
     React.useEffect(() => {
         // WebSocket URL needs to match the current API_BASE
@@ -997,7 +1004,7 @@ function App() {
                                             if (targetUrl.endsWith('/')) targetUrl = targetUrl.slice(0, -1);
 
                                             setLocalServerURL(targetUrl);
-                                            BACKENDS.local = targetUrl;
+
                                             localStorage.setItem('moviebox_local_ip', targetUrl);
                                             setShowManualIP(false);
 

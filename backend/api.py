@@ -69,7 +69,7 @@ patch_moviebox_models()
 
 router = APIRouter()
 
-ANIME_API_BASE = "https://aniwatch-api-3e2f.onrender.com/api/v2/hianime"
+ANIME_API_BASE = "https://aniwatch-api-dotd.onrender.com/api/v2/hianime"
 
 # Global session
 session = Session()
@@ -1331,22 +1331,42 @@ async def proxy_stream(request: Request, url: str, source: str = None):
 async def get_anime_home():
     try:
         url = f"{ANIME_API_BASE}/home"
+        print(f"[HiAnime] Requesting Home: {url}")
         client = get_http_client()
         response = await client.get(url, timeout=30.0)
-        return response.json()
+        if response.status_code != 200:
+            print(f"[HiAnime] Home API error {response.status_code}: {response.text[:200]}")
+            raise HTTPException(status_code=response.status_code, detail=f"Upstream error: {response.status_code}")
+        
+        try:
+            return response.json()
+        except Exception as json_err:
+            print(f"[HiAnime] JSON Parse error: {json_err} | Body: {response.text[:500]}")
+            raise HTTPException(status_code=500, detail="Malformed upstream response")
     except Exception as e:
-        print(f"HiAnime Home error: {e}")
+        print(f"HiAnime Home fatal error: {e}")
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/anime/search")
 async def search_anime(query: str, page: int = 1):
     try:
         url = f"{ANIME_API_BASE}/search?q={quote(query)}&page={page}"
+        print(f"[HiAnime] Searching: {url}")
         client = get_http_client()
         response = await client.get(url, timeout=30.0)
-        return response.json()
+        if response.status_code != 200:
+            print(f"[HiAnime] Search API error {response.status_code}: {response.text[:200]}")
+            raise HTTPException(status_code=response.status_code, detail=f"Upstream error: {response.status_code}")
+        
+        try:
+            return response.json()
+        except Exception as json_err:
+            print(f"[HiAnime] Search JSON Parse error: {json_err} | Body: {response.text[:500]}")
+            raise HTTPException(status_code=500, detail="Malformed upstream response")
     except Exception as e:
-        print(f"HiAnime Search error: {e}")
+        print(f"HiAnime Search fatal error: {e}")
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/anime/details/{anime_id}")
