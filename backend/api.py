@@ -15,6 +15,7 @@ from moviebox_api.models import SearchResultsItem
 from cinecli_service import CineCLIService
 from mal_service import MALService
 from manga_service import MangaService
+from music_service import MusicService
 from typing import Optional, Union, get_args, get_origin
 import pydantic
 import asyncio
@@ -70,6 +71,9 @@ patch_moviebox_models()
 router = APIRouter()
 
 ANIME_API_BASE = "https://aniwatch-api-dotd.onrender.com/api/v2/hianime"
+
+manga_service = MangaService()
+music_service = MusicService()
 
 # Global session
 session = Session()
@@ -2074,3 +2078,118 @@ async def system_status():
 @router.get("/health")
 async def health():
     return {"status": "ok", "version": "1.1.0"}
+
+# --- Music Endpoints ---
+
+@router.get("/music/home")
+async def get_music_home(language: str = "English"):
+    try:
+        # Aggregate trending and new releases
+        trending = await music_service.get_trending(language)
+        new_releases = await music_service.get_new_releases(language)
+        charts = await music_service.get_charts()
+        
+        groups = []
+        
+        if trending:
+            groups.append({
+                "title": f"Trending ({language})",
+                "items": [
+                    {
+                        "id": item.get("seokey"),
+                        "title": item.get("title"),
+                        "poster_url": item.get("images", {}).get("urls", {}).get("medium_artwork"),
+                        "year": item.get("artists"),
+                        "type": "music",
+                        "source": "music"
+                    } for item in (trending if isinstance(trending, list) else [])
+                ]
+            })
+            
+        if new_releases:
+            # newreleases returns a dict with "tracks" and "albums"
+            songs = new_releases.get("tracks", [])
+            if songs:
+                groups.append({
+                    "title": f"New Releases ({language})",
+                    "items": [
+                        {
+                            "id": item.get("seokey"),
+                            "title": item.get("title"),
+                            "poster_url": item.get("images", {}).get("urls", {}).get("medium_artwork") or item.get("image"),
+                            "year": item.get("artists"),
+                            "type": "music",
+                            "source": "music"
+                        } for item in (songs if isinstance(songs, list) else [])
+                    ]
+                })
+
+        if charts:
+            groups.append({
+                "title": "Top Charts",
+                "items": [
+                    {
+                        "id": item.get("seokey"),
+                        "title": item.get("title"),
+                        "poster_url": (item.get("images", {}).get("urls", {}).get("medium_artwork") if item.get("images") else None) or item.get("image"),
+                        "year": "Playlist",
+                        "type": "music_playlist",
+                        "source": "music"
+                    } for item in (charts if isinstance(charts, list) else [])
+                ]
+            })
+            
+        return {"groups": groups}
+    except Exception as e:
+        print(f"[Music] Home error: {e}")
+        return {"groups": []}
+
+@router.get("/music/search")
+async def search_music(query: str, limit: int = 20):
+    try:
+        results = await music_service.search_songs(query, limit)
+        if not results:
+            return {"results": []}
+            
+        normalized = [
+            {
+                "id": item.get("seokey"),
+                "title": item.get("title"),
+                "poster_url": (item.get("images", {}).get("urls", {}).get("medium_artwork") if item.get("images") else None) or item.get("image"),
+                "year": item.get("artists"),
+                "type": "music",
+                "source": "music"
+            } for item in (results if isinstance(results, list) else [])
+        ]
+        return {"results": normalized}
+    except Exception as e:
+        print(f"[Music] Search error: {e}")
+        return {"results": []}
+
+@router.get("/music/info")
+async def get_music_info(seokey: str):
+    try:
+        data = await music_service.get_song_info(seokey)
+        if not data:
+            raise HTTPException(status_code=404, detail="Song not found")
+            
+        # GaanaPy returns a list of 1 item for info usually
+        item = data[0] if isinstance(data, list) and len(data) > 0 else data
+        
+        return {
+            "id": item.get("seokey"),
+            "track_id": item.get("track_id"),
+            "title": item.get("title"),
+            "artists": item.get("artists"),
+            "album": item.get("album"),
+            "duration": item.get("duration"),
+            "release_date": item.get("release_date"),
+            "genres": item.get("genres"),
+            "poster_url": item.get("images", {}).get("urls", {}).get("large_artwork"),
+            "stream_url": item.get("stream_urls", {}).get("urls", {}).get("very_high_quality"),
+            "type": "music",
+            "source": "music"
+        }
+    except Exception as e:
+        print(f"[Music] Info error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

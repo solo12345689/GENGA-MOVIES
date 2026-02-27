@@ -6,6 +6,8 @@ import DetailsModal from './components/DetailsModal';
 import WatchPage from './components/WatchPage';
 import MangaReader from './components/MangaReader';
 import Sidebar from './components/Sidebar';
+import MusicCard from './components/MusicCard';
+import MusicPlayer from './components/MusicPlayer';
 import './styles/index.css';
 
 // Auto-detect local server IP
@@ -154,7 +156,7 @@ function App() {
 
     // Determine base URL based on active source
     // Manga and HiAnime are hard-routed to Cloud
-    // Home, MovieBox, CineCLI use Local (Manual IP)
+    // Home, MovieBox, CineCLI and Music use Local (Manual IP) by default
     const API_BASE = (activeSource === 'hianime' || activeSource === 'manga' || activeSource === 'anicli')
         ? CLOUD_BASE
         : localServerURL;
@@ -164,6 +166,7 @@ function App() {
     const [selectedItem, setSelectedItem] = useState(null); // For DetailsModal
     const [videoPlayerData, setVideoPlayerData] = useState(null); // For WatchPage
     const [mangaReaderItem, setMangaReaderItem] = useState(null); // For MangaReader
+    const [activeTrack, setActiveTrack] = useState(null); // For MusicPlayer
     const [detailsLoading, setDetailsLoading] = useState(false);
     const [downloadProgress, setDownloadProgress] = useState(null);
     const [homepageContent, setHomepageContent] = useState(null);
@@ -195,7 +198,8 @@ function App() {
 
                 let endpoint = '/api/homepage';
                 if (activeSource === 'hianime') endpoint = '/api/anime/home';
-                if (activeSource === 'manga') endpoint = '/api/manga/search?query=popular'; // Fetching some 'popular' manga for home
+                if (activeSource === 'manga') endpoint = '/api/manga/search?query=popular';
+                if (activeSource === 'music') endpoint = '/api/music/home';
 
                 const res = await fetch(`${API_BASE}${endpoint}`);
                 if (res.ok) {
@@ -233,6 +237,12 @@ function App() {
                                 poster_url: `${API_BASE}/api/manga/image-proxy?url=${encodeURIComponent(it.poster_url)}`
                             }))
                         }]);
+                    } else if (activeSource === 'music') {
+                        const data = await res.json();
+                        // Backend returns { "groups": [...] }
+                        if (data.groups) {
+                            setHomepageContent(data.groups);
+                        }
                     }
                 }
             } catch (err) {
@@ -304,6 +314,8 @@ function App() {
                 endpoint = `/api/cinecli/search?query=${encodeURIComponent(query)}`;
             } else if (activeSource === 'manga') {
                 endpoint = `/api/manga/search?query=${encodeURIComponent(query)}`;
+            } else if (activeSource === 'music') { // Added music search logic
+                endpoint = `/api/music/search?query=${encodeURIComponent(query)}`;
             }
 
             const res = await fetch(`${base}${endpoint}`);
@@ -330,6 +342,8 @@ function App() {
                     source: 'manga',
                     poster_url: `${base}/api/manga/image-proxy?url=${encodeURIComponent(it.poster_url)}`
                 })));
+            } else if (activeSource === 'music') { // Added music search normalization
+                setResults(data.results || []);
             } else {
                 // MovieBox results
                 setResults(data.results.map(it => ({ ...it, source: 'moviebox' })));
@@ -356,6 +370,22 @@ function App() {
         const src = item.source || 'moviebox';
         // Set selected item immediately to preserve poster/metadata for the modal
         setSelectedItem({ ...item, source: src });
+
+        // If it's a music item, play it directly without opening details modal
+        if (item.source === 'music' || item.type === 'music') {
+            setDetailsLoading(true);
+            try {
+                // Music is always routed via the same base as current API_BASE (Local in dev)
+                const res = await fetch(`${API_BASE}/api/music/info?seokey=${item.id}`);
+                const data = await res.json();
+                setActiveTrack(data);
+            } catch (e) {
+                console.error("Failed to play music", e);
+            } finally {
+                setDetailsLoading(false);
+            }
+            return;
+        }
 
         // Ensure we show loading state if details are missing (e.g. from History)
         const isComplete = (it) => {
@@ -386,7 +416,7 @@ function App() {
         try {
             // 1. Fetch the stream URL from backend
             // Determine appropriate base URL for this specific item
-            const base = (item.source === 'hianime' || item.source === 'manga' || item.source === 'anicli') ? CLOUD_BASE : localServerURL;
+            const base = (item.source === 'hianime' || item.source === 'manga' || item.source === 'music' || item.source === 'anicli') ? CLOUD_BASE : localServerURL;
 
             // Let's try to fetch details which usually contains 'streams' or 'sources'.
             const res = await fetch(`${base}/api/details/${item.id}?type=${item.type || 'movie'}`);
@@ -693,7 +723,8 @@ function App() {
                             activeSource === 'moviebox' ? 'Library' :
                                 activeSource === 'hianime' ? 'Anime World' :
                                     activeSource === 'manga' ? 'Manga Collection' :
-                                        activeSource === 'history' ? 'Watch History' : 'Genga Movies'}
+                                        activeSource === 'music' ? 'Music Library' : // Added music title
+                                            activeSource === 'history' ? 'Watch History' : 'Genga Movies'}
                     </div>
 
                     {activeSource !== 'history' && <SearchBar onSearch={handleSearch} />}
@@ -702,7 +733,7 @@ function App() {
                         <div style={{ padding: '1rem 0' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                    {['all', 'moviebox', 'hianime', 'manga'].map(f => (
+                                    {['all', 'moviebox', 'hianime', 'manga', 'music'].map(f => ( // Added 'music' to history filter
                                         <button
                                             key={f}
                                             onClick={() => setHistoryFilter(f)}
@@ -752,11 +783,9 @@ function App() {
                                         );
 
                                         return filtered.map((item, idx) => (
-                                            <MovieCard
-                                                key={`history-${item.id}-${idx}`}
-                                                movie={item}
-                                                onClick={handleItemClick}
-                                            />
+                                            item.source === 'music' ?
+                                                <MusicCard key={`history-${item.id}-${idx}`} movie={item} onClick={handleItemClick} /> :
+                                                <MovieCard key={`history-${item.id}-${idx}`} movie={item} onClick={handleItemClick} />
                                         ));
                                     } catch (e) { return null; }
                                 })()}
@@ -785,7 +814,9 @@ function App() {
                         paddingBottom: '4rem'
                     }}>
                         {results.map((item) => (
-                            <MovieCard key={item.id} movie={item} onClick={handleItemClick} />
+                            item.source === 'music' ?
+                                <MusicCard key={item.id} movie={item} onClick={handleItemClick} /> :
+                                <MovieCard key={item.id} movie={item} onClick={handleItemClick} />
                         ))}
                     </div>
 
@@ -822,7 +853,9 @@ function App() {
                                                 gap: '2rem'
                                             }}>
                                                 {group.items.map((item, idx) => (
-                                                    <MovieCard key={`${item.id}-${index}-${idx}`} movie={item} onClick={handleItemClick} />
+                                                    activeSource === 'music' ?
+                                                        <MusicCard key={`${item.id}-${index}-${idx}`} movie={item} onClick={handleItemClick} /> :
+                                                        <MovieCard key={`${item.id}-${index}-${idx}`} movie={item} onClick={handleItemClick} />
                                                 ))}
                                             </div>
                                         </div>
@@ -908,6 +941,13 @@ function App() {
                         const src = mangaReaderItem.item && mangaReaderItem.item.source ? mangaReaderItem.item.source : 'manga';
                         navigate(`/details/${mangaReaderItem.item.id}?source=${encodeURIComponent(src)}`);
                     }}
+                />
+            )}
+
+            {activeTrack && (
+                <MusicPlayer
+                    track={activeTrack}
+                    onClose={() => setActiveTrack(null)}
                 />
             )}
 
