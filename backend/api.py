@@ -647,6 +647,11 @@ async def details(item_id: str) -> dict:
                     object.__setattr__(self, 'id', sid)
                     object.__setattr__(self, 'subjectId', sid)
                     object.__setattr__(self, 'subjectType', stype)
+                    
+                    # detailPath is required for calculating page_url in moviebox_api.models
+                    detail_path = "movie" if stype == 1 else "tv"
+                    object.__setattr__(self, 'detailPath', detail_path)
+                    
                     # Copy all other fields from original item
                     for k, v in fields_dict.items():
                         if not hasattr(self, k):
