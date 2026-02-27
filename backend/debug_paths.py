@@ -2,7 +2,7 @@ import httpx
 import asyncio
 
 async def test():
-    base = "https://aniwatch-api-3e2f.onrender.com/api/v2/hianime"
+    base = "https://aniwatch-api-dotd.onrender.com/api/v2/hianime"
     async with httpx.AsyncClient(follow_redirects=True, headers={'User-Agent': 'Mozilla/5.0'}) as client:
         for path in ["/home", "/search?q=naruto"]:
             url = base + path

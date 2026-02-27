@@ -5,7 +5,7 @@ import json
 import sys
 
 async def check():
-    url = "https://aniwatch-api-3e2f.onrender.com/api/v2/hianime/anime/one-piece-100/episodes"
+    url = "https://aniwatch-api-dotd.onrender.com/api/v2/hianime/anime/one-piece-100/episodes"
     print(f"Checking URL: {url}")
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:

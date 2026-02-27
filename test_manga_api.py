@@ -2,7 +2,7 @@ import httpx
 import asyncio
 import json
 
-BASE_URL = "https://api-consumet-org-x46x.onrender.com"
+BASE_URL = "https://api-consumet-org-mswp.onrender.com"
 
 async def test_manga_api():
     async with httpx.AsyncClient(timeout=30.0) as client:

@@ -2,7 +2,7 @@ import httpx
 import asyncio
 
 async def test():
-    url = "https://aniwatch-api-3e2f.onrender.com/api/v2/hianime/search?q=naruto"
+    url = "https://aniwatch-api-dotd.onrender.com/api/v2/hianime/search?q=naruto"
     async with httpx.AsyncClient(follow_redirects=True) as client:
         try:
             print(f"Testing direct call to {url}...")

@@ -4,7 +4,7 @@ import asyncio
 import json
 
 async def test_prod():
-    base_url = "https://aniwatch-api-3e2f.onrender.com/api/v2/hianime"
+    base_url = "https://aniwatch-api-dotd.onrender.com/api/v2/hianime"
     anime_id = "one-piece-100"
     
     async with httpx.AsyncClient(timeout=30) as client:
