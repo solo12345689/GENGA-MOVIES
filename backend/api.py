@@ -640,16 +640,17 @@ async def details(item_id: str) -> dict:
             print(f"[FAST-PATH] Bypassing search for homepage item: {getattr(item, 'title', 'Unknown')}")
             
             # Construct a mock search item that moviebox_api can accept
-            class MockSearchItem:
+            class MockSearchItem(SearchResultsItem):
                 def __init__(self, fields_dict, sid, stype):
-                    # Set id and subject fields explicitly as they are most common
-                    self.id = sid
-                    self.subjectId = sid
-                    self.subjectType = stype
-                    # Copy all other fields from original item (like rating, year, etc)
+                    # Use object.__setattr__ to bypass Pydantic's validation 
+                    # while still being an instance of SearchResultsItem
+                    object.__setattr__(self, 'id', sid)
+                    object.__setattr__(self, 'subjectId', sid)
+                    object.__setattr__(self, 'subjectType', stype)
+                    # Copy all other fields from original item
                     for k, v in fields_dict.items():
                         if not hasattr(self, k):
-                            setattr(self, k, v)
+                            object.__setattr__(self, k, v)
             
             # Use original subjectType if available, fallback to normalized logic
             raw_stype = getattr(item, 'subjectType', None)
