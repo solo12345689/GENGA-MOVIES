@@ -568,7 +568,8 @@ async def get_homepage_content() -> dict:
                                     "year": year,
                                     "rating": rating,
                                     "type": it_type,
-                                    "subjectType": subject_type
+                                    "subjectType": subject_type,
+                                    "detailPath": item.get('detailPath')
                                 },
                                 "search_instance": None,  # Will create on-demand
                                 "type": it_type,
@@ -670,7 +671,11 @@ async def details(item_id: str) -> dict:
             
             # Use this mock item
             item_fields = cached.get("item", {})
+            mock_detail_path = item_fields.get("detailPath")
             item = MockSearchItem(item_fields, item_fields['id'], raw_stype or (1 if subject_type == SubjectType.MOVIES else 2))
+            # If we have a cached detailPath, set it explicitly to override the default "movie"/"tv" logic
+            if mock_detail_path:
+                object.__setattr__(item, 'detailPath', mock_detail_path)
             
             # We still need a search instance to call get_item_details
             # An empty query search instance is fine for details fetching
