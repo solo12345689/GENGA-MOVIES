@@ -102,21 +102,48 @@ npm run dev -- --host
 
 ## ⚙️ Configuration & URLs
 
-If you need to change the external API providers or update their base URLs, you can find them in the following files:
+### 1. External Service APIs (Backend)
+If you are running the backend locally and wish to change where it pulls data from (e.g., if a provider URL changes), update these files:
 
-### Backend APIs
-| Service | Location | Current URL |
-| :--- | :--- | :--- |
-| **Anime (HiAnime)** | `backend/api.py` | `https://aniwatch-api-dotd.onrender.com/api/v2/hianime` |
-| **Music (GaanaPy)** | `backend/music_service.py` | `https://gaanapy-a8jf.onrender.com` |
-| **Manga (Consumet)** | `backend/manga_service.py` | `https://api-consumet-org-mswp.onrender.com` |
+| Service | Location | Variable | Current URL |
+| :--- | :--- | :--- | :--- |
+| **Anime (HiAnime)** | `backend/api.py` | `ANIME_API_BASE` | `https://aniwatch-api-dotd.onrender.com/...` |
+| **Music (GaanaPy)** | `backend/music_service.py` | `self.base_url` | `https://gaanapy-a8jf.onrender.com` |
+| **Manga (Consumet)** | `backend/manga_service.py` | `BASE_URL` | `https://api-consumet-org-mswp.onrender.com` |
 
-To update a URL, simply open the corresponding file and modify the `ANIME_API_BASE`, `self.base_url`, or `BASE_URL` variable.
+### 2. Cloud vs Local Routing (Frontend)
+The application uses a hybrid routing model defined in `frontend/src/App.jsx`.
 
-### Frontend Connectivity
-By default, the frontend is configured to talk to `http://localhost:8080/api`. 
-- **Development**: Managed via the `proxy` settings in `frontend/vite.config.js`.
-- **Production**: Update the `API_BASE_URL` or equivalent environment variable in the frontend build settings.
+#### **The `CLOUD_BASE` URL**
+The variable `CLOUD_BASE` (currently `https://moviebox-knh8.onrender.com`) acts as a hosted instance of the MovieBox backend. This is used as a reliable fallback.
+
+#### **How to Replace the Cloud URL**
+If you want to use your own hosted backend instead of the default one:
+1. Open `frontend/src/App.jsx`.
+2. Locate the line: `const CLOUD_BASE = 'https://moviebox-knh8.onrender.com';`.
+3. Replace the string with your own server URL (make sure it doesn't end with a slash).
+
+#### **Source-Specific Routing Logic**
+In `App.jsx`, the variable `API_BASE` determines which backend the frontend talks to for a specific section:
+
+```javascript
+// App.jsx logic
+const API_BASE = (activeSource === 'hianime' || activeSource === 'manga' || activeSource === 'music')
+    ? CLOUD_BASE
+    : localServerURL;
+```
+
+- **Cloud-Routed (Anime, Music, Manga)**: These sections are hard-coded to use `CLOUD_BASE`. This ensures that even if you don't have the Python backend running locally, these specialized scrapers (which require external API connectivity) continue to function.
+- **Local-Routed (Home, MovieBox, CineCLI)**: These sections use your `localServerURL` (detected as `localhost:8080` by default). This is necessary for CineCLI (torrents) and direct MovieBox proxies which rely on your local machine's network or MPV player.
+
+### 3. How it Works (Data Flow)
+1. **User Action**: You click on a Manga or Music item.
+2. **Frontend Request**: Since the source is `manga`, the frontend sends the request to `https://moviebox-knh8.onrender.com/api/manga/...`.
+3. **Cloud Backend**: The hosted backend at that URL receives the request.
+4. **Provider Fetch**: The Cloud backend then talks to the actual provider (like Consumet or GaanaPy).
+5. **Data Return**: The data travels back to the Cloud Backend, then to your browser.
+
+This path bypasses the need for you to host the complex scraping logic locally for these specific sources.
 
 
 ## 🔁 Client-side Routing (Deep Links)
