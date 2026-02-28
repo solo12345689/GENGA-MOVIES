@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const SearchBar = ({ onSearch }) => {
+const SearchBar = ({ onSearch, placeholder = "Search..." }) => {
     const [query, setQuery] = useState('');
     const [history, setHistory] = useState([]);
     const [showHistory, setShowHistory] = useState(false);
@@ -67,7 +67,7 @@ const SearchBar = ({ onSearch }) => {
                     <input
                         type="text"
                         className="input-glass"
-                        placeholder="Search movies, TV series, anime..."
+                        placeholder={placeholder}
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                         onFocus={() => setShowHistory(true)}

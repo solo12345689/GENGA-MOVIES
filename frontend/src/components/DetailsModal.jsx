@@ -258,7 +258,12 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
                             }}></div>
                             <div style={{ textAlign: 'center' }}>
                                 <div style={{ color: 'white', fontWeight: '600', marginBottom: '0.2rem' }}>Loading Details</div>
-                                <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Fetching seasons and ratings...</div>
+                                <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                                    {item.source === 'music' ? 'Fetching tracks and information...' :
+                                        item.type === 'manga' ? 'Fetching chapters and volumes...' :
+                                            item.source === 'hianime' || item.type === 'anime' ? 'Fetching episodes and information...' :
+                                                'Fetching seasons and ratings...'}
+                                </div>
                             </div>
                         </div>
                     ) : (
@@ -470,6 +475,80 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
                                             </div>
                                         ) : (
                                             <p style={{ color: 'var(--text-muted)' }}>Chapter information not available.</p>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* --- MUSIC TRACKS / PLAYLIST --- */}
+                                {item.source === 'music' && (
+                                    <div style={{
+                                        marginBottom: '2rem',
+                                        background: 'rgba(255,191,36,0.05)',
+                                        padding: '1.5rem',
+                                        borderRadius: '12px',
+                                        border: '1px solid rgba(255,191,36,0.1)'
+                                    }}>
+                                        <h3 style={{ marginBottom: '1.2rem', fontSize: '1.2rem', marginTop: 0, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span>🎵</span> {item.type === 'music_playlist' ? 'Playlist Tracks' : 'Tracks'}
+                                        </h3>
+
+                                        {detailsLoading && (!item.tracks && !item.songs) ? (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-muted)' }}>
+                                                <div className="spinner-small" style={{ width: '16px', height: '16px', border: '2px solid rgba(255,255,255,0.1)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+                                                <span>Loading tracks...</span>
+                                            </div>
+                                        ) : (item.tracks || item.songs || []).length > 0 ? (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', maxHeight: '400px', overflowY: 'auto', padding: '10px', background: 'rgba(0,0,0,0.3)', borderRadius: '12px' }}>
+                                                {(item.tracks || item.songs).map((track, idx) => (
+                                                    <div
+                                                        key={track.id || idx}
+                                                        onClick={() => onStream(track)}
+                                                        className="track-item"
+                                                        style={{
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '1rem',
+                                                            padding: '1rem',
+                                                            borderRadius: '10px',
+                                                            background: 'rgba(255,255,255,0.03)',
+                                                            border: '1px solid rgba(255,255,255,0.05)',
+                                                            color: 'white',
+                                                            cursor: 'pointer',
+                                                            textAlign: 'left',
+                                                            width: '100%',
+                                                            transition: 'all 0.2s ease'
+                                                        }}
+                                                    >
+                                                        <div style={{
+                                                            width: '36px',
+                                                            height: '36px',
+                                                            borderRadius: '50%',
+                                                            background: 'rgba(251, 191, 36, 0.2)',
+                                                            color: 'var(--primary)',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            flexShrink: 0,
+                                                            fontSize: '0.9rem'
+                                                        }}>
+                                                            ▶
+                                                        </div>
+                                                        <div style={{ flex: 1, overflow: 'hidden' }}>
+                                                            <div style={{ fontWeight: '600', fontSize: '1rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
+                                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.artists}</div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                <style>{`
+                                                    .track-item:hover {
+                                                        background: rgba(251, 191, 36, 0.1) !important;
+                                                        border-color: rgba(251, 191, 36, 0.3) !important;
+                                                        transform: translateX(5px);
+                                                    }
+                                                `}</style>
+                                            </div>
+                                        ) : (
+                                            <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem' }}>No tracks found in this playlist.</p>
                                         )}
                                     </div>
                                 )}

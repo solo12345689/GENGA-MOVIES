@@ -401,9 +401,15 @@ function App() {
         // Set selected item immediately to preserve poster/metadata for the modal
         setSelectedItem({ ...item, source: src });
 
-        // If it's a music item, play it directly
+        // If it's a music item, handle based on type
         if (item.source === 'music' || item.type === 'music' || item.type === 'music_playlist') {
-            handleMusicPlay(item);
+            if (item.type === 'music_playlist') {
+                // For playlists, open details modal to select track
+                navigate(`/details/${item.id}?source=music&type=music_playlist`);
+            } else {
+                // For single tracks, play directly
+                handleMusicPlay(item);
+            }
             return;
         }
 
@@ -597,6 +603,16 @@ function App() {
                             hasFullDetails: true
                         };
                     });
+                } else if (source === 'music') {
+                    const res = await fetch(`${base}/api/music/info?seokey=${id}&type=${type}`);
+                    const details = await res.json();
+                    setSelectedItem(prev => ({
+                        ...prev,
+                        ...details,
+                        source: 'music',
+                        type: type || 'music',
+                        hasFullDetails: true
+                    }));
                 } else {
                     const res = await fetch(`${base}/api/details/${id}?type=${type}`);
                     const details = await res.json();
@@ -771,7 +787,17 @@ function App() {
                                             activeSource === 'history' ? 'Watch History' : 'Genga Movies'}
                     </div>
 
-                    {activeSource !== 'history' && <SearchBar onSearch={handleSearch} />}
+                    {activeSource !== 'history' && (
+                        <SearchBar
+                            onSearch={handleSearch}
+                            placeholder={
+                                activeSource === 'music' ? "Search music, tracks, albums..." :
+                                    activeSource === 'manga' ? "Search manga..." :
+                                        activeSource === 'hianime' ? "Search anime..." :
+                                            "Search movies, TV series, anime..."
+                            }
+                        />
+                    )}
 
                     {activeSource === 'history' && (
                         <div style={{ padding: '1rem 0' }}>
