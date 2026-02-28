@@ -154,12 +154,14 @@ function App() {
         }
     }, []);
 
-    // Determine base URL based on active source
-    // Manga, HiAnime and Music are hard-routed to Cloud
-    // Home, MovieBox and CineCLI use Local (Manual IP) by default
-    const API_BASE = (activeSource === 'hianime' || activeSource === 'manga' || activeSource === 'anicli' || activeSource === 'music')
-        ? CLOUD_BASE
-        : localServerURL;
+    // Helper to determine target base URL for a given source
+    const getTargetBase = (src = activeSource) => {
+        return (src === 'hianime' || src === 'manga' || src === 'anicli' || src === 'music')
+            ? CLOUD_BASE
+            : localServerURL;
+    };
+
+    const API_BASE = getTargetBase(activeSource);
 
     const [results, setResults] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -306,7 +308,7 @@ function App() {
             // 'cinecli' -> Not implemented yet in backend, but we'll prepare for it
 
             let endpoint = `/api/search?query=${encodeURIComponent(query)}&content_type=${type}`;
-            const base = (activeSource === 'hianime' || activeSource === 'manga' || activeSource === 'anicli' || activeSource === 'music') ? CLOUD_BASE : localServerURL;
+            const base = getTargetBase(activeSource);
 
             if (activeSource === 'hianime') {
                 endpoint = `/api/anime/search?query=${encodeURIComponent(query)}`;
@@ -362,7 +364,7 @@ function App() {
     const handleMusicPlay = async (item) => {
         setDetailsLoading(true);
         try {
-            const base = (activeSource === 'hianime' || activeSource === 'manga' || activeSource === 'anicli' || activeSource === 'music') ? CLOUD_BASE : localServerURL;
+            const base = getTargetBase(activeSource);
             const res = await fetch(`${base}/api/music/info?seokey=${item.id}&type=${item.type || 'music'}`);
             const data = await res.json();
 
@@ -443,7 +445,7 @@ function App() {
         // For Music items
         if (item.source === 'music') {
             try {
-                const base = (activeSource === 'hianime' || activeSource === 'manga' || activeSource === 'anicli' || activeSource === 'music') ? CLOUD_BASE : localServerURL;
+                const base = getTargetBase(activeSource);
                 const res = await fetch(`${base}/api/music/info?seokey=${item.id}&type=${item.type || 'music'}`);
                 const data = await res.json();
                 let track = data;
@@ -463,7 +465,7 @@ function App() {
         try {
             // 1. Fetch the stream URL from backend
             // Determine appropriate base URL for this specific item
-            const base = (item.source === 'hianime' || item.source === 'manga' || item.source === 'music' || item.source === 'anicli') ? CLOUD_BASE : localServerURL;
+            const base = getTargetBase(item.source);
 
             // Let's try to fetch details which usually contains 'streams' or 'sources'.
             const res = await fetch(`${base}/api/details/${item.id}?type=${item.type || 'movie'}`);
@@ -548,7 +550,7 @@ function App() {
             setDetailsLoading(true);
 
             // Determine appropriate base URL for this source
-            const base = (source === 'hianime' || source === 'manga' || source === 'anicli' || source === 'music') ? CLOUD_BASE : localServerURL;
+            const base = getTargetBase(source);
 
             try {
                 if (source === 'cinecli') {
@@ -631,7 +633,7 @@ function App() {
             try {
                 if (source === 'hianime') {
                     // HiAnime: fetch details and episodes then set player to use embed flow
-                    const base = (source === 'hianime' || source === 'manga' || source === 'anicli' || source === 'music') ? CLOUD_BASE : localServerURL;
+                    const base = getTargetBase(source);
                     try {
                         const dRes = await fetch(`${base}/api/anime/details/${id}`);
                         if (dRes.ok) details = await dRes.json();
@@ -652,7 +654,7 @@ function App() {
                 }
 
                 // Default MovieBox flow
-                const base = (source === 'hianime' || source === 'manga' || source === 'anicli' || source === 'music') ? CLOUD_BASE : localServerURL;
+                const base = getTargetBase(source);
                 const res = await fetch(`${base}/api/details/${id}`);
                 if (res.ok) {
                     const details = await res.json();
@@ -723,6 +725,12 @@ function App() {
             const ep = params.get('episode');
             const season = params.get('season');
             const source = params.get('source') || 'moviebox';
+
+            // Sync activeSource state if it differs from the URL (handles deep-linking)
+            if (source !== activeSource && source !== 'home') {
+                setActiveSource(source);
+            }
+
             loadWatch(id, ep, source, season);
             return;
         }
@@ -987,7 +995,7 @@ function App() {
                         }}
                         progress={downloadProgress}
                         serverMode="local"
-                        API_BASE={selectedItem.source === 'hianime' || selectedItem.source === 'manga' || selectedItem.source === 'anicli' ? CLOUD_BASE : localServerURL}
+                        API_BASE={getTargetBase(selectedItem.source)}
                         detailsLoading={detailsLoading}
                     />
                 )
@@ -1000,7 +1008,7 @@ function App() {
                     item={videoPlayerData.item}
                     initialSeason={videoPlayerData.season}
                     initialEpisode={videoPlayerData.episode}
-                    API_BASE={videoPlayerData.item.source === 'hianime' ? CLOUD_BASE : localServerURL}
+                    API_BASE={getTargetBase(videoPlayerData.item.source)}
                     onBack={() => {
                         const src = videoPlayerData.item && videoPlayerData.item.source ? videoPlayerData.item.source : 'moviebox';
                         navigate(`/details/${videoPlayerData.item.id}?source=${encodeURIComponent(src)}`);
