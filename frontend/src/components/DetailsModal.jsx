@@ -182,7 +182,6 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
                 }}>
                     {item.poster_url || item.poster || item.image ? (
                         <div onClick={(item.source !== 'cinecli' && item.type !== 'music_playlist') ? handleStreamClick : undefined} style={{ cursor: (item.source !== 'cinecli' && item.type !== 'music_playlist') ? 'pointer' : 'default', height: '100%', position: 'relative', zIndex: 0 }}>
-                            vehicular
                             <img
                                 src={item.poster_url || item.poster || item.image}
                                 alt={item.title}
@@ -231,8 +230,8 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
                         <span style={{ textTransform: 'capitalize', color: 'var(--primary)' }}>
                             {item.source === 'cinecli' ? 'Torpedo' :
                                 (item.type === 'manga' ? 'Manga' :
-                                    (item.type === 'anime' ? 'Anime' :
-                                        (item.type === 'series' || (item.seasons && item.seasons.length > 0) ? 'Series' :
+                                    (item.type === 'anime' || item.type === 'anime_movie' ? 'Anime' :
+                                        (item.type === 'series' || (item.type !== 'movie' && item.type !== 'anime_movie' && item.seasons && item.seasons.length > 0) ? 'Series' :
                                             (item.source === 'music' ? (item.type === 'music_playlist' ? 'Playlist' : 'Music') : 'Movie'))))}
                         </span>
                         {item.runtime && <span>{item.runtime} min</span>}
@@ -358,12 +357,13 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
                                             <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem', marginTop: 0 }}>Select Episode</h3>
                                         )}
 
-                                        {detailsLoading && (!item.seasons || item.seasons.length === 0) && item.type !== 'movie' ? (
+                                        {detailsLoading && (!item.seasons || item.seasons.length === 0) ? (
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-muted)', minHeight: '60px' }}>
                                                 <div className="spinner-small" style={{ width: '20px', height: '20px', border: '2px solid rgba(255,255,255,0.1)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
                                                 <span>Fetching available episodes...</span>
                                             </div>
-                                        ) : item.seasons && item.seasons.length > 0 ? (
+                                        ) : (item.seasons && item.seasons.length > 0) ? (
+                                            /* --- SERIES (SEASONS/EPISODES) --- */
                                             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                                     <label style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Season</label>

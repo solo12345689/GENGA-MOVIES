@@ -847,12 +847,18 @@ async def details(item_id: str) -> dict:
                         })
 
             if seasons_data:
-                response["seasons"] = seasons_data
-                # If we found seasons, it MUST be a series or anime
-                if item_type == "movie":
-                    response["type"] = "series"
-                    item_type = "series"
-                print(f"[INFO] Returning {len(seasons_data)} seasons for {item_type}: {response.get('title', 'Unknown')}")
+                # Filter out dummy Season 0 if it's the only one and has 0 or 1 episode (likely a MovieBox movie container)
+                is_standalone_movie = len(seasons_data) == 1 and seasons_data[0]["season_number"] == 0 and seasons_data[0]["max_episodes"] <= 1
+                
+                if not is_standalone_movie:
+                    response["seasons"] = seasons_data
+                    # If we found real seasons, it MUST be a series or anime
+                    if item_type == "movie":
+                        response["type"] = "series"
+                        item_type = "series"
+                    print(f"[INFO] Returning {len(seasons_data)} seasons for {item_type}: {response.get('title', 'Unknown')}")
+                else:
+                    print(f"[INFO] Ignoring standalone dummy season for movie: {response.get('title', 'Unknown')}")
             
             # FALLBACK: If API returned no seasons but title has season info (e.g. "S1-S2")
             if not seasons_data:
