@@ -181,7 +181,8 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
                     height: 'auto'
                 }}>
                     {item.poster_url || item.poster || item.image ? (
-                        <div onClick={item.source !== 'cinecli' ? handleStreamClick : undefined} style={{ cursor: item.source !== 'cinecli' ? 'pointer' : 'default', height: '100%', position: 'relative', zIndex: 0 }}>
+                        <div onClick={(item.source !== 'cinecli' && item.type !== 'music_playlist') ? handleStreamClick : undefined} style={{ cursor: (item.source !== 'cinecli' && item.type !== 'music_playlist') ? 'pointer' : 'default', height: '100%', position: 'relative', zIndex: 0 }}>
+                            vehicular
                             <img
                                 src={item.poster_url || item.poster || item.image}
                                 alt={item.title}
@@ -556,8 +557,8 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
                                 )}
 
                                 {/* --- ACTION BUTTONS (Stream/Download) --- */}
-                                {/* Only show stream/download if in LOCAL mode, as requested */}
-                                {item.source !== 'cinecli' && serverMode === 'local' && (
+                                {/* Only show stream/download if in LOCAL mode, as requested. Hide for music_playlist since tracks are selectable. */}
+                                {item.source !== 'cinecli' && serverMode === 'local' && item.type !== 'music_playlist' && (
                                     <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', flexDirection: 'column' }}>
                                         <div style={{ display: 'flex', gap: '1rem' }}>
                                             <button className="btn btn-primary" onClick={handleStreamClick} style={{ flex: 1 }}>
