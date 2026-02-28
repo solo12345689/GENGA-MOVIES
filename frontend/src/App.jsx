@@ -8,6 +8,7 @@ import MangaReader from './components/MangaReader';
 import Sidebar from './components/Sidebar';
 import MusicCard from './components/MusicCard';
 import MusicPlayer from './components/MusicPlayer';
+import NewsCard from './components/NewsCard';
 import './styles/index.css';
 
 // Auto-detect local server IP
@@ -29,7 +30,7 @@ const detectLocalServer = async (onProgress) => {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 500); // 500ms timeout
 
-            // If checking localhost/IP, use http. 
+            // If checking localhost/IP, use http.
             // If checking a domain (tunnel), we might need https, but here we scan local network so http is fine usually.
             // But if 'ip' is actually a hostname, act smart.
             let protocol = 'http';
@@ -156,7 +157,7 @@ function App() {
 
     // Helper to determine target base URL for a given source
     const getTargetBase = (src = activeSource) => {
-        return (src === 'hianime' || src === 'manga' || src === 'anicli' || src === 'music')
+        return (src === 'hianime' || src === 'manga' || src === 'anicli' || src === 'music' || src === 'news')
             ? CLOUD_BASE
             : localServerURL;
     };
@@ -202,6 +203,16 @@ function App() {
                 if (activeSource === 'hianime') endpoint = '/api/anime/home';
                 if (activeSource === 'manga') endpoint = '/api/manga/search?query=popular';
                 if (activeSource === 'music') endpoint = '/api/music/home';
+                if (activeSource === 'news') {
+                    // Fetch from Consumet News API directly for now
+                    const newsRes = await fetch('https://api-consumet-org-mswp.onrender.com/news/ann/recent-feeds');
+                    if (newsRes.ok) {
+                        const newsData = await newsRes.json();
+                        setHomepageContent([{ title: 'Latest Anime & Manga News', items: newsData, type: 'news' }]);
+                        setHomepageLoading(false);
+                        return;
+                    }
+                }
 
                 const res = await fetch(`${API_BASE}${endpoint}`);
                 if (res.ok) {
@@ -806,8 +817,9 @@ function App() {
                             activeSource === 'moviebox' ? 'Library' :
                                 activeSource === 'hianime' ? 'Anime World' :
                                     activeSource === 'manga' ? 'Manga Collection' :
-                                        activeSource === 'music' ? 'Music Library' : // Added music title
-                                            activeSource === 'history' ? 'Watch History' : 'Genga Movies'}
+                                        activeSource === 'music' ? 'Music Library' :
+                                            activeSource === 'news' ? 'News Feed' :
+                                                activeSource === 'history' ? 'Watch History' : 'Genga Movies'}
                     </div>
 
                     {activeSource !== 'history' && (
@@ -826,7 +838,7 @@ function App() {
                         <div style={{ padding: '1rem 0' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                    {['all', 'moviebox', 'hianime', 'manga', 'music'].map(f => ( // Added 'music' to history filter
+                                    {['all', 'moviebox', 'hianime', 'manga', 'music'].map(f => (
                                         <button
                                             key={f}
                                             onClick={() => setHistoryFilter(f)}
@@ -940,15 +952,17 @@ function App() {
                                             }}>
                                                 {group.title}
                                             </h2>
-                                            <div className="movie-card-grid" style={{
+                                            <div className={group.type === 'news' ? "news-grid" : "movie-card-grid"} style={{
                                                 display: 'grid',
-                                                gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+                                                gridTemplateColumns: group.type === 'news' ? 'repeat(auto-fill, minmax(300px, 1fr))' : 'repeat(auto-fill, minmax(220px, 1fr))',
                                                 gap: '2rem'
                                             }}>
                                                 {group.items.map((item, idx) => (
-                                                    activeSource === 'music' ?
-                                                        <MusicCard key={`${item.id}-${index}-${idx}`} movie={item} onClick={handleItemClick} /> :
-                                                        <MovieCard key={`${item.id}-${index}-${idx}`} movie={item} onClick={handleItemClick} />
+                                                    group.type === 'news' ?
+                                                        <NewsCard key={item.id || idx} item={item} /> :
+                                                        (activeSource === 'music' ?
+                                                            <MusicCard key={`${item.id}-${index}-${idx}`} movie={item} onClick={handleItemClick} /> :
+                                                            <MovieCard key={`${item.id}-${index}-${idx}`} movie={item} onClick={handleItemClick} />)
                                                 ))}
                                             </div>
                                         </div>
