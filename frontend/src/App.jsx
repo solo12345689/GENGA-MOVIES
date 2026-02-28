@@ -698,6 +698,10 @@ function App() {
                 effectiveItem = mangaReaderItem.item;
             }
 
+            // Ensure other main views are cleared when viewing details
+            if (videoPlayerData) setVideoPlayerData(null);
+            if (mangaReaderItem) setMangaReaderItem(null);
+
             // Determine if the item is "full enough" for the requested ID
             const isFullItem = (it) => {
                 if (!it || String(it.id) !== String(id)) return false;
@@ -1011,7 +1015,8 @@ function App() {
                     API_BASE={getTargetBase(videoPlayerData.item.source)}
                     onBack={() => {
                         const src = videoPlayerData.item && videoPlayerData.item.source ? videoPlayerData.item.source : 'moviebox';
-                        navigate(`/details/${videoPlayerData.item.id}?source=${encodeURIComponent(src)}`);
+                        const type = videoPlayerData.item && videoPlayerData.item.type ? videoPlayerData.item.type : 'movie';
+                        navigate(`/details/${videoPlayerData.item.id}?source=${encodeURIComponent(src)}&type=${encodeURIComponent(type)}`);
                     }}
                     preloadedEpisodes={videoPlayerData.animeEpisodes}
                 />
@@ -1026,7 +1031,8 @@ function App() {
                     API_BASE={CLOUD_BASE}
                     onBack={() => {
                         const src = mangaReaderItem.item && mangaReaderItem.item.source ? mangaReaderItem.item.source : 'manga';
-                        navigate(`/details/${mangaReaderItem.item.id}?source=${encodeURIComponent(src)}`);
+                        const type = 'manga';
+                        navigate(`/details/${mangaReaderItem.item.id}?source=${encodeURIComponent(src)}&type=${encodeURIComponent(type)}`);
                     }}
                 />
             )}
