@@ -9,6 +9,7 @@ import Sidebar from './components/Sidebar';
 import MusicCard from './components/MusicCard';
 import MusicPlayer from './components/MusicPlayer';
 import NewsCard from './components/NewsCard';
+import NewsReader from './components/NewsReader';
 import './styles/index.css';
 
 // Auto-detect local server IP
@@ -171,6 +172,7 @@ function App() {
     const [mangaReaderItem, setMangaReaderItem] = useState(null); // For MangaReader
     const [activeTrack, setActiveTrack] = useState(null); // For MusicPlayer
     const [detailsLoading, setDetailsLoading] = useState(false);
+    const [newsReaderItem, setNewsReaderItem] = useState(null);
     const [downloadProgress, setDownloadProgress] = useState(null);
     const [homepageContent, setHomepageContent] = useState(null);
     const [homepageLoading, setHomepageLoading] = useState(false);
@@ -581,7 +583,7 @@ function App() {
                         const [d, e] = await Promise.all([dTask, eTask]);
                         details = d;
                         if (e.status === 200 && e.data) episodes = e.data.episodes || [];
-                    } catch (e) { }
+                    } catch (e) { /* ignore */ }
 
                     setSelectedItem(prev => ({
                         ...prev,
@@ -686,6 +688,7 @@ function App() {
             setSelectedItem(null);
             setVideoPlayerData(null);
             setMangaReaderItem(null);
+            setNewsReaderItem(null); // Clear NewsReader item
             return;
         }
 
@@ -714,6 +717,7 @@ function App() {
             // Ensure other main views are cleared when viewing details
             if (videoPlayerData) setVideoPlayerData(null);
             if (mangaReaderItem) setMangaReaderItem(null);
+            if (newsReaderItem) setNewsReaderItem(null); // Clear NewsReader item
 
             // Determine if the item is "full enough" for the requested ID
             const isFullItem = (it) => {
@@ -822,16 +826,31 @@ function App() {
                                                 activeSource === 'history' ? 'Watch History' : 'Genga Movies'}
                     </div>
 
-                    {activeSource !== 'history' && (
-                        <SearchBar
-                            onSearch={handleSearch}
-                            placeholder={
-                                activeSource === 'music' ? "Search music, tracks, albums..." :
-                                    activeSource === 'manga' ? "Search manga..." :
-                                        activeSource === 'hianime' ? "Search anime..." :
-                                            "Search movies, TV series, anime..."
-                            }
-                        />
+                    {/* Top Bar with Search */}
+                    {activeSource !== 'history' && activeSource !== 'news' && (
+                        <div style={{
+                            marginBottom: '2rem',
+                            display: 'flex',
+                            gap: '12px',
+                            alignItems: 'center',
+                            position: 'sticky',
+                            top: '1rem',
+                            zIndex: 10,
+                            padding: '0.5rem',
+                            background: 'rgba(var(--bg-card-rgb), 0.6)',
+                            backdropFilter: 'blur(12px)',
+                            borderRadius: '20px',
+                            border: '1px solid var(--border-glass)'
+                        }}>
+                            <SearchBar
+                                onSearch={handleSearch}
+                                placeholder={
+                                    activeSource === 'music' ? 'Search music or playlists...' :
+                                        activeSource === 'manga' ? "Search manga..." :
+                                            activeSource === 'hianime' ? "Search anime..." :
+                                                'Search for movies or series...'}
+                            />
+                        </div>
                     )}
 
                     {activeSource === 'history' && (
@@ -959,7 +978,7 @@ function App() {
                                             }}>
                                                 {group.items.map((item, idx) => (
                                                     group.type === 'news' ?
-                                                        <NewsCard key={item.id || idx} item={item} /> :
+                                                        <NewsCard key={item.id || idx} item={item} onClick={(it) => setNewsReaderItem(it)} /> :
                                                         (activeSource === 'music' ?
                                                             <MusicCard key={`${item.id}-${index}-${idx}`} movie={item} onClick={handleItemClick} /> :
                                                             <MovieCard key={`${item.id}-${index}-${idx}`} movie={item} onClick={handleItemClick} />)
@@ -1057,6 +1076,13 @@ function App() {
                 <MusicPlayer
                     track={activeTrack}
                     onClose={() => setActiveTrack(null)}
+                />
+            )}
+
+            {newsReaderItem && (
+                <NewsReader
+                    articleId={newsReaderItem.id}
+                    onClose={() => setNewsReaderItem(null)}
                 />
             )}
 

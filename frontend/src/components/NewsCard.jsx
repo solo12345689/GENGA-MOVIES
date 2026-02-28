@@ -1,20 +1,27 @@
 import React from 'react';
 
-const NewsCard = ({ item }) => {
+const NewsCard = ({ item, onClick }) => {
+    const handleCardClick = (e) => {
+        // Only trigger if not clicking the actual link (if we keep it)
+        onClick && onClick(item);
+    };
+
     return (
-        <div className="news-card" style={{
-            background: 'rgba(255, 255, 255, 0.03)',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(255, 255, 255, 0.05)',
-            borderRadius: '20px',
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column',
-            transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-            cursor: 'default',
-            height: '100%',
-            position: 'relative'
-        }}>
+        <div className="news-card"
+            onClick={handleCardClick}
+            style={{
+                background: 'rgba(255, 255, 255, 0.03)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(255, 255, 255, 0.05)',
+                borderRadius: '20px',
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column',
+                transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                cursor: 'pointer',
+                height: '100%',
+                position: 'relative'
+            }}>
             <div style={{
                 position: 'relative',
                 width: '100%',
@@ -89,27 +96,22 @@ const NewsCard = ({ item }) => {
 
                 <div style={{ flex: 1 }}></div>
 
-                <a
-                    href={item.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                <div
                     style={{
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: '8px',
                         color: 'var(--primary)',
-                        textDecoration: 'none',
                         fontSize: '0.9rem',
                         fontWeight: '600',
                         marginTop: 'auto',
                         transition: 'all 0.2s'
                     }}
-                    onMouseOver={(e) => e.currentTarget.style.gap = '12px'}
-                    onMouseOut={(e) => e.currentTarget.style.gap = '8px'}
+                    className="read-more-btn"
                 >
                     Read Article
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-                </a>
+                </div>
             </div>
 
             <style>{`
@@ -121,6 +123,9 @@ const NewsCard = ({ item }) => {
                 }
                 .news-card:hover .news-thumb {
                     transform: scale(1.1);
+                }
+                .news-card:hover .read-more-btn {
+                    gap: 12px;
                 }
             `}</style>
         </div>
