@@ -155,9 +155,9 @@ function App() {
     }, []);
 
     // Determine base URL based on active source
-    // Manga and HiAnime are hard-routed to Cloud
-    // Home, MovieBox, CineCLI and Music use Local (Manual IP) by default
-    const API_BASE = (activeSource === 'hianime' || activeSource === 'manga' || activeSource === 'anicli')
+    // Manga, HiAnime and Music are hard-routed to Cloud
+    // Home, MovieBox and CineCLI use Local (Manual IP) by default
+    const API_BASE = (activeSource === 'hianime' || activeSource === 'manga' || activeSource === 'anicli' || activeSource === 'music')
         ? CLOUD_BASE
         : localServerURL;
 
