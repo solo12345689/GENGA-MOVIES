@@ -631,6 +631,7 @@ function App() {
 
         const loadWatch = async (id, ep, source = 'moviebox', season = null) => {
             try {
+                let details = { id, source }; // Default with known info
                 if (source === 'hianime') {
                     // HiAnime: fetch details and episodes then set player to use embed flow
                     const base = getTargetBase(source);
@@ -647,7 +648,7 @@ function App() {
                     } catch (e) { /* ignore */ }
 
                     // Provide enough info for WatchPage to construct embed URL / episodeId mapping
-                    const item = { id, ...details, source: 'hianime' };
+                    const item = { ...details, id, source: 'hianime', type: 'anime', hasFullDetails: true };
                     setVideoPlayerData({ item, season: season || null, episode: ep || null, animeEpisodes: episodes });
                     setSelectedItem(null);
                     return;
@@ -657,14 +658,15 @@ function App() {
                 const base = getTargetBase(source);
                 const res = await fetch(`${base}/api/details/${id}`);
                 if (res.ok) {
-                    const details = await res.json();
-                    setVideoPlayerData({ item: { ...details, id }, season: season || null, episode: ep || null });
+                    const d = await res.json();
+                    const item = { ...d, id, source, type: (d.type || (source === 'anicli' ? 'anime' : 'movie')), hasFullDetails: true };
+                    setVideoPlayerData({ item, season: season || null, episode: ep || null });
                     setSelectedItem(null);
                 } else {
-                    setVideoPlayerData({ item: { id }, season: season || null, episode: ep || null });
+                    setVideoPlayerData({ item: { id, source, type: (source === 'anicli' ? 'anime' : 'movie') }, season: season || null, episode: ep || null });
                 }
             } catch (e) {
-                setVideoPlayerData({ item: { id }, season: season || null, episode: ep || null });
+                setVideoPlayerData({ item: { id, source, type: (source === 'anicli' ? 'anime' : 'movie') }, season: season || null, episode: ep || null });
             }
         };
 
