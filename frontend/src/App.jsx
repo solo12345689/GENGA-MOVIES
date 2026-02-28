@@ -443,7 +443,7 @@ function App() {
         // For Music items
         if (item.source === 'music') {
             try {
-                const base = (activeSource === 'hianime' || activeSource === 'manga' || activeSource === 'anicli') ? CLOUD_BASE : localServerURL;
+                const base = (activeSource === 'hianime' || activeSource === 'manga' || activeSource === 'anicli' || activeSource === 'music') ? CLOUD_BASE : localServerURL;
                 const res = await fetch(`${base}/api/music/info?seokey=${item.id}&type=${item.type || 'music'}`);
                 const data = await res.json();
                 let track = data;
