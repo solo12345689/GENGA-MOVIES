@@ -2177,42 +2177,50 @@ async def get_music_info(seokey: str, type: Optional[str] = "music"):
         if not data:
             raise HTTPException(status_code=404, detail="Music not found")
             
-        # GaanaPy returns a list of 1 item for info usually
-        item = data[0] if isinstance(data, list) and len(data) > 0 else data
-        
-        # Determine if it's a playlist or song
+        # GaanaPy returns a list of tracks for playlists, but a single object/list[0] for songs
         is_playlist = type == "music_playlist"
         
-        # GaanaPy uses 'songs' for playlist tracks
-        raw_tracks = item.get("songs", []) if is_playlist else []
-        normalized_tracks = [
-            {
-                "id": t.get("seokey"),
-                "track_id": t.get("track_id"),
-                "title": t.get("title"),
-                "artists": t.get("artists"),
-                "poster_url": t.get("images", {}).get("urls", {}).get("large_artwork"),
-                "stream_url": t.get("stream_urls", {}).get("urls", {}).get("very_high_quality"),
+        if is_playlist:
+            # For playlists, data is the list of tracks
+            raw_tracks = data if isinstance(data, list) else []
+            normalized_tracks = [
+                {
+                    "id": t.get("seokey"),
+                    "track_id": t.get("track_id"),
+                    "title": t.get("title"),
+                    "artists": t.get("artists"),
+                    "poster_url": t.get("images", {}).get("urls", {}).get("large_artwork"),
+                    "stream_url": t.get("stream_urls", {}).get("urls", {}).get("very_high_quality"),
+                    "source": "music",
+                    "type": "music"
+                } for t in raw_tracks
+            ]
+            
+            return {
+                "id": seokey,
+                "tracks": normalized_tracks,
+                "type": "music_playlist",
                 "source": "music",
-                "type": "music"
-            } for t in raw_tracks
-        ]
-
-        return {
-            "id": item.get("seokey"),
-            "track_id": item.get("track_id"),
-            "title": item.get("title"),
-            "artists": item.get("artists"),
-            "album": item.get("album"),
-            "duration": item.get("duration"),
-            "release_date": item.get("release_date"),
-            "genres": item.get("genres"),
-            "poster_url": item.get("images", {}).get("urls", {}).get("large_artwork") or item.get("poster_url"),
-            "stream_url": item.get("stream_urls", {}).get("urls", {}).get("very_high_quality") or item.get("stream_url"),
-            "tracks": normalized_tracks,
-            "type": type or "music",
-            "source": "music"
-        }
+                "poster_url": normalized_tracks[0].get("poster_url") if normalized_tracks else None
+                # We omit 'title' to let the frontend keep the playlist title from the card
+            }
+        else:
+            # For single songs
+            item = data[0] if isinstance(data, list) and len(data) > 0 else data
+            return {
+                "id": item.get("seokey"),
+                "track_id": item.get("track_id"),
+                "title": item.get("title"),
+                "artists": item.get("artists"),
+                "album": item.get("album"),
+                "duration": item.get("duration"),
+                "release_date": item.get("release_date"),
+                "genres": item.get("genres"),
+                "poster_url": item.get("images", {}).get("urls", {}).get("large_artwork") or item.get("poster_url"),
+                "stream_url": item.get("stream_urls", {}).get("urls", {}).get("very_high_quality") or item.get("stream_url"),
+                "type": "music",
+                "source": "music"
+            }
     except Exception as e:
         print(f"[Music] Info error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
