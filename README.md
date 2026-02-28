@@ -98,6 +98,26 @@ npm run dev -- --host
 ```
 *Access application at: `http://localhost:5173`*
 
+---
+
+## ⚙️ Configuration & URLs
+
+If you need to change the external API providers or update their base URLs, you can find them in the following files:
+
+### Backend APIs
+| Service | Location | Current URL |
+| :--- | :--- | :--- |
+| **Anime (HiAnime)** | `backend/api.py` | `https://aniwatch-api-dotd.onrender.com/api/v2/hianime` |
+| **Music (GaanaPy)** | `backend/music_service.py` | `https://gaanapy-a8jf.onrender.com` |
+| **Manga (Consumet)** | `backend/manga_service.py` | `https://api-consumet-org-mswp.onrender.com` |
+
+To update a URL, simply open the corresponding file and modify the `ANIME_API_BASE`, `self.base_url`, or `BASE_URL` variable.
+
+### Frontend Connectivity
+By default, the frontend is configured to talk to `http://localhost:8080/api`. 
+- **Development**: Managed via the `proxy` settings in `frontend/vite.config.js`.
+- **Production**: Update the `API_BASE_URL` or equivalent environment variable in the frontend build settings.
+
 
 ## 🔁 Client-side Routing (Deep Links)
 
