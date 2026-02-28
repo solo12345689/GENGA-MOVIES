@@ -229,7 +229,8 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
                             {item.source === 'cinecli' ? 'Torpedo' :
                                 (item.type === 'manga' ? 'Manga' :
                                     (item.type === 'anime' ? 'Anime' :
-                                        (item.type === 'series' || (item.seasons && item.seasons.length > 0) ? 'Series' : 'Movie')))}
+                                        (item.type === 'series' || (item.seasons && item.seasons.length > 0) ? 'Series' :
+                                            (item.source === 'music' ? (item.type === 'music_playlist' ? 'Playlist' : 'Music') : 'Movie'))))}
                         </span>
                         {item.runtime && <span>{item.runtime} min</span>}
                     </div>

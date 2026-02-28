@@ -357,6 +357,36 @@ function App() {
         }
     };
 
+    const handleMusicPlay = async (item) => {
+        setDetailsLoading(true);
+        try {
+            const base = (activeSource === 'hianime' || activeSource === 'manga' || activeSource === 'anicli') ? CLOUD_BASE : localServerURL;
+            const res = await fetch(`${base}/api/music/info?seokey=${item.id}&type=${item.type || 'music'}`);
+            const data = await res.json();
+
+            let trackToPlay = data;
+            if (item.type === 'music_playlist') {
+                const tracks = data.tracks || (Array.isArray(data) ? data : []);
+                if (tracks.length > 0) {
+                    trackToPlay = tracks[0];
+                    // Add source info if missing
+                    if (!trackToPlay.source) trackToPlay.source = 'music';
+                }
+            }
+
+            if (trackToPlay && trackToPlay.stream_url) {
+                setActiveTrack(trackToPlay);
+                setSelectedItem(null); // Close modal if open
+            } else {
+                alert("Could not play this track. Stream URL missing.");
+            }
+        } catch (e) {
+            console.error("Failed to play music", e);
+        } finally {
+            setDetailsLoading(false);
+        }
+    };
+
     const handleItemClick = async (item) => {
         // Save to Watch History
         try {
@@ -371,19 +401,9 @@ function App() {
         // Set selected item immediately to preserve poster/metadata for the modal
         setSelectedItem({ ...item, source: src });
 
-        // If it's a music item, play it directly without opening details modal
-        if (item.source === 'music' || item.type === 'music') {
-            setDetailsLoading(true);
-            try {
-                // Music is always routed via the same base as current API_BASE (Local in dev)
-                const res = await fetch(`${API_BASE}/api/music/info?seokey=${item.id}`);
-                const data = await res.json();
-                setActiveTrack(data);
-            } catch (e) {
-                console.error("Failed to play music", e);
-            } finally {
-                setDetailsLoading(false);
-            }
+        // If it's a music item, play it directly
+        if (item.source === 'music' || item.type === 'music' || item.type === 'music_playlist') {
+            handleMusicPlay(item);
             return;
         }
 
@@ -409,6 +429,25 @@ function App() {
         // If we already have a direct URL (e.g. from CineCLI magnet or explicit file)
         if (url) {
             window.location.href = url;
+            return;
+        }
+
+        // For Music items
+        if (item.source === 'music') {
+            try {
+                const base = (activeSource === 'hianime' || activeSource === 'manga' || activeSource === 'anicli') ? CLOUD_BASE : localServerURL;
+                const res = await fetch(`${base}/api/music/info?seokey=${item.id}&type=${item.type || 'music'}`);
+                const data = await res.json();
+                let track = data;
+                if (item.type === 'music_playlist' && data.tracks) track = data.tracks[0];
+
+                if (track && track.stream_url) {
+                    const proxyUrl = `${base}/api/proxy/download?url=${encodeURIComponent(track.stream_url)}&filename=${encodeURIComponent(track.title + (track.stream_url.includes('.m3u8') ? '.m3u8' : '.mp3'))}`;
+                    window.location.href = proxyUrl;
+                }
+            } catch (err) {
+                console.error("Music download failed", err);
+            }
             return;
         }
 
@@ -443,6 +482,11 @@ function App() {
     };
 
     const handleStream = async (item, season = null, episode = null) => {
+        if (item.source === 'music' || item.type === 'music' || item.type === 'music_playlist') {
+            handleMusicPlay(item);
+            return;
+        }
+
         if (item.type === 'manga') {
             setMangaReaderItem({ item, chapterId: item.chapterId, chapterTitle: item.chapterTitle });
             setSelectedItem(null); // Close details modal

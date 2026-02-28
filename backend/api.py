@@ -2167,11 +2167,15 @@ async def search_music(query: str, limit: int = 20):
         return {"results": []}
 
 @router.get("/music/info")
-async def get_music_info(seokey: str):
+async def get_music_info(seokey: str, type: Optional[str] = "music"):
     try:
-        data = await music_service.get_song_info(seokey)
+        if type == "music_playlist":
+            data = await music_service.get_playlist_info(seokey)
+        else:
+            data = await music_service.get_song_info(seokey)
+            
         if not data:
-            raise HTTPException(status_code=404, detail="Song not found")
+            raise HTTPException(status_code=404, detail="Music not found")
             
         # GaanaPy returns a list of 1 item for info usually
         item = data[0] if isinstance(data, list) and len(data) > 0 else data
