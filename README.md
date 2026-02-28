@@ -21,8 +21,9 @@
 ## ✨ Key Features
 
 ### Navigation & UI
--   **Unified Sidebar**: Vertical navigation for switching between standard, anime, and manga sources.
--   **Source Filtering**: Dedicated views for **MovieBox** (Web), **HiAnime** (Anime), **Manga** (Scans), and **CineCLI** (Torrents).
+-   **Unified Sidebar**: Vertical navigation for switching between standard, anime, manga, and news sources.
+-   **Source Filtering**: Dedicated views for **MovieBox** (Web), **Anime** (HiAnime), **Manga** (Scans), **Music**, and **News**.
+-   **In-App News Reader**: Read full anime/manga articles directly within the app using a premium glassmorphic reader.
 -   **Instant Back Navigation**: State-merging logic ensures posters and metadata persist when returning from the player or reader.
 -   **Loading UI**: High-contrast global loading spinner with silent background updates for improved performance.
 
@@ -76,6 +77,12 @@
 -   **Charts & Playlists**: Browse "Hindi Top 50" and other regional charts with full tracklist selection.
 -   **Playback**: Direct high-quality streaming links provided by Gaana servers.
 
+### 5. News (Feed)
+*Latest updates from the anime and manga world.*
+- **How it works**: Fetches real-time headlines from the **Consumet News API** (via Anime News Network).
+- **In-App Reader**: Clicking a news card opens a high-fidelity internal reader with full article text, images, and source links, ensuring you never have to leave the app.
+- **Micro-Animations**: Uses hover effects and slide-up transitions for a premium reading experience.
+
 ---
 
 ## 🛠️ Setup & Usage
@@ -112,6 +119,7 @@ If you are running the backend locally and wish to change where it pulls data fr
 | **Anime (HiAnime)** | `backend/api.py` | `ANIME_API_BASE` | `https://aniwatch-api-dotd.onrender.com/...` |
 | **Music (GaanaPy)** | `backend/music_service.py` | `self.base_url` | `https://gaanapy-a8jf.onrender.com` |
 | **Manga (Consumet)** | `backend/manga_service.py` | `BASE_URL` | `https://api-consumet-org-mswp.onrender.com` |
+| **News (ANN)** | `frontend/src/App.jsx` | - | `https://api-consumet-org-mswp.onrender.com` |
 
 ### 2. Cloud vs Local Routing (Frontend)
 The application uses a hybrid routing model defined in `frontend/src/App.jsx`.
@@ -130,20 +138,20 @@ In `App.jsx`, the variable `API_BASE` determines which backend the frontend talk
 
 ```javascript
 // App.jsx logic
-const API_BASE = (activeSource === 'hianime' || activeSource === 'manga' || activeSource === 'music')
+const API_BASE = (activeSource === 'hianime' || activeSource === 'manga' || activeSource === 'music' || activeSource === 'news')
     ? CLOUD_BASE
     : localServerURL;
 ```
 
-- **Cloud-Routed (Anime, Music, Manga)**: These sections are hard-coded to use `CLOUD_BASE`. This ensures that even if you don't have the Python backend running locally, these specialized scrapers (which require external API connectivity) continue to function.
-- **Local-Routed (Home, MovieBox, CineCLI)**: These sections use your `localServerURL` (detected as `localhost:8080` by default). This is necessary for CineCLI (torrents) and direct MovieBox proxies which rely on your local machine's network or MPV player.
+- **Cloud-Routed (Anime, Music, Manga, News)**: These sections are hard-coded to use `CLOUD_BASE` or the direct API endpoint (for News). This ensures that even if you don't have the Python backend running locally, these specialized scrapers continue to function.
+- **Local-Routed (Home, MovieBox, CineCLI)**: These sections use your `localServerURL` (detected as `localhost:8080` by default). This is necessary for CineCLI (torrents) and direct MovieBox proxies which rely on your local machine's network.
 
 ### 3. How it Works (Data Flow)
-1. **User Action**: You click on a Manga or Music item.
-2. **Frontend Request**: Since the source is `manga`, the frontend sends the request to `https://moviebox-knh8.onrender.com/api/manga/...`.
-3. **Cloud Backend**: The hosted backend at that URL receives the request.
+1. **User Action**: You click on a Manga, Music, or News item.
+2. **Frontend Request**: Since the source is `manga`, the frontend sends the request to `https://moviebox-knh8.onrender.com/api/manga/...` (or directly to the News API).
+3. **Cloud Backend**: The hosted backend receives the request.
 4. **Provider Fetch**: The Cloud backend then talks to the actual provider (like Consumet or GaanaPy).
-5. **Data Return**: The data travels back to the Cloud Backend, then to your browser.
+5. **Data Return**: The data travels back to your browser.
 
 This path bypasses the need for you to host the complex scraping logic locally for these specific sources.
 
