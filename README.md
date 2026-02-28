@@ -64,15 +64,17 @@
 -   **How it works**: Scrapes episode lists and IDs from HiAnime.
 -   **Stream Button**: Instead of a direct file, it loads a third-party **Embed Player** (iframe) inside the app. This ensures 99% availability for anime episodes without complex proxying.
 
-<<<<<<< HEAD
-### 4. Manga (Scans)
-=======
 ### 3. Manga (Scans)
->>>>>>> 7331270cbbdde291cbfc63e5066cfc32573bd672
 *Dedicated Manga discovery and reading.*
--   **How it works**: Aggregates manga titles and chapter lists from global databases.
+-   **How it works**: Aggregates manga titles and chapter lists from global databases (Consumet/Mangapill).
 -   **Reader**: Integrated image-based reader with **Next/Previous Chapter** navigation and automatic page preloading.
 -   **Downloads**: Facilitates direct ZIP downloads of chapters for offline reading.
+
+### 4. Music (Streaming)
+*Integrated music playback with chart and playlist support.*
+-   **How it works**: Uses the GaanaPy API to search for songs, albums, and popular charts.
+-   **Charts & Playlists**: Browse "Hindi Top 50" and other regional charts with full tracklist selection.
+-   **Playback**: Direct high-quality streaming links provided by Gaana servers.
 
 ---
 
