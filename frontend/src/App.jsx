@@ -350,8 +350,10 @@ function App() {
             }
         } catch (err) {
             console.error("Search failed", err);
-            // Detailed error alerting for debugging
-            alert(`Connection Failed!\n\nError: ${err.message}\n\nPlease ensure your backend is reachable.`);
+            // Detailed error alerting with Cold Start explanation
+            const isColdStart = err.message === 'Failed to fetch' || err.message.includes('timeout');
+            const coldStartMsg = isColdStart ? "\n\nNote: This might be a 'Cold Start'. Render servers sleep after inactivity. Please wait 30 seconds and try again." : "";
+            alert(`Connection Failed!\n\nError: ${err.message}${coldStartMsg}\n\nPlease ensure your backend is reachable.`);
         } finally {
             setLoading(false);
         }
