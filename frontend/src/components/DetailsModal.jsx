@@ -221,7 +221,9 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
                     maxHeight: '80vh',
                     overflowY: 'auto'
                 }}>
-                    <h2 style={{ fontSize: '2.5rem', marginBottom: '0.5rem', lineHeight: 1.1 }}>{item.title}</h2>
+                    <h2 style={{ fontSize: '2.5rem', marginBottom: '0.5rem', lineHeight: 1.1 }}>
+                        {item.type === 'music_playlist' ? (item.title || item.name) : item.title}
+                    </h2>
 
                     <div style={{ display: 'flex', gap: '1rem', color: 'var(--text-muted)', marginBottom: '2rem', fontSize: '0.95rem', alignItems: 'center', flexWrap: 'wrap' }}>
                         <span style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '4px' }}>{item.year}</span>
