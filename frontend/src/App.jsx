@@ -306,7 +306,7 @@ function App() {
             // 'cinecli' -> Not implemented yet in backend, but we'll prepare for it
 
             let endpoint = `/api/search?query=${encodeURIComponent(query)}&content_type=${type}`;
-            const base = (activeSource === 'hianime' || activeSource === 'manga' || activeSource === 'anicli') ? CLOUD_BASE : localServerURL;
+            const base = (activeSource === 'hianime' || activeSource === 'manga' || activeSource === 'anicli' || activeSource === 'music') ? CLOUD_BASE : localServerURL;
 
             if (activeSource === 'hianime') {
                 endpoint = `/api/anime/search?query=${encodeURIComponent(query)}`;
@@ -362,7 +362,7 @@ function App() {
     const handleMusicPlay = async (item) => {
         setDetailsLoading(true);
         try {
-            const base = (activeSource === 'hianime' || activeSource === 'manga' || activeSource === 'anicli') ? CLOUD_BASE : localServerURL;
+            const base = (activeSource === 'hianime' || activeSource === 'manga' || activeSource === 'anicli' || activeSource === 'music') ? CLOUD_BASE : localServerURL;
             const res = await fetch(`${base}/api/music/info?seokey=${item.id}&type=${item.type || 'music'}`);
             const data = await res.json();
 
