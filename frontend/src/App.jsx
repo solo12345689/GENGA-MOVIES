@@ -548,7 +548,7 @@ function App() {
             setDetailsLoading(true);
 
             // Determine appropriate base URL for this source
-            const base = (source === 'hianime' || source === 'manga' || source === 'anicli') ? CLOUD_BASE : localServerURL;
+            const base = (source === 'hianime' || source === 'manga' || source === 'anicli' || source === 'music') ? CLOUD_BASE : localServerURL;
 
             try {
                 if (source === 'cinecli') {
@@ -631,15 +631,15 @@ function App() {
             try {
                 if (source === 'hianime') {
                     // HiAnime: fetch details and episodes then set player to use embed flow
-                    let details = {};
+                    const base = (source === 'hianime' || source === 'manga' || source === 'anicli' || source === 'music') ? CLOUD_BASE : localServerURL;
                     try {
-                        const dRes = await fetch(`${API_BASE}/api/anime/details/${id}`);
+                        const dRes = await fetch(`${base}/api/anime/details/${id}`);
                         if (dRes.ok) details = await dRes.json();
                     } catch (e) { /* ignore */ }
 
                     let episodes = [];
                     try {
-                        const eRes = await fetch(`${API_BASE}/api/anime/episodes/${id}`);
+                        const eRes = await fetch(`${base}/api/anime/episodes/${id}`);
                         const eData = await eRes.json();
                         if (eData.status === 200 && eData.data) episodes = eData.data.episodes || [];
                     } catch (e) { /* ignore */ }
@@ -652,7 +652,8 @@ function App() {
                 }
 
                 // Default MovieBox flow
-                const res = await fetch(`${API_BASE}/api/details/${id}`);
+                const base = (source === 'hianime' || source === 'manga' || source === 'anicli' || source === 'music') ? CLOUD_BASE : localServerURL;
+                const res = await fetch(`${base}/api/details/${id}`);
                 if (res.ok) {
                     const details = await res.json();
                     setVideoPlayerData({ item: { ...details, id }, season: season || null, episode: ep || null });
@@ -679,6 +680,11 @@ function App() {
             const source = params.get('source') || 'moviebox';
             const type = params.get('type') || 'movie';
 
+            // Sync activeSource state if it differs from the URL (handles deep-linking)
+            if (source !== activeSource && source !== 'home') {
+                setActiveSource(source);
+            }
+
             let effectiveItem = selectedItem;
 
             // First check if it's already in active state (e.g. from Reader/Player)
@@ -698,6 +704,7 @@ function App() {
                 // Source-specific checks to ensure we don't show "information not available"
                 if (source === 'hianime') return it.animeEpisodes && it.animeEpisodes.length > 0;
                 if (source === 'manga') return it.volumes && Object.keys(it.volumes).length > 0;
+                if (source === 'music') return (it.tracks && it.tracks.length > 0) || (it.songs && it.songs.length > 0);
                 if (it.type === 'series' || it.type === 'anime') return it.seasons && it.seasons.length > 0;
 
                 // For movies, just check for a plot/description
