@@ -699,7 +699,7 @@ function App() {
             const type = params.get('type') || 'movie';
 
             // Sync activeSource state if it differs from the URL (handles deep-linking)
-            if (source !== activeSource && source !== 'home') {
+            if (source !== activeSource && source !== 'home' && activeSource !== 'history') {
                 setActiveSource(source);
             }
 
@@ -748,7 +748,7 @@ function App() {
             const source = params.get('source') || 'moviebox';
 
             // Sync activeSource state if it differs from the URL (handles deep-linking)
-            if (source !== activeSource && source !== 'home') {
+            if (source !== activeSource && source !== 'home' && activeSource !== 'history') {
                 setActiveSource(source);
             }
 
