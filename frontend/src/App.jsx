@@ -840,7 +840,10 @@ function App() {
                             background: 'rgba(var(--bg-card-rgb), 0.6)',
                             backdropFilter: 'blur(12px)',
                             borderRadius: '20px',
-                            border: '1px solid var(--border-glass)'
+                            border: '1px solid var(--border-glass)',
+                            width: '100%',
+                            maxWidth: '1200px',
+                            margin: '0 auto 2rem'
                         }}>
                             <SearchBar
                                 onSearch={handleSearch}
