@@ -129,11 +129,11 @@ h1 {
   background: rgba(0, 0, 0, 0.3);
   border: 1px solid var(--border-glass);
   color: white;
-  padding: 1rem 1.5rem;
+  padding: 1.2rem 2rem;
   border-radius: var(--radius-full);
   width: 100%;
   transition: all 0.3s var(--ease-out);
-  font-size: 1rem;
+  font-size: 1.1rem;
 }
 
 .input-glass:focus {
@@ -190,9 +190,11 @@ h1 {
   0% {
     opacity: 0.6;
   }
+
   50% {
     opacity: 1;
   }
+
   100% {
     opacity: 0.6;
   }
@@ -266,8 +268,8 @@ h1 {
 /* Search Bar */
 .search-container {
   position: relative;
-  max-width: 700px;
-  margin: 0 auto 3rem;
+  max-width: 1000px;
+  margin: 0 auto 3.5rem;
   z-index: 20;
 }
 

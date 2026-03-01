@@ -71,13 +71,13 @@ const SearchBar = ({ onSearch, placeholder = "Search..." }) => {
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                         onFocus={() => setShowHistory(true)}
-                        style={{ paddingRight: '3rem', width: '100%' }}
+                        style={{ paddingRight: '4rem', width: '100%' }}
                     />
                     <button
                         type="submit"
                         style={{
                             position: 'absolute',
-                            right: '15px',
+                            right: '25px',
                             top: '50%',
                             transform: 'translateY(-50%)',
                             background: 'transparent',
