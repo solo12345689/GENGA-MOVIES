@@ -484,6 +484,7 @@ function App() {
             const res = await fetch(`${base}/api/details/${item.id}?type=${item.type || 'movie'}`);
             const data = await res.json();
 
+            let streamUrl = null;
             if (data.streams && data.streams.length > 0) {
                 streamUrl = data.streams[0].url;
             } else if (data.sources && data.sources.length > 0) {

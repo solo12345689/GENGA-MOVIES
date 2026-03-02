@@ -82,7 +82,7 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
             }
         }, 100);
         return () => clearTimeout(timeout);
-    }, [subtitlesEnabled, selectedSubtitle, subtitles, streamUrl]);
+    }, [subtitlesEnabled, selectedSubtitle, subtitles, url]);
 
     // Handle initial subtitle selection based on preference
     useEffect(() => {
