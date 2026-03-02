@@ -17,6 +17,8 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
     const [showSubtitleMenu, setShowSubtitleMenu] = useState(false);
     const [subtitlesEnabled, setSubtitlesEnabled] = useState(true);
     const [selectedSubtitle, setSelectedSubtitle] = useState(0);
+    const [subtitleSearch, setSubtitleSearch] = useState('');
+    const [preferredLang, setPreferredLang] = useState(localStorage.getItem('preferred_subtitle_lang') || 'English');
 
     // FIX 1: Add a ref to track if the user is using touch (Mobile)
     const isTouch = useRef(false);
@@ -81,6 +83,16 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
         }, 100);
         return () => clearTimeout(timeout);
     }, [subtitlesEnabled, selectedSubtitle, subtitles, streamUrl]);
+
+    // Handle initial subtitle selection based on preference
+    useEffect(() => {
+        if (subtitles && subtitles.length > 0) {
+            const preferredIdx = subtitles.findIndex(s => s.lang.toLowerCase() === preferredLang.toLowerCase());
+            if (preferredIdx !== -1) {
+                setSelectedSubtitle(preferredIdx);
+            }
+        }
+    }, [subtitles, preferredLang]);
 
     // Separate effect for event listeners and progress tracking
     useEffect(() => {
@@ -490,6 +502,26 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                                         }}>
                                             <div style={{ padding: '8px', borderBottom: '1px solid rgba(255,255,255,0.05)', marginBottom: '4px', fontSize: '0.8rem', opacity: 0.6, fontWeight: 'bold' }}>SUBTITLES</div>
 
+                                            <div style={{ padding: '0 8px 8px 8px' }}>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Search language..."
+                                                    value={subtitleSearch}
+                                                    onChange={(e) => setSubtitleSearch(e.target.value)}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    style={{
+                                                        width: '100%',
+                                                        background: 'rgba(255,255,255,0.05)',
+                                                        border: '1px solid rgba(255,255,255,0.1)',
+                                                        borderRadius: '6px',
+                                                        padding: '6px 10px',
+                                                        color: '#fff',
+                                                        fontSize: '0.8rem',
+                                                        outline: 'none'
+                                                    }}
+                                                />
+                                            </div>
+
                                             <button
                                                 onClick={() => { setSubtitlesEnabled(!subtitlesEnabled); setShowSubtitleMenu(false); }}
                                                 style={{
@@ -504,23 +536,41 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                                             </button>
 
                                             {subtitlesEnabled && (
-                                                <div style={{ marginTop: '4px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '4px' }}>
-                                                    {subtitles.map((sub, idx) => (
-                                                        <button
-                                                            key={idx}
-                                                            onClick={() => { setSelectedSubtitle(idx); setShowSubtitleMenu(false); }}
-                                                            style={{
-                                                                width: '100%', padding: '8px 12px', textAlign: 'left',
-                                                                background: selectedSubtitle === idx ? 'rgba(99, 102, 241, 0.2)' : 'transparent',
-                                                                border: 'none', color: selectedSubtitle === idx ? '#6366f1' : 'white',
-                                                                borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem',
-                                                                display: 'flex', alignItems: 'center', gap: '8px'
-                                                            }}
-                                                        >
-                                                            {selectedSubtitle === idx && <span>✓</span>}
-                                                            <span>{sub.lang}</span>
-                                                        </button>
-                                                    ))}
+                                                <div style={{
+                                                    marginTop: '4px',
+                                                    borderTop: '1px solid rgba(255,255,255,0.05)',
+                                                    paddingTop: '4px',
+                                                    maxHeight: '200px',
+                                                    overflowY: 'auto',
+                                                    scrollbarWidth: 'thin'
+                                                }}>
+                                                    {subtitles
+                                                        .filter(sub => sub.lang.toLowerCase().includes(subtitleSearch.toLowerCase()))
+                                                        .map((sub, idx) => {
+                                                            // Calculate actual index in original subtitles array
+                                                            const originalIdx = subtitles.findIndex(s => s === sub);
+                                                            return (
+                                                                <button
+                                                                    key={originalIdx}
+                                                                    onClick={() => {
+                                                                        setSelectedSubtitle(originalIdx);
+                                                                        setPreferredLang(sub.lang);
+                                                                        localStorage.setItem('preferred_subtitle_lang', sub.lang);
+                                                                        setShowSubtitleMenu(false);
+                                                                    }}
+                                                                    style={{
+                                                                        width: '100%', padding: '8px 12px', textAlign: 'left',
+                                                                        background: selectedSubtitle === originalIdx ? 'rgba(99, 102, 241, 0.2)' : 'transparent',
+                                                                        border: 'none', color: selectedSubtitle === originalIdx ? '#6366f1' : 'white',
+                                                                        borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem',
+                                                                        display: 'flex', alignItems: 'center', gap: '8px'
+                                                                    }}
+                                                                >
+                                                                    {selectedSubtitle === originalIdx && <span>✓</span>}
+                                                                    <span>{sub.lang}</span>
+                                                                </button>
+                                                            );
+                                                        })}
                                                 </div>
                                             )}
                                         </div>
