@@ -173,6 +173,18 @@ def extract_seasons_from_title(title: str) -> List[dict]:
         
     return seasons
 
+def srt_to_vtt(srt_content: str) -> str:
+    """
+    Very basic SRT to WebVTT conversion.
+    Changes ',' to '.' in timestamps and adds WEBVTT header.
+    """
+    import re
+    vtt = "WEBVTT\n\n"
+    # Replace comma in timestamps with dot
+    # Matches: 00:00:00,000 --> 00:00:00,000
+    vtt += re.sub(r'(\d{2}:\d{2}:\d{2}),(\d{3})', r'\1.\2', srt_content)
+    return vtt
+
 def get_source_headers(url: str, source: str = None) -> list[dict]:
     """
     Returns a LIST of dictionary headers to try.
@@ -180,29 +192,25 @@ def get_source_headers(url: str, source: str = None) -> list[dict]:
     """
     base_headers = DEFAULT_HEADERS.copy()
     
-    # 1. Inherit from active session if possible (but avoid overwriting UA)
-    if hasattr(session, '_headers'):
-        for k, v in session._headers.items():
-            if k.lower() not in ['user-agent', 'accept', 'accept-language']:
-                base_headers[k] = v
-                
-    if hasattr(session, '_client') and hasattr(session._client, 'headers'):
-        src_headers = session._client.headers
-        for k in ['cookie', 'Cookie', 'X-Client-Signature', 'X-Token']:
-            if k in src_headers:
-                base_headers[k] = src_headers[k]
-                
     # 2. Exhaustive Referer Cycling
     url_lower = url.lower()
     is_moviebox_cdn = any(d in url_lower for d in ["haildrop", "moviebox", "fogtwist", "sunburst", "stormshade", "hakunaymatata", "bcdn"]) or "/_v7/" in url_lower or "/_v10/" in url_lower
     
-    # Enforce modern UA (unless session has one)
-    if hasattr(session, '_headers') and 'User-Agent' in session._headers:
-        base_headers['User-Agent'] = session._headers['User-Agent']
-    elif hasattr(session, '_client') and hasattr(session._client, 'headers') and 'User-Agent' in session._client.headers:
-        base_headers['User-Agent'] = session._client.headers['User-Agent']
+    # If it's MovieBox CDN, we want a CLEAN slate of headers to avoid CloudFront 403s
+    if is_moviebox_cdn or source == 'moviebox':
+        base_headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept': '*/*',
+            'Accept-Language': 'en-US,en;q=0.9',
+        }
     else:
-        base_headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        # Enforce modern UA (unless session has one)
+        if hasattr(session, '_headers') and 'User-Agent' in session._headers:
+            base_headers['User-Agent'] = session._headers['User-Agent']
+        elif hasattr(session, '_client') and hasattr(session._client, 'headers') and 'User-Agent' in session._client.headers:
+            base_headers['User-Agent'] = session._client.headers['User-Agent']
+        else:
+            base_headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     
     configs_refs = []
     
@@ -217,11 +225,11 @@ def get_source_headers(url: str, source: str = None) -> list[dict]:
     if "hianime" in url_lower or "aniwatch" in url_lower or "megacloud" in url_lower or "vidcloud" in url_lower or "rabbitstream" in url_lower:
         configs_refs.append({'Referer': 'https://hianime.to/', 'Origin': 'https://hianime.to'})
     
-    if is_moviebox_cdn:
-        # Prioritize known working Referers for MPV (which only uses the first one)
-        # Matches official moviebox_api library default (fmoviesunblocked.net)
-        configs_refs.append({'Referer': 'https://fmoviesunblocked.net/', 'Origin': 'https://fmoviesunblocked.net'})
+    if is_moviebox_cdn or source == 'moviebox':
+        # Prioritize known working Referers for subtitles specifically
+        configs_refs.append({'Referer': 'https://www.moviebox.net/', 'Origin': 'https://www.moviebox.net'})
         configs_refs.append({'Referer': 'https://www.moviebox.pro/', 'Origin': 'https://www.moviebox.pro'})
+        configs_refs.append({'Referer': 'https://fmoviesunblocked.net/', 'Origin': 'https://fmoviesunblocked.net'})
         configs_refs.append({'Referer': 'https://showbox.media/', 'Origin': 'https://showbox.media'})
         configs_refs.append({'Referer': 'https://v.showbox.cc/', 'Origin': 'https://v.showbox.cc'})
 
@@ -245,15 +253,22 @@ def get_source_headers(url: str, source: str = None) -> list[dict]:
         {} # None
     ]
     
-    for cand in candidates:
-        if cand not in configs_refs:
-            configs_refs.append(cand)
+    # Ensure source-specific referers are at the VERY START
+    final_refs = []
+    # 1. Add source-specific ones first
+    for ref in configs_refs:
+        if ref not in final_refs:
+            final_refs.append(ref)
             
+    # 2. Add generic ones if not already there
+    for cand in candidates:
+        if cand not in final_refs:
+            final_refs.append(cand)
+
     # Merge with base_headers to create final configurations
     final_configs = []
-    for ref_dict in configs_refs:
+    for ref_dict in final_refs:
         cfg = base_headers.copy()
-        # Ensure we don't have conflicting referers
         cfg.pop('Referer', None)
         cfg.pop('Origin', None)
         cfg.update(ref_dict)
@@ -1149,7 +1164,7 @@ async def stream(
             if 'files_metadata' in locals() and hasattr(files_metadata, 'captions'):
                 for caption in files_metadata.captions:
                     # Proxy the subtitle URL to avoid CORS/Forbidden issues
-                    proxied_sub_url = f"/api/proxy-stream?url={quote(str(caption.url))}"
+                    proxied_sub_url = f"/api/proxy-stream?url={quote(str(caption.url))}&source=moviebox"
                     subtitles.append({
                         "lang": caption.lanName,
                         "language": caption.lan,
@@ -1292,17 +1307,45 @@ async def proxy_stream(request: Request, url: str, source: str = None):
                         }
                     )
 
-                # Not M3U8 -> Standard Streaming Proxy
-                req = client.build_request("GET", url, headers=headers)
-                resp = await client.send(req, stream=True, follow_redirects=True)
+                # Not M3U8 -> Standard Proxy
+                is_srt = ".srt" in url.lower()
+                if is_srt:
+                    # Use regular GET for subtitles (more robust for CloudFront)
+                    resp = await client.get(url, headers=headers, follow_redirects=True, timeout=15.0)
+                else:
+                    req = client.build_request("GET", url, headers=headers)
+                    resp = await client.send(req, stream=True, follow_redirects=True)
                 
                 if resp.status_code >= 400:
-                    print(f"[PROXY ERROR] {resp.status_code} for {url[:50]}")
                     await resp.aclose()
                     last_error = f"Source returned {resp.status_code}"
                     continue
                 
                 # Success!
+                
+                # Intercept SRT for conversion to VTT (Browsers don't support SRT natively in tracks)
+                is_srt = ".srt" in url.lower() or "application/x-subrip" in resp.headers.get("Content-Type", "").lower()
+                
+                if is_srt:
+                    content = await resp.aread()
+                    try:
+                        text = content.decode('utf-8')
+                    except:
+                        text = content.decode('latin-1', errors='replace')
+                    
+                    vtt_text = srt_to_vtt(text)
+                    await resp.aclose()
+                    await client.aclose()
+                    
+                    return Response(
+                        content=vtt_text,
+                        media_type="text/vtt",
+                        headers={
+                            "Access-Control-Allow-Origin": "*",
+                            "X-Proxy-Status": "Converted-SRT-to-VTT"
+                        }
+                    )
+                
                 excluded_headers = ["content-encoding", "content-length", "transfer-encoding", "connection", "keep-alive", "content-disposition"]
                 res_headers = {k: v for k, v in resp.headers.items() if k.lower() not in excluded_headers}
                 res_headers.update({
@@ -1863,9 +1906,14 @@ async def proxy_stream(request: Request, url: str, source: str = None):
                         }
                     )
 
-                # Not M3U8 -> Standard Streaming Proxy
-                req = client.build_request("GET", url, headers=headers)
-                resp = await client.send(req, stream=True, follow_redirects=True)
+                # Not M3U8 -> Standard Proxy
+                is_srt = ".srt" in url.lower()
+                if is_srt:
+                    # Use regular GET for subtitles (worked in standalone test)
+                    resp = await client.get(url, headers=headers, follow_redirects=True, timeout=15.0)
+                else:
+                    req = client.build_request("GET", url, headers=headers)
+                    resp = await client.send(req, stream=True, follow_redirects=True)
                 
                 # Check if Content-Type indicates M3U8 even if extension didn't (Second Chance)
                 ct = resp.headers.get("Content-Type", "").lower()
