@@ -283,6 +283,7 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                         }
                         setStreamUrl(finalUrl);
                         setStreamType('hls');
+                        if (data.subtitles) setSubtitles(data.subtitles);
                     } else throw new Error(data.message || "Failed to get stream");
                 } else if (activeSource === 'anicli') {
                     if (data.url) {

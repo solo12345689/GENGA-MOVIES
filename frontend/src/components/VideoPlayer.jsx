@@ -14,6 +14,9 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
     const playerContainerRef = useRef(null);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
+    const [showSubtitleMenu, setShowSubtitleMenu] = useState(false);
+    const [subtitlesEnabled, setSubtitlesEnabled] = useState(true);
+    const [selectedSubtitle, setSelectedSubtitle] = useState(0);
 
     // FIX 1: Add a ref to track if the user is using touch (Mobile)
     const isTouch = useRef(false);
@@ -59,11 +62,25 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
 
         setupSource();
 
-        return () => {
-            if (hls) hls.destroy();
-            video.src = ''; // Clear source to stop potential memory leaks/hangs
-        };
     }, [url, type, autoPlay]);
+
+    // Subtitle track control effect
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video || !video.textTracks) return;
+
+        // Force a small delay to ensure tracks are loaded into the DOM
+        const timeout = setTimeout(() => {
+            for (let i = 0; i < video.textTracks.length; i++) {
+                if (!subtitlesEnabled) {
+                    video.textTracks[i].mode = 'disabled';
+                } else {
+                    video.textTracks[i].mode = i === selectedSubtitle ? 'showing' : 'hidden';
+                }
+            }
+        }, 100);
+        return () => clearTimeout(timeout);
+    }, [subtitlesEnabled, selectedSubtitle, subtitles, streamUrl]);
 
     // Separate effect for event listeners and progress tracking
     useEffect(() => {
@@ -443,7 +460,74 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                             )}
                         </div>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', position: 'relative' }}>
+                            {subtitles && subtitles.length > 0 && (
+                                <div style={{ position: 'relative' }}>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); setShowSubtitleMenu(!showSubtitleMenu); }}
+                                        style={{
+                                            background: 'transparent', border: 'none', color: subtitlesEnabled ? '#6366f1' : '#fff',
+                                            cursor: 'pointer', fontSize: '1.4rem', padding: '0',
+                                            opacity: subtitlesEnabled ? 1 : 0.7,
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                        }}
+                                        title="Subtitles"
+                                    >
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M19 4H5c-1.11 0-2 .9-2 2v12c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.89-2-2-2zm-8 7H9.5v-.5h-2v3h2V13H11v1c0 .55-.45 1-1 1H7c-.55 0-1-.45-1-1v-4c0-.55.45-1 1-1h3c.55 0 1 .45 1 1v1zm7 0h-1.5v-.5h-2v3h2V13H18v1c0 .55-.45 1-1 1h-3c-.55 0-1-.45-1-1v-4c0-.55.45-1 1-1h3c.55 0 1 .45 1 1v1z" />
+                                        </svg>
+                                    </button>
+
+                                    {showSubtitleMenu && (
+                                        <div style={{
+                                            position: 'absolute', bottom: '150%', right: '0',
+                                            background: 'rgba(20, 20, 25, 0.95)',
+                                            backdropFilter: 'blur(10px)',
+                                            border: '1px solid rgba(255,255,255,0.1)',
+                                            borderRadius: '12px', padding: '8px',
+                                            minWidth: '160px', zIndex: 100,
+                                            boxShadow: '0 8px 32px rgba(0,0,0,0.5)'
+                                        }}>
+                                            <div style={{ padding: '8px', borderBottom: '1px solid rgba(255,255,255,0.05)', marginBottom: '4px', fontSize: '0.8rem', opacity: 0.6, fontWeight: 'bold' }}>SUBTITLES</div>
+
+                                            <button
+                                                onClick={() => { setSubtitlesEnabled(!subtitlesEnabled); setShowSubtitleMenu(false); }}
+                                                style={{
+                                                    width: '100%', padding: '8px 12px', textAlign: 'left',
+                                                    background: 'transparent', border: 'none', color: 'white',
+                                                    borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem',
+                                                    display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                                                }}
+                                            >
+                                                <span>{subtitlesEnabled ? 'Turn Off' : 'Turn On'}</span>
+                                                <span style={{ fontSize: '0.7rem', opacity: 0.5 }}>{subtitlesEnabled ? 'ON' : 'OFF'}</span>
+                                            </button>
+
+                                            {subtitlesEnabled && (
+                                                <div style={{ marginTop: '4px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '4px' }}>
+                                                    {subtitles.map((sub, idx) => (
+                                                        <button
+                                                            key={idx}
+                                                            onClick={() => { setSelectedSubtitle(idx); setShowSubtitleMenu(false); }}
+                                                            style={{
+                                                                width: '100%', padding: '8px 12px', textAlign: 'left',
+                                                                background: selectedSubtitle === idx ? 'rgba(99, 102, 241, 0.2)' : 'transparent',
+                                                                border: 'none', color: selectedSubtitle === idx ? '#6366f1' : 'white',
+                                                                borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem',
+                                                                display: 'flex', alignItems: 'center', gap: '8px'
+                                                            }}
+                                                        >
+                                                            {selectedSubtitle === idx && <span>✓</span>}
+                                                            <span>{sub.lang}</span>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
                             <button
                                 onClick={toggleFullscreen}
                                 style={{

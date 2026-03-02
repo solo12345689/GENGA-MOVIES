@@ -1142,9 +1142,27 @@ async def stream(
         if mode == "url":
             # Return a proxy URL that routes through our backend
             # This bypasses 403 Forbidden errors from streaming providers
-            from urllib.parse import quote
             proxy_url = f"/api/proxy-stream?url={quote(str(media_file.url))}"
-            return {"status": "success", "url": proxy_url, "title": target_item.title, "direct_url": str(media_file.url)}
+            
+            # Extract subtitles
+            subtitles = []
+            if 'files_metadata' in locals() and hasattr(files_metadata, 'captions'):
+                for caption in files_metadata.captions:
+                    # Proxy the subtitle URL to avoid CORS/Forbidden issues
+                    proxied_sub_url = f"/api/proxy-stream?url={quote(str(caption.url))}"
+                    subtitles.append({
+                        "lang": caption.lanName,
+                        "language": caption.lan,
+                        "url": proxied_sub_url
+                    })
+            
+            return {
+                "status": "success", 
+                "url": proxy_url, 
+                "title": target_item.title, 
+                "direct_url": str(media_file.url),
+                "subtitles": subtitles
+            }
 
         # 5. Launch MPV
         mpv_path = shutil.which("mpv")
