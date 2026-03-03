@@ -70,7 +70,7 @@ patch_moviebox_models()
 
 router = APIRouter()
 
-ANIME_API_BASE = "https://aniwatch-api-wine.vercel.app/api/v2/hianime"
+ANIME_API_BASE = "https://aniwatch-api-dotd.onrender.com/api/v2/hianime"
 
 manga_service = MangaService()
 music_service = MusicService()
@@ -1464,7 +1464,21 @@ async def search_anime(query: str, page: int = 1):
             raise HTTPException(status_code=response.status_code, detail=f"Upstream error: {response.status_code}")
         
         try:
-            return response.json()
+            data = response.json()
+            # Normalize to flat list for frontend
+            results = []
+            if data.get('status') == 200 and data.get('data'):
+                animes = data['data'].get('animes', [])
+                for a in animes:
+                    results.append({
+                        "id": a.get('id'),
+                        "title": a.get('name'),
+                        "poster_url": a.get('poster'),
+                        "year": a.get('type') or "Anime",
+                        "type": "anime",
+                        "source": "hianime"
+                    })
+            return results
         except Exception as json_err:
             print(f"[HiAnime] Search JSON Parse error: {json_err} | Body: {response.text[:500]}")
             raise HTTPException(status_code=500, detail="Malformed upstream response")
