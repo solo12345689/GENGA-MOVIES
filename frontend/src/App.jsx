@@ -165,8 +165,9 @@ function App() {
 
     // Helper to determine target base URL for a given source
     const getTargetBase = (src = activeSource) => {
-        // Use local server for everything during debugging/local development
-        return localServerURL;
+        return (src === 'hianime' || src === 'manga' || src === 'anicli' || src === 'music' || src === 'news')
+            ? CLOUD_BASE
+            : localServerURL;
     };
 
     const API_BASE = getTargetBase(activeSource);
