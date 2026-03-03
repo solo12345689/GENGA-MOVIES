@@ -943,22 +943,24 @@ function App() {
                                                 onClick={(e) => handleRemoveHistoryItem(e, item.id)}
                                                 style={{
                                                     position: 'absolute',
-                                                    top: '10px',
-                                                    right: '10px',
-                                                    width: '24px',
-                                                    height: '24px',
+                                                    top: '12px',
+                                                    right: '12px',
+                                                    width: '32px',
+                                                    height: '32px',
                                                     borderRadius: '50%',
-                                                    background: 'rgba(0,0,0,0.6)',
-                                                    border: '1px solid rgba(255,255,255,0.2)',
+                                                    background: 'rgba(0,0,0,0.8)',
+                                                    border: '1px solid rgba(255,255,255,0.4)',
                                                     color: '#fff',
                                                     display: 'flex',
                                                     alignItems: 'center',
                                                     justifyContent: 'center',
                                                     cursor: 'pointer',
-                                                    zIndex: 5,
-                                                    transition: 'all 0.2s',
-                                                    fontSize: '12px',
-                                                    opacity: 0.8
+                                                    zIndex: 100,
+                                                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                    fontSize: '16px',
+                                                    opacity: 0.7,
+                                                    backdropFilter: 'blur(8px)',
+                                                    pointerEvents: 'auto'
                                                 }}
                                                 className="remove-history-btn"
                                                 title="Remove from history"
