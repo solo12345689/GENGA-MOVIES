@@ -70,7 +70,7 @@ patch_moviebox_models()
 
 router = APIRouter()
 
-ANIME_API_BASE = "https://aniwatch-api-dotd.onrender.com/api/v2/hianime"
+ANIME_API_BASE = "https://aniwatch-api-wine.vercel.app/api/v2/hianime"
 
 manga_service = MangaService()
 music_service = MusicService()
@@ -85,17 +85,18 @@ DEFAULT_HEADERS = {
 
 # Global session - initialized with custom headers to ensure consistency across library and player
 session = Session(headers=DEFAULT_HEADERS)
+_global_http_async_client = None
 
 def get_http_client() -> httpx.AsyncClient:
-    global _http_client
-    if _http_client is None:
-        _http_client = httpx.AsyncClient(
+    global _global_http_async_client
+    if _global_http_async_client is None:
+        _global_http_async_client = httpx.AsyncClient(
             timeout=httpx.Timeout(60.0, connect=10.0),
             follow_redirects=True,
             limits=httpx.Limits(max_connections=500, max_keepalive_connections=50),
             headers=DEFAULT_HEADERS
         )
-    return _http_client
+    return _global_http_async_client
 
 # Simple in-memory cache: {uuid: item_object}
 search_cache = {}
@@ -2134,29 +2135,46 @@ async def manga_save_local(chapter_id: str, manga_title: str, chapter_title: str
     return result
 
 @router.get("/manga/image-proxy")
-async def manga_image_proxy(url: str):
+async def manga_image_proxy(url: str, referer: str = "https://mangapill.com/"):
     """
-    Proxies manga images with the correct referer. 
-    Disk caching is disabled as this is intended for ephemeral environments.
+    Proxies images with a customizable referer to bypass hotlinking protections.
+    Adds CORS and CORP headers to ensure browsers allow embedding.
     """
+    if not url or url == "null":
+        return Response(content="Invalid URL", status_code=400)
+        
     headers = {
-        "Referer": "https://mangapill.com/",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        "Referer": referer,
+        "User-Agent": DEFAULT_HEADERS["User-Agent"]
     }
     client = get_http_client()
     try:
-        resp = await client.get(url, headers=headers, follow_redirects=True)
+        resp = await client.get(url, headers=headers, follow_redirects=True, timeout=15.0)
         if resp.status_code != 200:
-            raise HTTPException(status_code=resp.status_code, detail="Failed to fetch image")
+            print(f"[IMAGE PROXY] Failed to fetch {url[:50]}... Status: {resp.status_code}")
+            return Response(content=f"Error {resp.status_code}", status_code=resp.status_code)
         
         return Response(
             content=resp.content,
             media_type=resp.headers.get("Content-Type", "image/jpeg"),
-            headers={"Cache-Control": "public, max-age=31536000", "X-Cache": "BYPASS"}
+            headers={
+                "Cache-Control": "public, max-age=31536000",
+                "Access-Control-Allow-Origin": "*",
+                "Cross-Origin-Resource-Policy": "cross-origin",
+                "X-Proxy-Status": "Success"
+            }
         )
     except Exception as e:
-        print(f"[MANGA IMAGE PROXY FAILED] {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"[IMAGE PROXY FATAL] {e} for {url[:50]}")
+        return Response(content=str(e), status_code=500)
+
+@router.get("/image-proxy")
+async def generic_image_proxy(url: str, referer: str = None):
+    """
+    Alias for manga_image_proxy but defaults to no referer if not provided.
+    Useful for News section images or other external resources.
+    """
+    return await manga_image_proxy(url, referer or "https://www.animenewsnetwork.com/")
 
 @router.get("/system/status")
 async def system_status():

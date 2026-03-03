@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-const NewsReader = ({ articleId, onClose }) => {
+const NewsReader = ({ articleId, onClose, API_BASE }) => {
     const [article, setArticle] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -27,6 +27,8 @@ const NewsReader = ({ articleId, onClose }) => {
     }, [articleId]);
 
     if (!articleId) return null;
+
+    const proxiedHero = (article && article.thumbnail) ? `${API_BASE}/api/image-proxy?url=${encodeURIComponent(article.thumbnail)}` : null;
 
     return (
         <div className="news-reader-overlay" style={{
@@ -119,7 +121,7 @@ const NewsReader = ({ articleId, onClose }) => {
                             {/* Hero Banner */}
                             <div style={{ width: '100%', height: '400px', position: 'relative', overflow: 'hidden' }}>
                                 <img
-                                    src={article.thumbnail}
+                                    src={proxiedHero || article.thumbnail}
                                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                     alt="Thumbnail"
                                 />

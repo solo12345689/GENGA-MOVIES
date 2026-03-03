@@ -1035,7 +1035,7 @@ function App() {
                                             }}>
                                                 {group.items.map((item, idx) => (
                                                     group.type === 'news' ?
-                                                        <NewsCard key={item.id || idx} item={item} onClick={(it) => setNewsReaderItem(it)} /> :
+                                                        <NewsCard key={item.id || idx} item={item} onClick={(it) => setNewsReaderItem(it)} API_BASE={CLOUD_BASE} /> :
                                                         (activeSource === 'music' ?
                                                             <MusicCard key={`${item.id}-${index}-${idx}`} movie={item} onClick={handleItemClick} /> :
                                                             <MovieCard key={`${item.id}-${index}-${idx}`} movie={item} onClick={handleItemClick} />)
@@ -1140,6 +1140,7 @@ function App() {
                 <NewsReader
                     articleId={newsReaderItem.id}
                     onClose={() => setNewsReaderItem(null)}
+                    API_BASE={CLOUD_BASE}
                 />
             )}
 

@@ -1,10 +1,12 @@
 import React from 'react';
 
-const NewsCard = ({ item, onClick }) => {
+const NewsCard = ({ item, onClick, API_BASE }) => {
     const handleCardClick = (e) => {
         // Only trigger if not clicking the actual link (if we keep it)
         onClick && onClick(item);
     };
+
+    const proxiedThumbnail = item.thumbnail ? `${API_BASE}/api/image-proxy?url=${encodeURIComponent(item.thumbnail)}` : null;
 
     return (
         <div className="news-card"
@@ -29,7 +31,7 @@ const NewsCard = ({ item, onClick }) => {
                 overflow: 'hidden'
             }}>
                 <img
-                    src={item.thumbnail}
+                    src={proxiedThumbnail || item.thumbnail}
                     alt={item.title}
                     style={{
                         position: 'absolute',
