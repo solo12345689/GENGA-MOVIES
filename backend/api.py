@@ -75,17 +75,16 @@ ANIME_API_BASE = "https://aniwatch-api-dotd.onrender.com/api/v2/hianime"
 manga_service = MangaService()
 music_service = MusicService()
 
-# Global session
-session = Session()
-
-# Persistent HTTP client (initialized lazily to avoid loop issues)
-_http_client: Optional[httpx.AsyncClient] = None
-
 DEFAULT_HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Accept': '*/*',
     'Accept-Language': 'en-US,en;q=0.9',
+    'Referer': 'https://fmoviesunblocked.net/',
+    'Origin': 'https://h5.aoneroom.com'
 }
+
+# Global session - initialized with custom headers to ensure consistency across library and player
+session = Session(headers=DEFAULT_HEADERS)
 
 def get_http_client() -> httpx.AsyncClient:
     global _http_client
@@ -206,27 +205,25 @@ def get_source_headers(url: str, source: str = None) -> list[dict]:
     url_lower = url.lower()
     is_moviebox_cdn = any(d in url_lower for d in ["haildrop", "moviebox", "fogtwist", "sunburst", "stormshade", "hakunaymatata", "bcdn"]) or "/_v7/" in url_lower or "/_v10/" in url_lower
     
-    # If it's MovieBox CDN, we want a CLEAN slate of headers to avoid CloudFront 403s
-    if is_moviebox_cdn or source == 'moviebox':
-        base_headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'Accept': '*/*',
-            'Accept-Language': 'en-US,en;q=0.9',
-        }
-    else:
-        # Enforce modern UA (unless session has one)
-        if hasattr(session, '_headers') and 'User-Agent' in session._headers:
-            base_headers['User-Agent'] = session._headers['User-Agent']
-        elif hasattr(session, '_client') and hasattr(session._client, 'headers') and 'User-Agent' in session._client.headers:
-            base_headers['User-Agent'] = session._client.headers['User-Agent']
-        else:
-            base_headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-    
     configs_refs = []
     
-    # Priority A: Best guess based on source hint vs domain
+    # If it's MovieBox, prioritize using the exact headers currently in the session
+    # as these are what were used to generate any signed URLs.
+    if source == 'moviebox' or is_moviebox_cdn:
+        session_headers = {}
+        if hasattr(session, '_headers'):
+            session_headers = session._headers
+        elif hasattr(session, '_client') and hasattr(session._client, 'headers'):
+            session_headers = dict(session._client.headers)
+            
+        if session_headers:
+            # Create a priority config from session
+            session_cfg = {k: v for k, v in session_headers.items() if k in ['Referer', 'Origin', 'User-Agent', 'Cookie']}
+            if session_cfg:
+                configs_refs.append(session_cfg)
+
+    # 2. Add heuristics if session headers didn't cover it or for variety
     if source == 'hianime':
-        # Even if it looks like a moviebox CDN, if it came from HiAnime API, try HiAnime first
         configs_refs.append({'Referer': 'https://hianime.to/', 'Origin': 'https://hianime.to'})
 
     if "megaplay.buzz" in url_lower:
@@ -235,11 +232,11 @@ def get_source_headers(url: str, source: str = None) -> list[dict]:
     if "hianime" in url_lower or "aniwatch" in url_lower or "megacloud" in url_lower or "vidcloud" in url_lower or "rabbitstream" in url_lower:
         configs_refs.append({'Referer': 'https://hianime.to/', 'Origin': 'https://hianime.to'})
     
+    # Standard MovieBox Fallbacks
     if is_moviebox_cdn or source == 'moviebox':
-        # Prioritize known working Referers for subtitles specifically
+        configs_refs.append({'Referer': 'https://fmoviesunblocked.net/', 'Origin': 'https://h5.aoneroom.com'})
         configs_refs.append({'Referer': 'https://www.moviebox.net/', 'Origin': 'https://www.moviebox.net'})
         configs_refs.append({'Referer': 'https://www.moviebox.pro/', 'Origin': 'https://www.moviebox.pro'})
-        configs_refs.append({'Referer': 'https://fmoviesunblocked.net/', 'Origin': 'https://fmoviesunblocked.net'})
         configs_refs.append({'Referer': 'https://showbox.media/', 'Origin': 'https://showbox.media'})
         
         # Domain-as-referer strategy
@@ -250,7 +247,7 @@ def get_source_headers(url: str, source: str = None) -> list[dict]:
             configs_refs.append({'Referer': f'https://{domain}/', 'Origin': f'https://{domain}'})
             configs_refs.append({'Referer': f'https://www.{domain}/', 'Origin': f'https://www.{domain}'})
         
-        # No-referer strategy (essential for some CloudFront setups)
+        # No-referer strategy
         configs_refs.append({}) 
 
         # Additional strategies for stubborn CDNs (Sunburst, Fogtwist, Stormshade, Lightning, active-storage)
@@ -1217,27 +1214,36 @@ async def stream(
         cmd = [mpv_path, str(media_file.url), f"--title={target_item.title}", "--no-ytdl"]
         
         # Get hardened headers for this specific URL
-        # MPV uses the first (primary) config
         mpv_headers = get_source_headers(str(media_file.url))[0]
         
-        # Add User-Agent
-        cmd.append(f"--user-agent={mpv_headers.get('User-Agent')}")
+        # Add User-Agent explicitly
+        if 'User-Agent' in mpv_headers:
+            cmd.append(f"--user-agent={mpv_headers['User-Agent']}")
             
-        # Add Referer
-        cmd.append(f"--referrer={mpv_headers.get('Referer')}")
-            
-        # Add Cookies (Priority: Explicit header -> Session cookies)
+        # Add Referer explicitly
+        if 'Referer' in mpv_headers:
+            cmd.append(f"--referrer={mpv_headers['Referer']}")
+
+        # Build other header fields
+        header_fields = []
+        for key, value in mpv_headers.items():
+            if key not in ['User-Agent', 'Referer', 'Cookie', 'cookie']:
+                header_fields.append(f"{key}: {value}")
+                
+        # Handle Cookies
         cookie_str = mpv_headers.get('Cookie') or mpv_headers.get('cookie')
-        
         if not cookie_str:
-            # Try to extract from session cookie jar
             if hasattr(session, 'cookies') and session.cookies:
                  cookie_str = "; ".join([f"{k}={v}" for k, v in session.cookies.items()])
             elif hasattr(session, '_client') and hasattr(session._client, 'cookies') and session._client.cookies:
                  cookie_str = "; ".join([f"{k}={v}" for k, v in session._client.cookies.items()])
 
         if cookie_str:
-            cmd.append(f"--http-header-fields=Cookie: {cookie_str}")
+            header_fields.append(f"Cookie: {cookie_str}")
+
+        # Pass all collected headers to mpv
+        for field in header_fields:
+            cmd.append(f"--http-header-fields={field}")
 
         # Auto-confirm selection if moviebox CLI prompts (though we are calling mpv directly now)
         # But wait, this code launches MPV directly. Good.
