@@ -360,8 +360,14 @@ function App() {
             } else if (activeSource === 'music') { // Added music search normalization
                 setResults(data.results || []);
             } else {
-                // MovieBox results
-                setResults(data.results.map(it => ({ ...it, source: 'moviebox' })));
+                // MovieBox results: SubjectType 1=Movie, 2=Series
+                setResults(data.results.map(it => {
+                    let determinedType = it.type;
+                    if (typeof it.type !== 'string') {
+                        determinedType = it.type === 2 ? 'series' : 'movie';
+                    }
+                    return { ...it, source: 'moviebox', type: determinedType };
+                }));
             }
         } catch (err) {
             console.error("Search failed", err);

@@ -230,7 +230,7 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
                         <span style={{ textTransform: 'capitalize', color: 'var(--primary)' }}>
                             {item.source === 'cinecli' ? 'Torpedo' :
                                 (item.type === 'manga' ? 'Manga' :
-                                    (item.type === 'anime' || item.type === 'anime_movie' ? 'Anime' :
+                                    (item.type === 'anime' ? 'Anime' :
                                         (item.type === 'series' || (item.type !== 'movie' && item.type !== 'anime_movie' && item.seasons && item.seasons.length > 0) ? 'Series' :
                                             (item.source === 'music' ? (item.type === 'music_playlist' ? 'Playlist' : 'Music') : 'Movie'))))}
                         </span>

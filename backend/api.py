@@ -175,14 +175,24 @@ def extract_seasons_from_title(title: str) -> List[dict]:
 
 def srt_to_vtt(srt_content: str) -> str:
     """
-    Very basic SRT to WebVTT conversion.
-    Changes ',' to '.' in timestamps and adds WEBVTT header.
+    Robust SRT to WebVTT conversion.
+    Handles potentially malformed SRT and ensures the WEBVTT header is present.
     """
     import re
-    vtt = "WEBVTT\n\n"
+    if not srt_content: return "WEBVTT\n\n"
+    
+    # If already VTT, just return
+    if srt_content.lstrip().startswith("WEBVTT"):
+        return srt_content
+
     # Replace comma in timestamps with dot
     # Matches: 00:00:00,000 --> 00:00:00,000
-    vtt += re.sub(r'(\d{2}:\d{2}:\d{2}),(\d{3})', r'\1.\2', srt_content)
+    vtt = re.sub(r'(\d{2}:\d{2}:\d{2}),(\d{3})', r'\1.\2', srt_content)
+    
+    # Ensure it starts with WEBVTT
+    if not vtt.lstrip().startswith('WEBVTT'):
+        vtt = "WEBVTT\n\n" + vtt.lstrip()
+        
     return vtt
 
 def get_source_headers(url: str, source: str = None) -> list[dict]:
@@ -231,7 +241,17 @@ def get_source_headers(url: str, source: str = None) -> list[dict]:
         configs_refs.append({'Referer': 'https://www.moviebox.pro/', 'Origin': 'https://www.moviebox.pro'})
         configs_refs.append({'Referer': 'https://fmoviesunblocked.net/', 'Origin': 'https://fmoviesunblocked.net'})
         configs_refs.append({'Referer': 'https://showbox.media/', 'Origin': 'https://showbox.media'})
-        configs_refs.append({'Referer': 'https://v.showbox.cc/', 'Origin': 'https://v.showbox.cc'})
+        
+        # Domain-as-referer strategy
+        from urllib.parse import urlparse
+        domain_parts = urlparse(url).netloc.split(".")
+        if len(domain_parts) >= 2:
+            domain = ".".join(domain_parts[-2:])
+            configs_refs.append({'Referer': f'https://{domain}/', 'Origin': f'https://{domain}'})
+            configs_refs.append({'Referer': f'https://www.{domain}/', 'Origin': f'https://www.{domain}'})
+        
+        # No-referer strategy (essential for some CloudFront setups)
+        configs_refs.append({}) 
 
         # Additional strategies for stubborn CDNs (Sunburst, Fogtwist, Stormshade, Lightning, active-storage)
         if any(k in url_lower for k in ["sunburst", "fogtwist", "stormshade", "lightning", "active-storage", "rainveil"]):
@@ -338,7 +358,7 @@ async def determine_item_type(item: Any, content_type_filter: str = "all") -> st
     
     # Check if it's anime based on title patterns (same logic as homepage)
     has_lang_tag = any(k in title for k in ['[hindi]', '[urdu]', '[tamil]', '[telugu]'])
-    is_animation = 'animation' in genres or 'anime' in category or 'anime' in title
+    is_animation = 'anime' in category or 'anime' in title
 
     # Only label as anime if specifically filtered as anime or if it's a known anime source
     # For MovieBox, we prefer 'series' or 'movie' to use its native details logic
@@ -359,7 +379,8 @@ async def determine_item_type(item: Any, content_type_filter: str = "all") -> st
             getattr(item, 'is_tv_series', False)):
             item_type = "anime"
         else:
-            item_type = "anime_movie"
+            # It's an animated movie, but call it 'movie' for UI consistency unless it's clearly anime
+            item_type = "movie" if 'anime' not in category and 'anime' not in title else "anime_movie"
             
     elif has_lang_tag:
         # If it has [Hindi] etc tag:
@@ -1175,6 +1196,7 @@ async def stream(
                 "status": "success", 
                 "url": proxy_url, 
                 "title": target_item.title, 
+                "type": content_type if content_type != "all" else ("series" if getattr(target_item, 'subject_type', 1) == 2 else "movie"),
                 "direct_url": str(media_file.url),
                 "subtitles": subtitles
             }
@@ -1327,24 +1349,32 @@ async def proxy_stream(request: Request, url: str, source: str = None):
                 is_srt = ".srt" in url.lower() or "application/x-subrip" in resp.headers.get("Content-Type", "").lower()
                 
                 if is_srt:
-                    content = await resp.aread()
                     try:
-                        text = content.decode('utf-8')
-                    except:
-                        text = content.decode('latin-1', errors='replace')
-                    
-                    vtt_text = srt_to_vtt(text)
-                    await resp.aclose()
-                    await client.aclose()
-                    
-                    return Response(
-                        content=vtt_text,
-                        media_type="text/vtt",
-                        headers={
-                            "Access-Control-Allow-Origin": "*",
-                            "X-Proxy-Status": "Converted-SRT-to-VTT"
-                        }
-                    )
+                        print(f"[SUBTITLE] Processing {url[:100]}")
+                        content = await resp.aread()
+                        try:
+                            text = content.decode('utf-8')
+                        except:
+                            text = content.decode('latin-1', errors='replace')
+                        
+                        vtt_text = srt_to_vtt(text)
+                        await resp.aclose()
+                        await client.aclose()
+                        
+                        print(f"[SUBTITLE] Successfully converted {url[:50]} to VTT")
+                        return Response(
+                            content=vtt_text,
+                            media_type="text/vtt",
+                            headers={
+                                "Access-Control-Allow-Origin": "*",
+                                "X-Proxy-Status": "Converted-SRT-to-VTT"
+                            }
+                        )
+                    except Exception as sub_e:
+                        print(f"[SUBTITLE ERROR] Conversion failed: {sub_e}")
+                        traceback.print_exc()
+                        # Fallback: if conversion fails, return raw if possible or raise
+                        raise HTTPException(status_code=500, detail=f"Subtitle conversion error: {str(sub_e)}")
                 
                 excluded_headers = ["content-encoding", "content-length", "transfer-encoding", "connection", "keep-alive", "content-disposition"]
                 res_headers = {k: v for k, v in resp.headers.items() if k.lower() not in excluded_headers}
@@ -1376,21 +1406,17 @@ async def proxy_stream(request: Request, url: str, source: str = None):
                 
         # If we exit loop without returning
         await client.aclose()
-        raise HTTPException(status_code=502, detail=f"Proxy failed: {last_error}")
+        raise HTTPException(status_code=502, detail=f"Proxy failed: {last_error or 'Unknown error'}")
 
+    except HTTPException:
+        # Re-raise HTTPExceptions as-is to preserve status codes (avoid 500)
+        raise
     except Exception as e:
-        # Fallback closure
-        # Note: If client is not defined, this might error, but 'client' is defined at top
+        # Fallback closure for actual crashes
         if 'client' in locals():
-            await client.aclose()
+            try: await client.aclose()
+            except: pass
         print(f"[PROXY FATAL] {e}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
-
-    except Exception as e:
-        print(f"[PROXY FATAL] {e}")
-        import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 

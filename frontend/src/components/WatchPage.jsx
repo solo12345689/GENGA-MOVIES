@@ -4,8 +4,9 @@ import VideoPlayer from './VideoPlayer';
 
 const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, preloadedEpisodes }) => {
     // State
-    const [currentSeason, setCurrentSeason] = useState(initialSeason != null ? Number(initialSeason) : (item.type === 'movie' ? null : 1));
-    const [currentEpisode, setCurrentEpisode] = useState(initialEpisode != null ? Number(initialEpisode) : (item.type === 'movie' ? null : 1));
+    const isMovieContent = item.type === 'movie' || item.type === 'anime_movie';
+    const [currentSeason, setCurrentSeason] = useState(initialSeason != null ? Number(initialSeason) : (isMovieContent ? null : 1));
+    const [currentEpisode, setCurrentEpisode] = useState(initialEpisode != null ? Number(initialEpisode) : (isMovieContent ? null : 1));
     const [streamUrl, setStreamUrl] = useState(null);
     const [streamType, setStreamType] = useState('hls');
     const [subtitles, setSubtitles] = useState([]);
@@ -89,7 +90,7 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
     };
 
     const getNextEpisode = () => {
-        if (item.type === 'movie') return null;
+        if (isMovieContent) return null;
         if (activeSource === 'moviebox') {
             const maxEp = getMaxEpisodes();
             if (currentEpisode < maxEp) return { season: currentSeason, episode: currentEpisode + 1 };
@@ -139,13 +140,19 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
     // Fetch Details & Episodes
     useEffect(() => {
         const fetchDetails = async () => {
-            if (item.type === 'movie') return;
+            if (isMovieContent) return;
             setLoadingDetails(true);
             try {
                 if (activeSource === 'moviebox') {
                     const res = await fetch(`${API_BASE}/api/details/${item.id}`);
                     const data = await res.json();
                     setFullDetails({ ...item, ...data });
+                    // Ensure subtitle URLs are absolute to the backend API
+                    const subs = (data.subtitles || []).map(s => ({
+                        ...s,
+                        url: s.url.startsWith('http') ? s.url : `${API_BASE}${s.url.startsWith('/') ? '' : '/'}${s.url}`
+                    }));
+                    setSubtitles(subs);
                     if (data.seasons) {
                         setSeasonsData(data.seasons);
                     }
@@ -185,24 +192,22 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
     // Fetch Stream URL
     useEffect(() => {
         const fetchStream = async () => {
-            // Avoid clearing streamUrl if we're just retrying or if the URL hasn't been fetched yet
-            // Only clear it if we are actually switching to a new context
             setLoadingStream(true);
             setStreamError(null);
-            setSubtitles([]);
+
+            if (activeSource !== 'moviebox') {
+                setSubtitles([]);
+            }
 
             try {
-                // --- AUTO-CONSTRUCT LOGIC (HiAnime Only) ---
+                // --- HI-ANIME IFRAME STRATEGY (Requested by User) ---
                 if (activeSource === 'hianime') {
                     let epId = fullDetails.episodeId || item.id;
-
-                    // Sync ID if missing
                     if ((!epId || !String(epId).includes('ep=')) && animeEpisodes.length > 0) {
                         const foundEp = animeEpisodes.find(e => e.number === currentEpisode);
                         if (foundEp) epId = foundEp.episodeId;
                     }
 
-                    // Extract Numeric ID
                     let numericId = null;
                     if (String(epId).includes('ep=')) {
                         numericId = String(epId).split('ep=').pop().split('&')[0];
@@ -210,17 +215,15 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                         numericId = String(epId);
                     }
 
-                    // Strict Auto-Play for Boruto/etc
                     if (numericId && /^\d+$/.test(numericId)) {
-                        // Use BACKEND PROXY - spoofs headers to appear as megaplay.buzz itself
                         const megaplayUrl = `https://megaplay.buzz/stream/s-2/${numericId}/${animeLanguage}`;
                         const proxyUrl = `${API_BASE}/api/iframe-proxy?url=${encodeURIComponent(megaplayUrl)}`;
 
-                        console.log("[WatchPage] Using Backend Proxy:", numericId);
+                        console.log("[WatchPage] Using Megaplay Iframe (Proxy):", numericId);
                         setStreamUrl(proxyUrl);
                         setStreamType('embed');
                         setLoadingStream(false);
-                        return; // SKIP API FETCH ENTIRELY
+                        return;
                     }
                 }
                 // -------------------------------------------
@@ -234,31 +237,15 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                         url += `&season=${currentSeason}&episode=${currentEpisode}`;
                     }
                 } else if (activeSource === 'anicli') {
-                    // Ani-CLI Stream Logic
-                    // We need the episode ID hash/path
                     let epId = fullDetails.episodeId || item.id;
-
-                    // If we are navigating, find the episode ID from the list
                     if (activeSource === 'anicli' && animeEpisodes.length > 0) {
                         const foundEp = animeEpisodes.find(e => String(e.number) === String(currentEpisode));
                         if (foundEp) epId = foundEp.id;
                     }
-
-                    // Scrape the embed
-                    // We don't have a direct "get stream" endpoint for anicli yet in frontend logic?
-                    // No, we need to add a scraper endpoint or use the new one.
-                    // Actually we have /api/anicli/details which returns episodes with IDs.
-                    // BUT we need a way to get the stream URL from that ID.
-                    // Let's assume we can fetch the page and extract iframe in backend?
-                    // Wait, I didn't add a /api/anicli/stream endpoint!
-                    // I added get_stream_url static method but didn't expose it.
-                    // Quick fix: I will add the endpoint in next step. For now, assume it exists:
                     url = `${API_BASE}/api/anicli/stream?episode_id=${encodeURIComponent(epId)}`;
-
                 } else {
                     const epId = fullDetails.episodeId || item.episodeId;
                     if (!epId) throw new Error("No episode ID found.");
-
                     url = `${API_BASE}/api/anime/sources?episode_id=${encodeURIComponent(epId)}&category=${animeLanguage}`;
                 }
 
@@ -269,115 +256,39 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                 if (activeSource === 'moviebox') {
                     if (data.status === 'success' && data.url) {
                         let finalUrl = data.url;
-                        // Force proxy for external URLs to avoid CORS
-                        // Force proxy for external URLs to avoid CORS
-                        // If API_BASE is empty, we check against window.location.origin
-                        const isInternal = API_BASE
-                            ? finalUrl.includes(API_BASE)
-                            : finalUrl.includes(window.location.origin);
-
+                        const isInternal = API_BASE ? finalUrl.includes(API_BASE) : finalUrl.includes(window.location.origin);
                         if (finalUrl.startsWith('http') && !isInternal) {
-                            finalUrl = `${API_BASE}/api/proxy/stream?url=${encodeURIComponent(finalUrl)}`;
+                            finalUrl = `${API_BASE}/api/proxy-stream?url=${encodeURIComponent(finalUrl)}`;
                         } else if (!finalUrl.startsWith('http')) {
                             finalUrl = `${API_BASE}${finalUrl}`;
                         }
                         setStreamUrl(finalUrl);
                         setStreamType('hls');
-                        if (data.subtitles) setSubtitles(data.subtitles);
+                        if (data.subtitles) {
+                            setSubtitles(data.subtitles.map(s => ({
+                                ...s,
+                                url: s.url.startsWith('http') ? s.url : `${API_BASE}${s.url.startsWith('/') ? '' : '/'}${s.url}`
+                            })));
+                        }
                     } else throw new Error(data.message || "Failed to get stream");
-                } else if (activeSource === 'anicli') {
-                    if (data.url) {
-                        setStreamUrl(data.url);
-                        setStreamType('embed'); // Gogo embeds are usually iframes
-                    } else {
-                        throw new Error("Stream not found");
-                    }
                 } else {
-                    let epId = fullDetails.episodeId || item.id;
-
-                    // If we haven't synced the episode ID yet (for HiAnime), try to find it now
-                    if (activeSource === 'hianime' && (!epId || !String(epId).includes('ep=')) && animeEpisodes.length > 0) {
-                        const foundEp = animeEpisodes.find(e => e.number === currentEpisode);
-                        if (foundEp) epId = foundEp.episodeId;
-                    }
-
-                    // If we STILL don't have a valid epId with 'ep=', we shouldn't fetch yet if we are waiting for episodes
-                    if (activeSource === 'hianime' && !String(epId).includes('ep=') && loadingDetails) {
-                        return; // Wait for details/episodes to load
-                    }
-
-                    let numericId = null;
-
-                    // 1. EXTRACT NUMERIC ID (e.g. "47085" from "...ep=47085")
-                    // The user confirmed this ID works for Boruto and wants it auto-entered.
-                    if (String(epId).includes('ep=')) {
-                        numericId = String(epId).split('ep=').pop().split('&')[0];
-                    } else if (/^\d+$/.test(String(epId))) {
-                        numericId = String(epId);
-                    }
-
-                    // 2. PRIMARY STRATEGY: AUTO-CONSTRUCT MEGAPLAY URL
-                    // User Request: "user does not enter... it automaticaly enter episode id"
-                    if (numericId && /^\d+$/.test(numericId)) {
-                        const megaplayUrl = `https://megaplay.buzz/stream/s-2/${numericId}/${animeLanguage}`;
-                        const proxyUrl = `${API_BASE}/api/iframe-proxy?url=${encodeURIComponent(megaplayUrl)}`;
-
-                        console.log("[WatchPage] Auto-Constructing Megaplay URL with ID (Proxy):", numericId);
-                        setStreamUrl(proxyUrl);
-                        setStreamType('embed');
-                        setLoadingStream(false);
-                        return; // Stop here. Do not fetch API sources (which return unwanted HLS).
-                    }
-
-                    // Fallback: Fetch from API (Only if no ID found, which is rare)
-                    const fetchUrl = `${API_BASE}/api/anime/sources?episode_id=${encodeURIComponent(epId)}&category=${animeLanguage}`;
-                    const res = await fetch(fetchUrl);
-                    if (!res.ok) throw new Error(`Server error: ${res.status}`);
-                    const data = await res.json();
-
-                    if (data.status === 200 && data.data && data.data.sources && data.data.sources.length > 0) {
-                        const s = data.data.sources[0];
-                        // If we fall back here, respect the HLS block preference
-                        if (activeSource === 'hianime' && s.type === 'hls') {
-                            console.log("[WatchPage] HLS Source found but Auto-Play blocked per user request.");
-                            // We don't set streamUrl. We set an error/prompt state to show the UI.
-                            setStreamError("Auto-Play Blocked: Enter Megaplay ID to watch.");
-                            // Ideally we store the HLS url somewhere if they REALLY want to try it?
-                            // adapting the error screen to handle this state would be good.
-                        } else {
-                            // If it's an embed or non-hianime, just play.
-                            setStreamUrl(s.url);
-                            setStreamType(s.type === 'embed' ? 'embed' : 'hls');
-                        }
-
-                        if (data.data.subtitles) setSubtitles(data.data.subtitles);
-                    } else {
-                        // If API fails, maybe THEN try the shortcut?
-                        if (numericId) {
-                            const megaplayUrl = `https://megaplay.buzz/stream/s-2/${numericId}/${animeLanguage}`;
-                            const proxyUrl = `${API_BASE}/api/iframe-proxy?url=${encodeURIComponent(megaplayUrl)}`;
-                            setStreamUrl(proxyUrl);
-                            setStreamType('embed');
-                        } else {
-                            throw new Error("No sources found.");
-                        }
-                    }
+                    // Anime API fallback
+                    if (data.url || (data.data && data.data.sources && data.data.sources.length > 0)) {
+                        const s = data.url ? data : data.data.sources[0];
+                        setStreamUrl(s.url);
+                        setStreamType(s.type === 'embed' ? 'embed' : 'hls');
+                        if (data.data?.subtitles) setSubtitles(data.data.subtitles);
+                    } else throw new Error("Stream not found");
                 }
             } catch (err) {
                 console.error("Stream Fetch Error:", err);
-                // If HiAnime fails (404, etc), SHOW THE MANUAL INPUT SCREEN
-                if (activeSource === 'hianime') {
-                    setStreamError("Stream not found (404). Please enter Megaplay ID manually.");
-                    // Ensure we don't just leave it empty
-                } else {
-                    setStreamError(err.message);
-                }
+                setStreamError(err.message);
             } finally {
                 setLoadingStream(false);
             }
         };
 
-        const timer = setTimeout(fetchStream, 400); // Slightly faster debounce
+        const timer = setTimeout(fetchStream, 400);
         return () => clearTimeout(timer);
     }, [currentSeason, currentEpisode, activeSource, item.id, item.type, API_BASE, fullDetails.episodeId, animeLanguage, retryCounter]);
 
@@ -389,9 +300,9 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                         <span>←</span> Back
                     </button>
                     <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                        <span style={{ fontWeight: '600', fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title}</span>
-                        <span style={{ fontSize: '0.75rem', opacity: 0.5 }}>
-                            {activeSource === 'moviebox' ? `S${currentSeason} E${currentEpisode}` : `Episode ${currentEpisode}`}
+                        <span style={{ fontWeight: 'bold', fontSize: '1.2rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title}</span>
+                        <span style={{ fontSize: '1rem', color: '#6366f1', fontWeight: 'bold' }}>
+                            {isMovieContent ? 'Movie' : (activeSource === 'hianime' ? `Episode ${currentEpisode || 1}` : `S${currentSeason || 1} E${currentEpisode || 1}`)}
                         </span>
                     </div>
                 </div>
@@ -455,7 +366,7 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                 </div>
 
                 {/* Episode List / Sidebar */}
-                {item.type !== 'movie' && showEpisodes && (
+                {!isMovieContent && showEpisodes && (
                     <div style={{
                         width: isMobile ? '100%' : '320px',
                         flex: isMobile ? 1 : 'none',
