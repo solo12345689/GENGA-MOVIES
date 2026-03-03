@@ -116,6 +116,13 @@ function App() {
     const [showManualIP, setShowManualIP] = useState(false);
     const [showHistoryModal, setShowHistoryModal] = useState(false);
     const [historyFilter, setHistoryFilter] = useState('all');
+    const [historyItems, setHistoryItems] = useState(() => {
+        try {
+            return JSON.parse(localStorage.getItem('moviebox_watch_history') || '[]');
+        } catch (e) {
+            return [];
+        }
+    });
     const [manualIPInput, setManualIPInput] = useState('');
     const [activeSource, setActiveSource] = useState(() => {
         // Default to 'home' which aggregates or shows default homepage
@@ -416,6 +423,7 @@ function App() {
             const h = JSON.parse(localStorage.getItem('moviebox_watch_history') || '[]');
             const newH = [item, ...h.filter(x => String(x.id) !== String(item.id))];
             localStorage.setItem('moviebox_watch_history', JSON.stringify(newH));
+            setHistoryItems(newH);
         } catch (e) {
             console.error("Failed to save history", e);
         }
@@ -553,6 +561,17 @@ function App() {
         setSelectedItem(null);
     };
 
+
+    const handleRemoveHistoryItem = (e, id) => {
+        e.stopPropagation();
+        try {
+            const newH = historyItems.filter(x => String(x.id) !== String(id));
+            localStorage.setItem('moviebox_watch_history', JSON.stringify(newH));
+            setHistoryItems(newH);
+        } catch (err) {
+            console.error("Failed to remove history item", err);
+        }
+    };
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
@@ -906,22 +925,48 @@ function App() {
                                 gap: '2rem'
                             }}>
                                 {(() => {
-                                    try {
-                                        const h = JSON.parse(localStorage.getItem('moviebox_watch_history') || '[]');
-                                        const filtered = h.filter(item => historyFilter === 'all' || item.source === historyFilter);
+                                    const filtered = historyItems.filter(item => historyFilter === 'all' || item.source === historyFilter);
 
-                                        if (filtered.length === 0) return (
-                                            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>
-                                                No history found for this category.
-                                            </div>
-                                        );
+                                    if (filtered.length === 0) return (
+                                        <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>
+                                            No history found for this category.
+                                        </div>
+                                    );
 
-                                        return filtered.map((item, idx) => (
-                                            item.source === 'music' ?
-                                                <MusicCard key={`history-${item.id}-${idx}`} movie={item} onClick={handleItemClick} /> :
-                                                <MovieCard key={`history-${item.id}-${idx}`} movie={item} onClick={handleItemClick} />
-                                        ));
-                                    } catch (e) { return null; }
+                                    return filtered.map((item, idx) => (
+                                        <div key={`history-wrapper-${item.id}-${idx}`} style={{ position: 'relative' }} className="history-item-container">
+                                            {item.source === 'music' ?
+                                                <MusicCard movie={item} onClick={handleItemClick} /> :
+                                                <MovieCard movie={item} onClick={handleItemClick} />
+                                            }
+                                            <button
+                                                onClick={(e) => handleRemoveHistoryItem(e, item.id)}
+                                                style={{
+                                                    position: 'absolute',
+                                                    top: '10px',
+                                                    right: '10px',
+                                                    width: '24px',
+                                                    height: '24px',
+                                                    borderRadius: '50%',
+                                                    background: 'rgba(0,0,0,0.6)',
+                                                    border: '1px solid rgba(255,255,255,0.2)',
+                                                    color: '#fff',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    cursor: 'pointer',
+                                                    zIndex: 5,
+                                                    transition: 'all 0.2s',
+                                                    fontSize: '12px',
+                                                    opacity: 0.8
+                                                }}
+                                                className="remove-history-btn"
+                                                title="Remove from history"
+                                            >
+                                                ✕
+                                            </button>
+                                        </div>
+                                    ));
                                 })()}
                             </div>
                         </div>

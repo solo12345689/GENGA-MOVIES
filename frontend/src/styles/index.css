@@ -359,3 +359,15 @@ h1 {
     padding: 0.8rem 1.5rem;
   }
 }
+
+/* History Management */
+.history-item-container:hover .remove-history-btn {
+  opacity: 1 !important;
+  transform: scale(1.1);
+}
+
+.remove-history-btn:hover {
+  background: #ef4444 !important;
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
+}
