@@ -361,13 +361,26 @@ h1 {
 }
 
 /* History Management */
+.history-item-container {
+  position: relative;
+  z-index: 1;
+}
+
+.history-item-container:hover {
+  z-index: 50;
+}
+
+.remove-history-btn {
+  pointer-events: auto !important;
+  z-index: 100 !important;
+}
+
 .history-item-container:hover .remove-history-btn {
   opacity: 1 !important;
-  transform: scale(1.1);
 }
 
 .remove-history-btn:hover {
   background: #ef4444 !important;
-  border-color: #ef4444 !important;
-  box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.6) !important;
+  transform: scale(1.1) !important;
 }
