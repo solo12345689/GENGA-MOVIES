@@ -1443,9 +1443,61 @@ async def get_anime_home():
             raise HTTPException(status_code=response.status_code, detail=f"Upstream error: {response.status_code}")
         
         try:
-            return response.json()
+            data = response.json()
+            normalized_groups = []
+            if data.get('status') == 200 and data.get('data'):
+                d = data['data']
+                if d.get('spotlightAnimes'):
+                    normalized_groups.append({
+                        "title": "Spotlight",
+                        "items": [{
+                            "id": a.get('id'),
+                            "title": a.get('name'),
+                            "poster_url": a.get('poster'),
+                            "year": a.get('type') or "Anime",
+                            "type": "anime",
+                            "source": "hianime"
+                        } for a in d['spotlightAnimes']]
+                    })
+                if d.get('trendingAnimes'):
+                    normalized_groups.append({
+                        "title": "Trending",
+                        "items": [{
+                            "id": a.get('id'),
+                            "title": a.get('name'),
+                            "poster_url": a.get('poster'),
+                            "year": a.get('type') or "Anime",
+                            "type": "anime",
+                            "source": "hianime"
+                        } for a in d['trendingAnimes']]
+                    })
+                if d.get('latestEpisodeAnimes'):
+                    normalized_groups.append({
+                        "title": "Latest Episodes",
+                        "items": [{
+                            "id": a.get('id'),
+                            "title": a.get('name'),
+                            "poster_url": a.get('poster'),
+                            "year": a.get('type') or "Anime",
+                            "type": "anime",
+                            "source": "hianime"
+                        } for a in d['latestEpisodeAnimes']]
+                    })
+                if d.get('topUpcomingAnimes'):
+                    normalized_groups.append({
+                        "title": "Upcoming",
+                        "items": [{
+                            "id": a.get('id'),
+                            "title": a.get('name'),
+                            "poster_url": a.get('poster'),
+                            "year": a.get('type') or "Anime",
+                            "type": "anime",
+                            "source": "hianime"
+                        } for a in d['topUpcomingAnimes']]
+                    })
+            return normalized_groups
         except Exception as json_err:
-            print(f"[HiAnime] JSON Parse error: {json_err} | Body: {response.text[:500]}")
+            print(f"[HiAnime] Home JSON Parse error: {json_err} | Body: {response.text[:500]}")
             raise HTTPException(status_code=500, detail="Malformed upstream response")
     except Exception as e:
         print(f"HiAnime Home fatal error: {e}")

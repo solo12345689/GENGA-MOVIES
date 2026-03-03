@@ -165,9 +165,8 @@ function App() {
 
     // Helper to determine target base URL for a given source
     const getTargetBase = (src = activeSource) => {
-        return (src === 'hianime' || src === 'manga' || src === 'anicli' || src === 'music' || src === 'news')
-            ? CLOUD_BASE
-            : localServerURL;
+        // Use local server for everything during debugging/local development
+        return localServerURL;
     };
 
     const API_BASE = getTargetBase(activeSource);
@@ -236,17 +235,9 @@ function App() {
                             }))
                         })));
                     } else if (activeSource === 'hianime') {
-                        // HiAnime normalization
+                        // HiAnime normalization now handled by backend
                         const data = await res.json();
-                        const normalizedGroups = [];
-                        if (data.status === 200 && data.data) {
-                            const d = data.data;
-                            if (d.spotlightAnimes) normalizedGroups.push({ title: 'Spotlight', items: d.spotlightAnimes.map(a => ({ id: a.id, title: a.name, poster_url: a.poster, year: a.type || 'Anime', type: 'anime', source: 'hianime' })) });
-                            if (d.trendingAnimes) normalizedGroups.push({ title: 'Trending', items: d.trendingAnimes.map(a => ({ id: a.id, title: a.name, poster_url: a.poster, year: a.type || 'Anime', type: 'anime', source: 'hianime' })) });
-                            if (d.latestEpisodeAnimes) normalizedGroups.push({ title: 'Latest Episodes', items: d.latestEpisodeAnimes.map(a => ({ id: a.id, title: a.name, poster_url: a.poster, year: a.type || 'Anime', type: 'anime', source: 'hianime' })) });
-                            if (d.topUpcomingAnimes) normalizedGroups.push({ title: 'Upcoming', items: d.topUpcomingAnimes.map(a => ({ id: a.id, title: a.name, poster_url: a.poster, year: a.type || 'Anime', type: 'anime', source: 'hianime' })) });
-                        }
-                        setHomepageContent(normalizedGroups);
+                        setHomepageContent(data);
                     } else if (activeSource === 'manga') {
                         // Manga normalization
                         const data = await res.json();
@@ -344,20 +335,8 @@ function App() {
             const data = await res.json();
 
             if (activeSource === 'hianime') {
-                // Normalize HiAnime results
-                if (data.status === 200 && data.data && data.data.animes) {
-                    const normalized = data.data.animes.map(a => ({
-                        id: a.id,
-                        title: a.name,
-                        poster_url: a.poster,
-                        year: a.type || 'Anime',
-                        type: 'anime',
-                        source: 'hianime'
-                    }));
-                    setResults(normalized);
-                } else {
-                    setResults([]);
-                }
+                // Backend already normalizes anime results
+                setResults(Array.isArray(data) ? data : []);
             } else if (activeSource === 'manga') {
                 setResults(data.results.map(it => ({
                     ...it,
