@@ -56,8 +56,8 @@
 
 | Feature | Screenshot |
 | :--- | :--- |
-| **Anime Player** | ![Anime Player](screenshots/player_naruto.png) |
-| **MovieBox Player** | ![MovieBox Player](screenshots/player_frieren.png) |
+| **Anime Player** | ![Anime Player](screenshots/player_frieren.png) |
+| **MovieBox Player** | ![MovieBox Player](screenshots/player_naruto.png) |
 | **Manga Reader** | ![Manga Reader](screenshots/reader_manga.png) |
 | **News Reader** | ![News Reader](screenshots/reader_news.png) |
 | **Music Player** | ![Music Player](screenshots/player_music.png) |
