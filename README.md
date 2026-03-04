@@ -22,18 +22,48 @@
 
 ### Navigation & UI
 -   **Unified Sidebar**: Vertical navigation for switching between standard, anime, manga, and news sources.
--   **Source Filtering**: Dedicated views for **MovieBox** (Web), **Anime** (HiAnime), **Manga** (Scans), **Music**, and **News**.
+-   **Source Filtering**: Dedicated views for **MovieBox**, **Anime**, **Manga**, **Music**, and **News**.
 -   **In-App News Reader**: Read full anime/manga articles directly within the app using a premium glassmorphic reader.
 -   **Instant Back Navigation**: State-merging logic ensures posters and metadata persist when returning from the player or reader.
--   **Loading UI**: High-contrast global loading spinner with silent background updates for improved performance.
+-   **Loading UI**: High-contrast global loading spinner with silent background updates.
 
-### Backend Capabilities
--   **CineCLI Integration**: Searches decentralized networks (YTS) with automatic mirror fallback and magnet link resolution.
--   **Proxy Streaming**: `/api/proxy/stream` endpoint supports range requests to bypass CORS restrictions on specific video hosts.
--   **Download Proxy**: `/api/proxy/download` endpoint for facilitating direct file downloads.
--   **System Monitoring**: `/api/system/status` provides real-time health checks of external dependencies.
+### Playback & Downloads
+-   **Subtitle Selection (MovieBox)**: Premium subtitle menu with language selection and status toggle. Preferences (ON/OFF and Language) persist in `localStorage`.
+-   **Direct Video Download**: Download movies and series directly as `.mp4` files. No server-side zipping, just pure stream proxying.
+-   **HLS Proxying**: Advanced proxying of M3U8 segments and on-the-fly SRT to VTT conversion for broad device compatibility.
+-   **CineCLI Integration**: Searches decentralized networks (YTS) with automatic magnet link resolution.
 
 ---
+
+## 📸 Section Screenshots
+
+*Visual overview of the application components.*
+
+| Section | Preview |
+| :--- | :--- |
+| **Home / Discovery** | ![Home Screen](screenshots/screenshot_home.png) |
+| **MovieBox (Streaming)** | ![MovieBox Section](screenshots/screenshot_moviebox.png) |
+| **Anime (HiAnime)** | ![Anime Section](screenshots/screenshot_anime.png) |
+| **Manga (Scans)** | ![Manga Section](screenshots/screenshot_manga_v2.png) |
+| **Music (GaanaPy)** | ![Music Section](screenshots/screenshot_music_v2.png) |
+| **News (ANN Feed)** | ![News Section](screenshots/screenshot_news_v2.png) |
+
+---
+
+## 📺 Premium Media Experience
+
+*Feature-rich playback and reading with subtitles, episode management, and immersive readers.*
+
+| Feature | Screenshot |
+| :--- | :--- |
+| **Anime Player** | ![Anime Player](screenshots/player_naruto.png) |
+| **MovieBox Player** | ![MovieBox Player](screenshots/player_frieren.png) |
+| **Manga Reader** | ![Manga Reader](screenshots/reader_manga.png) |
+| **News Reader** | ![News Reader](screenshots/reader_news.png) |
+| **Music Player** | ![Music Player](screenshots/player_music.png) |
+
+---
+
 
 ## 🧰 Tech Stack
 
