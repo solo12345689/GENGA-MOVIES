@@ -357,6 +357,7 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                             type={streamType}
                             subtitles={subtitles}
                             title={item.title}
+                            source={activeSource}
                             onClose={onBack}
                             autoPlay={true}
                             onNext={handleNextEpisode}

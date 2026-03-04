@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 
-const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext, showNext, autoPlay = true }) => {
+const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext, showNext, autoPlay = true, source = 'moviebox' }) => {
     const videoRef = useRef(null);
     const [isPlaying, setIsPlaying] = useState(autoPlay);
     const [isBuffering, setIsBuffering] = useState(true);
@@ -15,7 +15,13 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
     const [showSubtitleMenu, setShowSubtitleMenu] = useState(false);
-    const [subtitlesEnabled, setSubtitlesEnabled] = useState(true);
+    const [subtitlesEnabled, setSubtitlesEnabled] = useState(() => {
+        if (source === 'moviebox') {
+            const saved = localStorage.getItem('moviebox_subtitles_enabled');
+            return saved === 'true'; // Defaults to false if null/undefined
+        }
+        return true; // Default for other sources
+    });
     const [selectedSubtitle, setSelectedSubtitle] = useState(0);
     const [subtitleSearch, setSubtitleSearch] = useState('');
     const [preferredLang, setPreferredLang] = useState(localStorage.getItem('preferred_subtitle_lang') || 'English');
@@ -83,6 +89,13 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
         }, 100);
         return () => clearTimeout(timeout);
     }, [subtitlesEnabled, selectedSubtitle, subtitles, url]);
+
+    // Save MovieBox subtitle preference
+    useEffect(() => {
+        if (source === 'moviebox') {
+            localStorage.setItem('moviebox_subtitles_enabled', subtitlesEnabled);
+        }
+    }, [subtitlesEnabled, source]);
 
     // Handle initial subtitle selection based on preference
     useEffect(() => {
