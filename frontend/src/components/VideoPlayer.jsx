@@ -77,18 +77,20 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
         const video = videoRef.current;
         if (!video || !video.textTracks) return;
 
-        // Force a small delay to ensure tracks are loaded into the DOM
         const timeout = setTimeout(() => {
             for (let i = 0; i < video.textTracks.length; i++) {
+                const track = video.textTracks[i];
                 if (!subtitlesEnabled) {
-                    video.textTracks[i].mode = 'disabled';
+                    track.mode = 'disabled';
                 } else {
-                    video.textTracks[i].mode = i === selectedSubtitle ? 'showing' : 'hidden';
+                    // Match by label for robustness
+                    const isSelected = track.label === preferredLang;
+                    track.mode = isSelected ? 'showing' : 'hidden';
                 }
             }
-        }, 100);
+        }, 150); // Slightly more delay for track mounting
         return () => clearTimeout(timeout);
-    }, [subtitlesEnabled, selectedSubtitle, subtitles, url]);
+    }, [subtitlesEnabled, preferredLang, subtitles, url]);
 
     // Save MovieBox subtitle preference
     useEffect(() => {
@@ -100,12 +102,14 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
     // Handle initial subtitle selection based on preference
     useEffect(() => {
         if (subtitles && subtitles.length > 0) {
-            const preferredIdx = subtitles.findIndex(s => s.lang.toLowerCase() === preferredLang.toLowerCase());
-            if (preferredIdx !== -1) {
-                setSelectedSubtitle(preferredIdx);
+            const hasMatch = subtitles.some(s => s.lang.toLowerCase() === preferredLang.toLowerCase());
+            if (!hasMatch) {
+                // If preferred lang not found, default to English or first available
+                const fallback = subtitles.find(s => s.lang.toLowerCase() === 'english') || subtitles[0];
+                if (fallback) setPreferredLang(fallback.lang);
             }
         }
-    }, [subtitles, preferredLang]);
+    }, [subtitles]);
 
     // Separate effect for event listeners and progress tracking
     useEffect(() => {
@@ -300,12 +304,12 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                 >
                     {subtitles.map((sub, idx) => (
                         <track
-                            key={idx}
+                            key={`${idx}-${sub.lang}`}
                             kind="subtitles"
                             label={sub.lang}
                             srcLang={sub.lang.toLowerCase().substring(0, 2)}
                             src={sub.url}
-                            default={sub.lang.toLowerCase() === 'english'}
+                            default={sub.lang === preferredLang}
                         />
                     ))}
                 </video>
@@ -566,23 +570,27 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                                                                 <button
                                                                     key={originalIdx}
                                                                     onClick={() => {
-                                                                        setSelectedSubtitle(originalIdx);
                                                                         setPreferredLang(sub.lang);
                                                                         localStorage.setItem('preferred_subtitle_lang', sub.lang);
                                                                         setShowSubtitleMenu(false);
                                                                     }}
                                                                     style={{
-                                                                        width: '100%', padding: '8px 12px', textAlign: 'left',
-                                                                        background: selectedSubtitle === originalIdx ? 'rgba(99, 102, 241, 0.2)' : 'transparent',
-                                                                        border: 'none', color: selectedSubtitle === originalIdx ? '#6366f1' : 'white',
-                                                                        borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem',
-                                                                        display: 'flex', alignItems: 'center', gap: '8px'
+                                                                        width: '100%', padding: '10px 12px', textAlign: 'left',
+                                                                        background: preferredLang === sub.lang ? 'rgba(99, 102, 241, 0.2)' : 'transparent',
+                                                                        border: 'none', color: preferredLang === sub.lang ? '#6366f1' : 'white',
+                                                                        borderRadius: '8px', cursor: 'pointer', fontSize: '0.9rem',
+                                                                        display: 'flex', alignItems: 'center', gap: '10px',
+                                                                        transition: 'all 0.2s ease',
+                                                                        marginBottom: '2px'
                                                                     }}
                                                                 >
-                                                                    {selectedSubtitle === originalIdx && <span>✓</span>}
-                                                                    <span>{sub.lang}</span>
+                                                                    <div style={{ width: '18px', display: 'flex', justifyContent: 'center' }}>
+                                                                        {preferredLang === sub.lang ? '✓' : ''}
+                                                                    </div>
+                                                                    <span style={{ fontWeight: preferredLang === sub.lang ? 'bold' : 'normal' }}>{sub.lang}</span>
                                                                 </button>
                                                             );
+
                                                         })}
                                                 </div>
                                             )}

@@ -1259,6 +1259,130 @@ async def stream(
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/moviebox/download")
+async def moviebox_download(
+    query: str, 
+    id: Optional[str] = None, 
+    content_type: str = "all", 
+    season: Optional[int] = None, 
+    episode: Optional[int] = None
+):
+    """
+    Direct video download for MovieBox items. 
+    Resolves the best stream and proxies it as an attachment.
+    """
+    try:
+        # 1. Resolve item (Reusing logic similar to /stream)
+        target_item = None
+        search_instance = None
+        
+        if id and id in search_cache:
+            cached = search_cache[id]
+            target_item = cached["item"]
+            search_instance = cached["search_instance"]
+            
+            if cached.get("needs_search", False):
+                if cached.get("type") == "anime":
+                    subject_type = SubjectType.ALL
+                elif cached.get("type") == "series":
+                    subject_type = SubjectType.TV_SERIES
+                else:
+                    subject_type = SubjectType.MOVIES
+                search_instance = Search(session=session, query=target_item['title'], subject_type=subject_type)
+                results = await search_instance.get_content_model()
+                if results.items:
+                    original_id = target_item['id']
+                    matched_item = None
+                    for search_item in results.items:
+                        if str(getattr(search_item, 'id', '')) == str(original_id) or str(getattr(search_item, 'subjectId', '')) == str(original_id):
+                            matched_item = search_item
+                            break
+                    target_item = matched_item or results.items[0]
+                    search_cache[id]["item"] = target_item
+                    search_cache[id]["search_instance"] = search_instance
+                    search_cache[id]["needs_search"] = False
+        else:
+            subject_type = SubjectType.ALL
+            if content_type.lower() in ["movie", "anime_movie"]:
+                subject_type = SubjectType.MOVIES
+            elif content_type.lower() in ["series", "anime"]:
+                subject_type = SubjectType.TV_SERIES
+            search_instance = Search(session=session, query=query, subject_type=subject_type)
+            results = await search_instance.get_content_model()
+            if not results.items:
+                raise HTTPException(status_code=404, detail="Content not found")
+            target_item = results.items[0]
+
+        # 2. Resolve Media File (Best Quality)
+        media_file = None
+        quality_options = ["BEST", "720P", "480P", "360P"]
+        
+        for quality in quality_options:
+            try:
+                if season is not None and episode is not None:
+                    files_provider = DownloadableTVSeriesFilesDetail(session=session, item=target_item)
+                    files_metadata = await files_provider.get_content_model(season=season, episode=episode)
+                else:
+                    files_provider = DownloadableMovieFilesDetail(session=session, item=target_item)
+                    files_metadata = await files_provider.get_content_model()
+                
+                media_file = resolve_media_file_to_be_downloaded(quality, files_metadata)
+                if media_file and media_file.url:
+                    break
+            except:
+                continue
+                
+        if not media_file or not media_file.url:
+            raise HTTPException(status_code=404, detail="Downloadable stream URL not found")
+
+        # 3. Proxy the download
+        filename = f"{getattr(target_item, 'title', 'video')}.mp4"
+        if season is not None and episode is not None:
+            filename = f"{getattr(target_item, 'title', 'video')} S{season}E{episode}.mp4"
+        
+        # Sanitize filename
+        filename = filename.replace("/", "_").replace("\\", "_")
+        
+        # We reuse get_source_headers to get correct credentials for the CDN
+        candidates = get_source_headers(str(media_file.url), "moviebox")
+        headers = candidates[0]
+        
+        # We MUST NOT use 'async with' because StreamingResponse needs the client open!
+        client = httpx.AsyncClient(verify=False, follow_redirects=True, timeout=60.0)
+        req = client.build_request("GET", str(media_file.url), headers=headers)
+        resp = await client.send(req, stream=True, follow_redirects=True)
+        
+        if resp.status_code >= 400:
+            await resp.aclose()
+            await client.aclose()
+            raise HTTPException(status_code=resp.status_code, detail=f"CDN returned {resp.status_code}")
+
+        res_headers = {
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Type": resp.headers.get("Content-Type", "video/mp4"),
+            "Access-Control-Allow-Origin": "*"
+        }
+        if "Content-Length" in resp.headers:
+            res_headers["Content-Length"] = resp.headers["Content-Length"]
+
+        from starlette.background import BackgroundTask
+        async def cleanup():
+            await resp.aclose()
+            await client.aclose()
+
+        return StreamingResponse(
+            resp.aiter_raw(),
+            status_code=resp.status_code,
+            headers=res_headers,
+            background=BackgroundTask(cleanup)
+        )
+
+    except Exception as e:
+        print(f"[DOWNLOAD ERROR] {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/proxy-stream")
 async def proxy_stream(request: Request, url: str, source: str = None):
     """

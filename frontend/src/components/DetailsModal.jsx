@@ -121,14 +121,11 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
             return;
         }
 
-        // Use new Proxy Download for MovieBox
-        if (item.source === 'moviebox' && item.type === 'movie') {
-            // We need a URL. For MovieBox, we don't have it easily without /api/stream call.
-            // But we can construct the proxy download URL if we knew the direct link.
-            // For now, let's just trigger the callback which App.jsx handles (falling back to server download)
-            // Or better: update App.jsx to handle this better.
-
-            onDownload(item); // App.jsx will handle
+        // Use new Direct Download for MovieBox
+        if (item.source === 'moviebox') {
+            const filename = `${item.title}${item.type === 'series' ? ` S${selectedSeason?.season_number}E${selectedEpisode}` : ''}`.replace(/[/\\?%*:|"<>]/g, '-');
+            const url = `${API_BASE}/api/moviebox/download?id=${item.id}&query=${encodeURIComponent(item.title)}&content_type=${item.type || 'movie'}${selectedSeason ? `&season=${selectedSeason.season_number}` : ''}${selectedEpisode ? `&episode=${selectedEpisode}` : ''}`;
+            window.location.href = url;
             return;
         }
 
