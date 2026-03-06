@@ -47,6 +47,7 @@
 | **Manga (Scans)** | ![Manga Section](screenshots/screenshot_manga_v2.png) |
 | **Music (GaanaPy)** | ![Music Section](screenshots/screenshot_music_v2.png) |
 | **News (ANN Feed)** | ![News Section](screenshots/screenshot_news_v2.png) |
+| **Novel API** | ![Novel API](screenshots/screenshot_novel_api.png) |
 
 ---
 
@@ -108,14 +109,27 @@
 -   **Playback**: Direct high-quality streaming links provided by Gaana servers.
 
 ### 5. News (Feed)
-*Latest updates from the anime and manga world.*
-- **How it works**: Fetches real-time headlines from the **Consumet News API** (via Anime News Network).
-- **In-App Reader**: Clicking a news card opens a high-fidelity internal reader with full article text, images, and source links, ensuring you never have to leave the app.
-- **Micro-Animations**: Uses hover effects and slide-up transitions for a premium reading experience.
+- 📰 **News Feed:** Stay updated with the latest in anime, movies, and games via combined RSS feeds.
+- 📖 **Novel API:** Consumet-style backend for searching and crawling light novels from 460+ sources.
+- 🌓 **Modern UI/UX:** Responsive design with glassmorphism, smooth transitions, and a premium aesthetic.
 
 ---
 
-## 🛠️ Setup & Usage
+## 6. Novel Crawler Ecosystem
+
+MovieBox integrates with the **Lightnovel Crawler** backend, a powerful multi-source engine for light novels.
+
+- **460+ Sources**: Supports a massive range of providers including RoyalRoad, WebNovel, and ScribbleHub.
+- **Consumet-Style API**: Developer-friendly REST endpoints for search, info, and chapter content.
+- **Login-Free**: Access the dashboard and API directly without mandatory authentication.
+- **Live Crawling**: On-demand scraping with smart deduplication for new content.
+- **Proxy Rotation**: Automatic background rotation to bypass site-specific blocks.
+
+[Explore Novel API Docs](https://lightnovel-crawler-z48o.onrender.com/docs) | [GitHub Repository](https://github.com/lncrawl/lightnovel-crawler)
+
+---
+
+## 7. Setup & Usage
 
 ### Prerequisites
 -   Python 3.8+
