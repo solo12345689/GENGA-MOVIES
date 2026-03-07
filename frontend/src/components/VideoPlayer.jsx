@@ -130,7 +130,7 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
     const [subtitlesEnabled, setSubtitlesEnabled] = useState(() => {
         if (source === 'moviebox') {
             const saved = localStorage.getItem('moviebox_subtitles_enabled');
-            return saved === 'true'; // Defaults to false if null/undefined
+            return saved !== 'false'; // Defaults to true if null/undefined, otherwise respects 'false'
         }
         return true; // Default for other sources
     });
@@ -428,8 +428,19 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
             }}
         >
             {type === 'embed' ? (
-                <YouTubeIframePlayer url={url} source={source} />
-
+                (url && (url.includes('youtube.com') || url.includes('youtu.be'))) ? (
+                    <YouTubeIframePlayer url={url} source={source} />
+                ) : (
+                    <iframe
+                        src={url}
+                        style={{ width: '100%', height: '100%', border: 'none' }}
+                        allowFullScreen
+                        allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+                        frameBorder="0"
+                        scrolling="no"
+                        title="Video Player"
+                    />
+                )
             ) : (
                 <video
                     ref={videoRef}
