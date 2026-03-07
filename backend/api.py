@@ -16,6 +16,7 @@ from cinecli_service import CineCLIService
 from mal_service import MALService
 from manga_service import MangaService
 from music_service import MusicService
+from novel_service import NovelService
 from typing import Optional, Union, get_args, get_origin
 import pydantic
 import asyncio
@@ -74,6 +75,7 @@ ANIME_API_BASE = "https://aniwatch-api-dotd.onrender.com/api/v2/hianime"
 
 manga_service = MangaService()
 music_service = MusicService()
+novel_service = NovelService()
 
 DEFAULT_HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -499,6 +501,29 @@ async def search(query: str, page: int = 1, content_type: str = "all") -> dict:
         print(f"[SEARCH ERROR] {e}")
         print(f"Traceback:\n{error_details}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/novel/search")
+async def search_novels(query: str = "", limit: int = 20):
+    results = await novel_service.search_novels(query, limit)
+    # novel_service.search_novels now returns a plain list
+    return {"results": results if isinstance(results, list) else []}
+
+
+@router.get("/novel/info")
+async def get_novel_info(id: Optional[str] = None, url: Optional[str] = None):
+    info = await novel_service.get_novel_info(novel_id=id, url=url)
+    if not info:
+        raise HTTPException(status_code=404, detail="Novel not found")
+    return info
+
+@router.get("/novel/chapter")
+@router.get("/api/novel/chapter")
+async def get_novel_chapter(id: str = None, url: str = None, format: str = "html"):
+    content = await novel_service.get_chapter_content(id, url, format)
+
+    if not content:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+    return content
 
 async def warmup_session() -> None:
     """

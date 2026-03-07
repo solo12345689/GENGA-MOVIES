@@ -8,6 +8,10 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
     const [selectedAnimeEp, setSelectedAnimeEp] = React.useState(null);
     const [selectedMangaVol, setSelectedMangaVol] = React.useState(null);
     const [selectedMangaCh, setSelectedMangaCh] = React.useState(null);
+    const [selectedNovelCh, setSelectedNovelCh] = React.useState(null);
+    const [animeLanguage, setAnimeLanguage] = React.useState('sub');
+
+
 
     React.useEffect(() => {
         if (item && item.animeEpisodes && item.animeEpisodes.length > 0) {
@@ -19,7 +23,9 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
 
         setAnimeEpisodes([]);
         setSelectedAnimeEp(null);
-        setSelectedMangaCh(null); // Reset for manga
+        setSelectedMangaCh(null);
+        setSelectedNovelCh(null);
+
 
         if (item && item.source === 'hianime') {
             const fetchEpisodes = async () => {
@@ -47,25 +53,31 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
             };
             fetchEpisodes();
         }
-    }, [item, API_BASE]);
 
-    React.useEffect(() => {
+        // Selection logic for other types
         if (item && item.source === 'manga') {
             const allChapters = item.volumes ? Object.values(item.volumes).flat() : [];
             if (allChapters.length > 0) {
                 setSelectedMangaCh(allChapters[0]);
             }
+        } else if (item && item.source === 'novel') {
+            const allChapters = item.volumes ? Object.values(item.volumes).flat() : [];
+            if (allChapters.length > 0) {
+                setSelectedNovelCh(allChapters[0]);
+            }
         } else if (item && item.seasons && item.seasons.length > 0) {
             setSelectedSeason(item.seasons[0]);
             setSelectedEpisode(1);
         }
-    }, [item]);
+    }, [item, API_BASE]);
+
+
+
 
     if (!item) return null;
 
-    const [animeLanguage, setAnimeLanguage] = React.useState('sub');
-
     const handleStreamClick = () => {
+
         if (item.source === 'cinecli') {
             alert('Streaming torrents directly is not yet supported. Please download.');
             return;
@@ -100,18 +112,20 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
             }
         } else if (item.source === 'manga') {
             if (selectedMangaCh) {
-                // Navigate to reader
-                // We'll pass information to App.jsx via a callback if needed, 
-                // but usually handleStream/onStream is used for video. 
-                // Let's repurpose or add a new callback.
-                // For now, let's use onStream with a 'manga' type.
                 onStream({ ...item, type: 'manga', chapterId: selectedMangaCh.id, chapterTitle: selectedMangaCh.title });
+            } else {
+                alert('Please select a chapter');
+            }
+        } else if (item.source === 'novel') {
+            if (selectedNovelCh) {
+                onStream({ ...item, type: 'novel', chapterId: selectedNovelCh.id, chapterTitle: selectedNovelCh.title });
             } else {
                 alert('Please select a chapter');
             }
         } else {
             onStream({ ...item, type: 'movie' });
         }
+
     };
 
     const handleDownloadClick = (magnetUrl = null) => {
@@ -226,11 +240,13 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
                         <span style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '4px' }}>{item.year}</span>
                         <span style={{ textTransform: 'capitalize', color: 'var(--primary)' }}>
                             {item.source === 'cinecli' ? 'Torpedo' :
-                                (item.type === 'manga' ? 'Manga' :
-                                    (item.type === 'anime' ? 'Anime' :
-                                        (item.type === 'series' || (item.type !== 'movie' && item.type !== 'anime_movie' && item.seasons && item.seasons.length > 0) ? 'Series' :
-                                            (item.source === 'music' ? (item.type === 'music_playlist' ? 'Playlist' : 'Music') : 'Movie'))))}
+                                item.source === 'novel' ? 'Novel' :
+                                    (item.type === 'manga' ? 'Manga' :
+                                        (item.type === 'anime' ? 'Anime' :
+                                            (item.type === 'series' || (item.type !== 'movie' && item.type !== 'anime_movie' && item.seasons && item.seasons.length > 0) ? 'Series' :
+                                                (item.source === 'music' ? (item.type === 'music_playlist' ? 'Playlist' : 'Music') : 'Movie'))))}
                         </span>
+
                         {item.runtime && <span>{item.runtime} min</span>}
                     </div>
 
@@ -260,15 +276,18 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
                                 <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                                     {item.source === 'music' ? 'Fetching tracks and information...' :
                                         item.type === 'manga' ? 'Fetching chapters and volumes...' :
-                                            item.source === 'hianime' || item.type === 'anime' ? 'Fetching episodes and information...' :
-                                                'Fetching seasons and ratings...'}
+                                            item.source === 'novel' ? 'Fetching novel chapters and metadata...' :
+                                                item.source === 'hianime' || item.type === 'anime' ? 'Fetching episodes and information...' :
+                                                    'Fetching seasons and ratings...'}
+
                                 </div>
                             </div>
                         </div>
                     ) : (
                         <>
                             {/* Rating Section */}
-                            {item.rating && (
+                            {item.rating && item.source !== 'novel' && (
+
                                 <div style={{
                                     marginBottom: '2rem',
                                     padding: '1.2rem',
@@ -479,6 +498,72 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
                                     </div>
                                 )}
 
+                                {/* --- NOVEL CHAPTERS --- */}
+                                {item.source === 'novel' && (
+                                    <div style={{
+                                        marginBottom: '2rem',
+                                        background: 'rgba(168, 85, 247, 0.05)',
+                                        padding: '1.5rem',
+                                        borderRadius: '12px',
+                                        border: '1px solid rgba(168, 85, 247, 0.1)'
+                                    }}>
+                                        <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem', marginTop: 0, color: '#a855f7' }}>Select Chapter</h3>
+                                        {detailsLoading && (!item.volumes || Object.keys(item.volumes || {}).length === 0) ? (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-muted)' }}>
+                                                <div className="spinner-small" style={{ width: '16px', height: '16px', border: '2px solid rgba(255,255,255,0.1)', borderTopColor: '#a855f7', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+                                                <span>Loading chapters...</span>
+                                            </div>
+                                        ) : item.volumes ? (
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '0.5rem', maxHeight: '250px', overflowY: 'auto', padding: '10px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
+                                                {(item.volumes ? Object.values(item.volumes).flat() : []).map(ch => {
+                                                    // Helper to extract a clean number
+                                                    const getCleanNumber = (chapter) => {
+                                                        if (chapter.number) return chapter.number;
+                                                        if (!chapter.title) return '?';
+
+                                                        // Try to match "Chapter 123", "Ep 123", "Ch.123", or just "123" at the end
+                                                        const match = chapter.title.match(/(?:Chapter|Ch|Ep|Episode)?\.?\s*(\d+)$/i) ||
+                                                            chapter.title.match(/(?:Chapter|Ch|Ep|Episode)?\.?\s*(\d+)/i);
+
+                                                        if (match) return match[1];
+
+                                                        // Fallback: If title starts with a number, return it
+                                                        const startMatch = chapter.title.match(/^\s*(\d+)/);
+                                                        if (startMatch) return startMatch[1];
+
+                                                        // No digits found: truncate only if very long
+                                                        return chapter.title.length > 8 ? chapter.title.substring(0, 7) + '..' : chapter.title;
+                                                    };
+
+                                                    return (
+                                                        <button
+                                                            key={ch.id}
+                                                            onClick={() => setSelectedNovelCh(ch)}
+                                                            style={{
+                                                                padding: '0.6rem 0',
+                                                                borderRadius: '6px',
+                                                                fontSize: '0.85rem',
+                                                                fontWeight: '600',
+                                                                border: '1px solid ' + (selectedNovelCh?.id === ch.id ? '#a855f7' : 'var(--border-glass)'),
+                                                                background: selectedNovelCh?.id === ch.id ? '#a855f7' : 'rgba(255,255,255,0.05)',
+                                                                color: 'white',
+                                                                cursor: 'pointer',
+                                                                transition: 'all 0.2s ease'
+                                                            }}
+                                                            title={ch.title}
+                                                        >
+                                                            {getCleanNumber(ch)}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        ) : (
+                                            <p style={{ color: 'var(--text-muted)' }}>Chapter information not available.</p>
+                                        )}
+                                    </div>
+                                )}
+
+
                                 {/* --- MUSIC TRACKS / PLAYLIST --- */}
                                 {item.source === 'music' && (
                                     <div style={{
@@ -559,16 +644,17 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
                                     <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', flexDirection: 'column' }}>
                                         <div style={{ display: 'flex', gap: '1rem' }}>
                                             <button className="btn btn-primary" onClick={handleStreamClick} style={{ flex: 1 }}>
-                                                {item.source === 'manga' ? 'Read Now' : 'Stream Now'}
+                                                {item.source === 'manga' || item.source === 'novel' ? 'Read Now' : 'Stream Now'}
                                             </button>
-                                            {item.source !== 'hianime' && (
+
+                                            {item.source !== 'hianime' && item.source !== 'novel' && (
                                                 <div style={{ display: 'flex', gap: '1rem', flex: 1 }}>
                                                     <button className="btn btn-glass" onClick={() => handleDownloadClick()} style={{ flex: 1 }}>
                                                         {item.source === 'manga' ? 'Download ZIP' : 'Download'}
                                                     </button>
-
                                                 </div>
                                             )}
+
                                         </div>
 
                                     </div>

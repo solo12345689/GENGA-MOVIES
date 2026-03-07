@@ -47,7 +47,7 @@
 | **Manga (Scans)** | ![Manga Section](screenshots/screenshot_manga_v2.png) |
 | **Music (GaanaPy)** | ![Music Section](screenshots/screenshot_music_v2.png) |
 | **News (ANN Feed)** | ![News Section](screenshots/screenshot_news_v2.png) |
-| **Novel API** | ![Novel API](screenshots/screenshot_novel_api.png) |
+| **Novel Library** | ![Novel Library](screenshots/screenshot_novel_library.png) |
 
 ---
 
@@ -62,6 +62,7 @@
 | **Manga Reader** | ![Manga Reader](screenshots/reader_manga.png) |
 | **News Reader** | ![News Reader](screenshots/reader_news.png) |
 | **Music Player** | ![Music Player](screenshots/player_music.png) |
+| **Novel Reader**| ![Novel Reader](screenshots/reader_novel.png) |
 
 ---
 

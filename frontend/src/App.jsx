@@ -10,6 +10,7 @@ import MusicCard from './components/MusicCard';
 import MusicPlayer from './components/MusicPlayer';
 import NewsCard from './components/NewsCard';
 import NewsReader from './components/NewsReader';
+import NovelReader from './components/NovelReader';
 import './styles/index.css';
 
 // Auto-detect local server IP
@@ -183,6 +184,7 @@ function App() {
     const [downloadProgress, setDownloadProgress] = useState(null);
     const [homepageContent, setHomepageContent] = useState(null);
     const [homepageLoading, setHomepageLoading] = useState(false);
+    const [novelReaderItem, setNovelReaderItem] = useState(null);
 
     // Server status (simple polling or just static 'operational' for now, can be updated by backend)
     const [serverStatus, setServerStatus] = useState('operational');
@@ -211,6 +213,7 @@ function App() {
                 let endpoint = '/api/homepage';
                 if (activeSource === 'hianime') endpoint = '/api/anime/home';
                 if (activeSource === 'manga') endpoint = '/api/manga/search?query=popular';
+                if (activeSource === 'novel') endpoint = '/api/novel/search?query=trending';
                 if (activeSource === 'music') endpoint = '/api/music/home';
                 if (activeSource === 'news') {
                     // Fetch from Consumet News API directly for now
@@ -251,6 +254,17 @@ function App() {
                                 poster_url: `${API_BASE}/api/manga/image-proxy?url=${encodeURIComponent(it.poster_url)}`
                             }))
                         }]);
+                    } else if (activeSource === 'novel') {
+                        // Novel section: don't hammer the crawler API for a homepage.
+                        // Set a special marker so the empty state renders nicely.
+                        setHomepageContent([{
+                            title: 'Novel Library',
+                            items: [],
+                            _novelWelcome: true,
+                        }]);
+                        setHomepageLoading(false);
+                        return;
+
                     } else if (activeSource === 'music') {
                         const data = await res.json();
                         // Backend returns { "groups": [...] }
@@ -261,13 +275,19 @@ function App() {
                 }
             } catch (err) {
                 console.error("Failed to fetch homepage", err);
+                setHomepageContent([]); // Clear homepage content on error
             } finally {
                 setHomepageLoading(false);
             }
         };
 
-        fetchHomepage();
-    }, [API_BASE, activeSource]);
+        // Added this simple check to prevent infinity loop if activeSource doesn't change
+        // Only fetch if homepageContent is null (when changing sources it's set to null)
+        if (homepageContent === null) {
+            fetchHomepage();
+        }
+
+    }, [API_BASE, activeSource, homepageContent]);
 
 
 
@@ -330,6 +350,8 @@ function App() {
                 endpoint = `/api/manga/search?query=${encodeURIComponent(query)}`;
             } else if (activeSource === 'music') { // Added music search logic
                 endpoint = `/api/music/search?query=${encodeURIComponent(query)}`;
+            } else if (activeSource === 'novel') {
+                endpoint = `/api/novel/search?query=${encodeURIComponent(query)}`;
             }
 
             const res = await fetch(`${base}${endpoint}`);
@@ -345,6 +367,8 @@ function App() {
                     poster_url: `${base}/api/manga/image-proxy?url=${encodeURIComponent(it.poster_url)}`
                 })));
             } else if (activeSource === 'music') { // Added music search normalization
+                setResults(data.results || []);
+            } else if (activeSource === 'novel') {
                 setResults(data.results || []);
             } else {
                 // MovieBox results: SubjectType 1=Movie, 2=Series
@@ -430,6 +454,7 @@ function App() {
             const s = it.source || src;
             if (s === 'hianime') return it.animeEpisodes && it.animeEpisodes.length > 0;
             if (s === 'manga') return it.volumes && Object.keys(it.volumes).length > 0;
+            if (s === 'novel') return it.volumes && Object.keys(it.volumes).length > 0;
             if (it.type === 'series' || it.type === 'anime') return it.seasons && it.seasons.length > 0;
             return !!(it.plot || it.description);
         };
@@ -438,8 +463,11 @@ function App() {
             setDetailsLoading(true);
         }
 
+        // Encode ID for novel source since it might be a full URL
+        const encodedId = src === 'novel' ? encodeURIComponent(item.id) : item.id;
+
         // Navigate to details route; router will load remaining details (like chapters/episodes)
-        navigate(`/details/${item.id}?source=${encodeURIComponent(src)}&type=${item.type || 'movie'}`);
+        navigate(`/details/${encodedId}?source=${encodeURIComponent(src)}&type=${item.type || 'movie'}`);
     };
 
     const handleDownload = async (item, season = null, episode = null, url = null) => {
@@ -507,7 +535,14 @@ function App() {
 
         if (item.type === 'manga') {
             setMangaReaderItem({ item, chapterId: item.chapterId, chapterTitle: item.chapterTitle });
-            setSelectedItem(null); // Close details modal
+            // Do not clear selectedItem, so we can go back to it
+            return;
+        }
+
+        if (item.type === 'novel') {
+            const encodedId = encodeURIComponent(item.id);
+            setNovelReaderItem({ item, chapterId: item.chapterId, chapterTitle: item.chapterTitle });
+            // Do not clear selectedItem, so we can go back to it
             return;
         }
 
@@ -626,6 +661,18 @@ function App() {
                             hasFullDetails: true
                         };
                     });
+                } else if (source === 'novel') {
+                    // ID might be encoded URL here, but fetch() handles URL-as-id if backend supports it
+                    // The backend handles id.startswith("http") -> treats it as URL
+                    const res = await fetch(`${base}/api/novel/info?id=${encodeURIComponent(id)}`);
+                    const details = await res.json();
+                    setSelectedItem(prev => ({
+                        ...prev,
+                        ...details,
+                        source: 'novel',
+                        type: 'novel',
+                        hasFullDetails: true
+                    }));
                 } else if (source === 'music') {
                     const res = await fetch(`${base}/api/music/info?seokey=${id}&type=${type}`);
                     const details = await res.json();
@@ -699,7 +746,8 @@ function App() {
         }
 
         if (pathname.startsWith('/details/')) {
-            const id = pathname.replace('/details/', '').split('?')[0];
+            const rawId = pathname.replace('/details/', '').split('?')[0];
+            const id = decodeURIComponent(rawId);
             const params = new URLSearchParams(search);
             const source = params.get('source') || 'moviebox';
             const type = params.get('type') || 'movie';
@@ -829,7 +877,9 @@ function App() {
                                     activeSource === 'manga' ? 'Manga Collection' :
                                         activeSource === 'music' ? 'Music Library' :
                                             activeSource === 'news' ? 'News Feed' :
-                                                activeSource === 'history' ? 'Watch History' : 'Genga Movies'}
+                                                activeSource === 'novel' ? 'Novel Library' :
+                                                    activeSource === 'history' ? 'Watch History' : 'Genga Movies'}
+
                     </div>
 
                     {/* Top Bar with Search */}
@@ -856,8 +906,10 @@ function App() {
                                 placeholder={
                                     activeSource === 'music' ? 'Search music or playlists...' :
                                         activeSource === 'manga' ? "Search manga..." :
-                                            activeSource === 'hianime' ? "Search anime..." :
-                                                'Search for movies or series...'}
+                                            activeSource === 'novel' ? "Search novels..." :
+                                                activeSource === 'hianime' ? "Search anime..." :
+                                                    'Search for movies or series...'}
+
                             />
                         </div>
                     )}
@@ -974,10 +1026,12 @@ function App() {
                         gap: '2rem',
                         paddingBottom: '4rem'
                     }}>
-                        {results.map((item) => (
-                            item.source === 'music' ?
-                                <MusicCard key={item.id} movie={item} onClick={handleItemClick} /> :
-                                <MovieCard key={item.id} movie={item} onClick={handleItemClick} />
+                        {(Array.isArray(results) ? results : []).map((item) => (
+                            item && item.id ? (
+                                item.source === 'music' ?
+                                    <MusicCard key={item.id} movie={item} onClick={handleItemClick} /> :
+                                    <MovieCard key={item.id} movie={item} onClick={handleItemClick} />
+                            ) : null
                         ))}
                     </div>
 
@@ -998,30 +1052,58 @@ function App() {
                             ) : homepageContent && homepageContent.length > 0 ? (
                                 <div style={{ paddingBottom: '4rem' }}>
                                     {homepageContent.map((group, index) => (
-                                        <div key={index} style={{ marginBottom: '3rem' }}>
-                                            <h2 style={{
-                                                marginBottom: '1.5rem',
-                                                paddingLeft: '1rem',
-                                                borderLeft: '4px solid var(--primary)',
-                                                fontSize: '1.5rem',
-                                                fontWeight: '600'
-                                            }}>
-                                                {group.title}
-                                            </h2>
-                                            <div className={group.type === 'news' ? "news-grid" : "movie-card-grid"} style={{
-                                                display: 'grid',
-                                                gridTemplateColumns: group.type === 'news' ? 'repeat(auto-fill, minmax(300px, 1fr))' : 'repeat(auto-fill, minmax(220px, 1fr))',
-                                                gap: '2rem'
-                                            }}>
-                                                {group.items.map((item, idx) => (
-                                                    group.type === 'news' ?
-                                                        <NewsCard key={item.id || idx} item={item} onClick={(it) => setNewsReaderItem(it)} API_BASE={CLOUD_BASE} /> :
-                                                        (activeSource === 'music' ?
-                                                            <MusicCard key={`${item.id}-${index}-${idx}`} movie={item} onClick={handleItemClick} /> :
-                                                            <MovieCard key={`${item.id}-${index}-${idx}`} movie={item} onClick={handleItemClick} />)
-                                                ))}
+                                        group._novelWelcome ? (
+                                            /* Novel Welcome Screen */
+                                            <div key={index} style={{ textAlign: 'center', padding: '4rem 2rem', maxWidth: '600px', margin: '0 auto' }}>
+                                                <div style={{ fontSize: '4rem', marginBottom: '1.5rem' }}>📚</div>
+                                                <h2 style={{ fontSize: '2rem', fontWeight: '700', marginBottom: '1rem', background: 'linear-gradient(135deg, var(--primary), #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                                                    Novel Library
+                                                </h2>
+                                                <p style={{ fontSize: '1.1rem', color: 'var(--text-muted)', marginBottom: '0.75rem', lineHeight: '1.6' }}>
+                                                    Search for any novel by name using our DuckDuckGo-powered search engine.
+                                                </p>
+                                                <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', opacity: 0.7, lineHeight: '1.6' }}>
+                                                    Supports RoyalRoad, ScribbleHub, NovelFull, and hundreds more sources.
+                                                    Once you open a novel, you can read its chapters directly in the browser.
+                                                </p>
+                                                <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                                                    {['Shadow Slave', 'Mother of Learning', 'Solo Leveling', 'Overlord'].map(s => (
+                                                        <button key={s} onClick={() => handleSearch(s)}
+                                                            style={{ padding: '0.5rem 1.2rem', borderRadius: '20px', border: '1px solid var(--border-glass)', background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.85rem', transition: 'all 0.2s' }}
+                                                            onMouseEnter={e => { e.target.style.background = 'var(--primary)'; e.target.style.color = '#fff'; }}
+                                                            onMouseLeave={e => { e.target.style.background = 'rgba(255,255,255,0.05)'; e.target.style.color = 'var(--text-muted)'; }}
+                                                        >
+                                                            {s}
+                                                        </button>
+                                                    ))}
+                                                </div>
                                             </div>
-                                        </div>
+                                        ) : (
+                                            <div key={index} style={{ marginBottom: '3rem' }}>
+                                                <h2 style={{
+                                                    marginBottom: '1.5rem',
+                                                    paddingLeft: '1rem',
+                                                    borderLeft: '4px solid var(--primary)',
+                                                    fontSize: '1.5rem',
+                                                    fontWeight: '600'
+                                                }}>
+                                                    {group.title}
+                                                </h2>
+                                                <div className={group.type === 'news' ? "news-grid" : "movie-card-grid"} style={{
+                                                    display: 'grid',
+                                                    gridTemplateColumns: group.type === 'news' ? 'repeat(auto-fill, minmax(300px, 1fr))' : 'repeat(auto-fill, minmax(220px, 1fr))',
+                                                    gap: '2rem'
+                                                }}>
+                                                    {group.items.map((item, idx) => (
+                                                        group.type === 'news' ?
+                                                            <NewsCard key={item.id || idx} item={item} onClick={(it) => setNewsReaderItem(it)} API_BASE={CLOUD_BASE} /> :
+                                                            (activeSource === 'music' ?
+                                                                <MusicCard key={`${item.id}-${index}-${idx}`} movie={item} onClick={handleItemClick} /> :
+                                                                <MovieCard key={`${item.id}-${index}-${idx}`} movie={item} onClick={handleItemClick} />)
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )
                                     ))}
                                 </div>
                             ) : (
@@ -1052,7 +1134,7 @@ function App() {
             </div>
 
             {
-                selectedItem && (
+                selectedItem && !novelReaderItem && !mangaReaderItem && (
                     <DetailsModal
                         item={selectedItem}
                         onClose={() => {
@@ -1100,11 +1182,20 @@ function App() {
                     item={mangaReaderItem.item}
                     chapterId={mangaReaderItem.chapterId}
                     chapterTitle={mangaReaderItem.chapterTitle}
-                    API_BASE={CLOUD_BASE}
-                    onBack={() => {
-                        const src = mangaReaderItem.item && mangaReaderItem.item.source ? mangaReaderItem.item.source : 'manga';
-                        const type = 'manga';
-                        navigate(`/details/${mangaReaderItem.item.id}?source=${encodeURIComponent(src)}&type=${encodeURIComponent(type)}`);
+                    API_BASE={API_BASE}
+                    onBack={() => setMangaReaderItem(null)}
+                />
+            )}
+
+            {novelReaderItem && (
+                <NovelReader
+                    item={novelReaderItem.item}
+                    chapterId={novelReaderItem.chapterId}
+                    chapterTitle={novelReaderItem.chapterTitle}
+                    API_BASE={API_BASE}
+                    onBack={() => setNovelReaderItem(null)}
+                    onChapterChange={(newId, newTitle) => {
+                        setNovelReaderItem(prev => ({ ...prev, chapterId: newId, chapterTitle: newTitle }));
                     }}
                 />
             )}
