@@ -1197,7 +1197,7 @@ async def stream(
         # Now try to find the best quality from the single files_metadata
         quality_options = ["BEST", "WORST", "720P", "480P", "360P"]
         
-        if files_metadata and files_metadata.list:
+        if files_metadata:
             for quality in quality_options:
                 try:
                     media_file = resolve_media_file_to_be_downloaded(quality, files_metadata)
