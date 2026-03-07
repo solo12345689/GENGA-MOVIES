@@ -1172,46 +1172,44 @@ async def stream(
         # 4. Resolve Media File with encoding error handling
         media_file = None
         files_metadata = None
+        
+        # We only need to fetch files_metadata ONCE, not for every quality
+        for res_attempt in range(max_retries + 1):
+            try:
+                if season is not None and episode is not None:
+                    # TV Series / Anime
+                    files_provider = DownloadableTVSeriesFilesDetail(session=session, item=target_item)
+                    files_metadata = await files_provider.get_content_model(season=season, episode=episode)
+                else:
+                    # Movie
+                    files_provider = DownloadableMovieFilesDetail(session=session, item=target_item)
+                    files_metadata = await files_provider.get_content_model()
+                
+                if files_metadata:
+                    break
+            except Exception as res_err:
+                if res_attempt < max_retries:
+                    print(f"[STREAM] Metadata fetch attempt {res_attempt + 1} failed: {res_err}. Retrying...")
+                    await asyncio.sleep(1)
+                    continue
+                raise res_err
+
+        # Now try to find the best quality from the single files_metadata
         quality_options = ["BEST", "WORST", "720P", "480P", "360P"]
         
-        for quality in quality_options:
-            try:
-                # Add retries for media file resolving as well
-                for res_attempt in range(max_retries + 1):
-                    try:
-                        if season is not None and episode is not None:
-                            # TV Series / Anime
-                            files_provider = DownloadableTVSeriesFilesDetail(session=session, item=target_item)
-                            files_metadata = await files_provider.get_content_model(season=season, episode=episode)
-                            media_file = resolve_media_file_to_be_downloaded(quality, files_metadata)
-                        else:
-                            # Movie
-                            files_provider = DownloadableMovieFilesDetail(session=session, item=target_item)
-                            files_metadata = await files_provider.get_content_model()
-                            media_file = resolve_media_file_to_be_downloaded(quality, files_metadata)
-                        
-                        if media_file and media_file.url:
-                            print(f"[SUCCESS] Resolved media file with quality: {quality}")
-                            break
-                    except Exception as res_err:
-                        if res_attempt < max_retries:
-                            print(f"[STREAM] Resolution attempt {res_attempt + 1} for {quality} failed: {res_err}. Retrying...")
-                            await asyncio.sleep(1)
-                            continue
-                        raise res_err
-                
-                if media_file and media_file.url:
-                    break
-
-                    
-            except UnicodeDecodeError as e:
-                print(f"[ENCODING ERROR] Quality {quality} failed with encoding error: {e}")
-                # Try next quality option
-                continue
-            except Exception as e:
-                print(f"[ERROR] Quality {quality} failed: {e}")
-                # Try next quality option
-                continue
+        if files_metadata and files_metadata.list:
+            for quality in quality_options:
+                try:
+                    media_file = resolve_media_file_to_be_downloaded(quality, files_metadata)
+                    if media_file and media_file.url:
+                        print(f"[SUCCESS] Resolved media file with quality: {quality}")
+                        break
+                except UnicodeDecodeError as e:
+                    print(f"[ENCODING ERROR] Quality {quality} failed with encoding error: {e}")
+                    continue
+                except Exception as e:
+                    print(f"[ERROR] Quality {quality} failed: {e}")
+                    continue
              
         if not media_file or not media_file.url:
             raise HTTPException(status_code=404, detail="Playable stream URL not found")
