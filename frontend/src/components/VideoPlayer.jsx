@@ -1,5 +1,117 @@
 import React, { useRef, useEffect, useState } from 'react';
 
+// ─── YouTube IFrame API Player ────────────────────────────────────────────────
+// Uses the official YT.Player API (same as Famelack) instead of raw <iframe>.
+// The IFrame API correctly sets: origin=window.location.origin & enablejsapi=1,
+// which allows playing channels that Error 153 blocks in plain embeds.
+const YouTubeIframePlayer = ({ url, source }) => {
+    const containerRef = useRef(null);
+    const playerRef = useRef(null);
+    const [fallback, setFallback] = useState(false);
+
+    // Extract video ID from embed URL: /embed/VIDEO_ID
+    const videoId = url && url.match(/\/embed\/([A-Za-z0-9_-]{6,})/)?.[1];
+    // Build watch URL for open-in-youtube button
+    const watchUrl = videoId ? `https://www.youtube.com/watch?v=${videoId}` : url;
+
+    useEffect(() => {
+        if (!videoId || !containerRef.current) {
+            setFallback(true);
+            return;
+        }
+
+        let isMounted = true;
+        let timeoutId = null;
+
+        const initPlayer = () => {
+            if (!isMounted || !containerRef.current) return;
+            try {
+                playerRef.current = new window.YT.Player(containerRef.current, {
+                    videoId,
+                    width: '100%',
+                    height: '100%',
+                    playerVars: {
+                        autoplay: 1,
+                        rel: 0,
+                        playsinline: 1,
+                        enablejsapi: 1,
+                        modestbranding: 1,
+                        origin: window.location.origin,
+                    },
+                    events: {
+                        onReady: (e) => {
+                            if (isMounted) e.target.playVideo();
+                        },
+                        onError: (e) => {
+                            // Error 150/153: embedding not allowed — show fallback
+                            console.warn('[YouTubeIframePlayer] YT error code:', e.data);
+                            if (isMounted) setFallback(true);
+                        },
+                    },
+                });
+            } catch (err) {
+                console.error('[YouTubeIframePlayer] Failed to init YT.Player:', err);
+                if (isMounted) setFallback(true);
+            }
+        };
+
+        if (window.YT && window.YT.Player) {
+            initPlayer();
+        } else {
+            // Load the IFrame API script if not already loaded
+            if (!document.getElementById('yt-iframe-api')) {
+                const script = document.createElement('script');
+                script.id = 'yt-iframe-api';
+                script.src = 'https://www.youtube.com/iframe_api';
+                script.onerror = () => { if (isMounted) setFallback(true); };
+                document.head.appendChild(script);
+            }
+            // Timeout fallback if API never loads
+            timeoutId = setTimeout(() => {
+                if (isMounted && !window.YT) setFallback(true);
+            }, 5000);
+            // Poll for YT ready
+            const poll = setInterval(() => {
+                if (window.YT && window.YT.Player) {
+                    clearInterval(poll);
+                    clearTimeout(timeoutId);
+                    initPlayer();
+                }
+            }, 200);
+        }
+
+        return () => {
+            isMounted = false;
+            clearTimeout(timeoutId);
+            if (playerRef.current && playerRef.current.destroy) {
+                try { playerRef.current.destroy(); } catch { }
+            }
+        };
+    }, [videoId]);
+
+    if (fallback) {
+        // Error 153 / API failed — show a proper error screen with YouTube link
+        return (
+            <div style={{ position: 'relative', width: '100%', height: '100%', background: '#0f0f0f', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="#ff0000"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.77 0 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 12.67 0l-.04-8.41a8.16 8.16 0 0 0 4.77 1.52V5.01a4.85 4.85 0 0 1-1-1.68z" /></svg>
+                <p style={{ color: '#fff', fontWeight: 700, fontSize: '1.1rem', margin: 0 }}>Embedding disabled by channel</p>
+                <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.85rem', margin: 0 }}>This channel has restricted embedding. Watch directly on YouTube.</p>
+                <a href={watchUrl} target="_blank" rel="noopener noreferrer"
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#ff0000', color: '#fff', padding: '12px 24px', borderRadius: 24, fontWeight: 700, fontSize: '1rem', textDecoration: 'none', marginTop: 8 }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M21.58 7.19c-.23-.86-.91-1.54-1.77-1.77C18.25 5 12 5 12 5s-6.25 0-7.81.42c-.86.23-1.54.91-1.77 1.77C2 8.75 2 12 2 12s0 3.25.42 4.81c.23.86.91 1.54 1.77 1.77C5.75 19 12 19 12 19s6.25 0 7.81-.42c.86-.23 1.54-.91 1.77-1.77C22 15.25 22 12 22 12s0-3.25-.42-4.81zM10 15V9l6 3-6 3z" /></svg>
+                    Watch on YouTube
+                </a>
+            </div>
+        );
+    }
+
+    return (
+        <div style={{ width: '100%', height: '100%' }}>
+            <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+        </div>
+    );
+};
+
 const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext, showNext, autoPlay = true, source = 'moviebox' }) => {
     const videoRef = useRef(null);
     const [isPlaying, setIsPlaying] = useState(autoPlay);
@@ -39,26 +151,57 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
         const setupSource = () => {
             if (url.includes('.m3u8')) {
                 if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                    // Safari native HLS
                     video.src = url;
-                } else if (window.Hls) {
-                    hls = new window.Hls();
+                    video.play().catch(() => { });
+                } else if (window.Hls && window.Hls.isSupported()) {
+                    hls = new window.Hls({
+                        enableWorker: true,
+                        lowLatencyMode: true,
+                        // Live stream: sync to 1 segment from live edge for fast start
+                        liveSyncDurationCount: 1,
+                        liveMaxLatencyDurationCount: 4,
+                        // Keep small back buffer to avoid stale data
+                        backBufferLength: 30,
+                        // Start playing with as little data as possible
+                        maxBufferLength: 8,
+                        maxMaxBufferLength: 30,
+                        // Avoid long playlist polling delays
+                        manifestLoadingRetryDelay: 500,
+                        levelLoadingRetryDelay: 500,
+                    });
                     hls.loadSource(url);
                     hls.attachMedia(video);
+                    hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
+                        video.play().catch(() => { });
+                    });
+                    hls.on(window.Hls.Events.ERROR, (event, data) => {
+                        if (data.fatal) {
+                            console.warn('[HLS.js] Fatal error, trying to recover...', data);
+                            if (data.type === window.Hls.ErrorTypes.NETWORK_ERROR) {
+                                hls.startLoad();
+                            } else {
+                                hls.destroy();
+                            }
+                        }
+                    });
                 } else {
                     const script = document.createElement('script');
                     script.src = "https://cdn.jsdelivr.net/npm/hls.js@latest";
                     script.onload = () => {
                         const Hls = window.Hls;
                         if (Hls.isSupported()) {
-                            hls = new Hls();
+                            hls = new Hls({ enableWorker: true, liveSyncDurationCount: 1, maxBufferLength: 8 });
                             hls.loadSource(url);
                             hls.attachMedia(video);
+                            hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => { }));
                         } else {
                             video.src = url;
                         }
                     };
                     document.head.appendChild(script);
                 }
+
             } else {
                 video.src = url;
             }
@@ -70,6 +213,9 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
 
         setupSource();
 
+        return () => {
+            if (hls) hls.destroy();
+        };
     }, [url, type, autoPlay]);
 
     // Subtitle track control effect
@@ -248,10 +394,14 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
     };
 
     const formatTime = (seconds) => {
+        if (!isFinite(seconds) || isNaN(seconds) || seconds <= 0) return '--:--';
         const min = Math.floor(seconds / 60);
         const sec = Math.floor(seconds % 60);
         return `${min}:${sec < 10 ? '0' : ''}${sec}`;
     };
+
+    // Detect live stream by checking if duration is Infinity or source is TV
+    const isLiveStream = !isFinite(duration) || source === 'tv';
 
     return (
         <div
@@ -278,16 +428,8 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
             }}
         >
             {type === 'embed' ? (
-                <iframe
-                    src={url}
-                    style={{ width: '100%', height: '100%', border: 'none' }}
-                    allowFullScreen
-                    allow="autoplay; encrypted-media"
-                    referrerPolicy="no-referrer"
-                    frameBorder="0"
-                    scrolling="no"
-                    title="Video Player"
-                />
+                <YouTubeIframePlayer url={url} source={source} />
+
             ) : (
                 <video
                     ref={videoRef}
@@ -295,11 +437,10 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                     onClick={togglePlay}
                     onDoubleClick={toggleFullscreen}
                     playsInline
-                    crossOrigin="anonymous"
                     onError={(e) => {
                         const error = videoRef.current?.error;
-                        console.error("[VideoPlayer] Video element error:", error);
-                        alert(`Video playback failed: ${error?.message || "Source connection closed or invalid"}`);
+                        console.error("[VideoPlayer] Video element error:", error?.message || error);
+                        // Do NOT alert — live TV streams frequently get CORS/geo errors
                     }}
                 >
                     {subtitles.map((sub, idx) => (
@@ -366,7 +507,8 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                 }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                         <h3 style={{ margin: 0, color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.8)', fontSize: '1.1rem', fontWeight: '500' }}>{title}</h3>
-                        <span style={{ fontSize: '0.85rem', color: '#ccc' }}>Cache: {bufferedSeconds}s</span>
+                        {/* Hide buffered cache seconds for live streams — meaningless and confusing */}
+                        {!isLiveStream && <span style={{ fontSize: '0.85rem', color: '#ccc' }}>Cache: {bufferedSeconds}s</span>}
                     </div>
 
                     {isFullscreen && (
@@ -395,58 +537,76 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                     pointerEvents: showControls ? 'auto' : 'none',
                     display: 'flex', flexDirection: 'column', gap: '0.5rem', zIndex: 5
                 }}>
-                    {/* Seek Bar Container */}
+                    {/* Seek Bar or LIVE indicator */}
                     {type !== 'embed' && (
-                        <div style={{
-                            display: 'flex', alignItems: 'center', gap: '1rem',
-                            position: 'relative', height: '24px'
-                        }}>
-                            <span style={{ fontSize: '0.9rem', color: '#ddd', minWidth: '45px', textAlign: 'right' }}>{formatTime(currentTime)}</span>
-
-                            <div style={{ flex: 1, position: 'relative', height: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                        isLiveStream ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '0 4px' }}>
                                 <div style={{
-                                    position: 'absolute', left: 0, right: 0, height: '4px',
-                                    background: 'rgba(255,255,255,0.2)', borderRadius: '2px'
-                                }} />
-
-                                <div style={{
-                                    position: 'absolute', left: 0,
-                                    width: `${buffered}%`, height: '4px',
-                                    background: 'rgba(255,255,255,0.4)', borderRadius: '2px',
-                                    transition: 'width 0.2s linear'
-                                }} />
-
-                                <input
-                                    type="range"
-                                    min="0"
-                                    max="100"
-                                    value={progress || 0}
-                                    onChange={handleSeek}
-                                    style={{
-                                        width: '100%', height: '100%', margin: 0, padding: 0,
-                                        opacity: 0, cursor: 'pointer', position: 'absolute', zIndex: 10
-                                    }}
-                                />
-
-                                <div style={{
-                                    position: 'absolute', left: 0,
-                                    width: `${progress}%`, height: '4px',
-                                    background: '#6366f1', borderRadius: '2px',
-                                    pointerEvents: 'none'
-                                }} />
-
-                                <div style={{
-                                    position: 'absolute', left: `${progress}%`,
-                                    width: '12px', height: '12px',
-                                    background: '#fff', borderRadius: '50%',
-                                    transform: 'translate(-50%, 0)',
-                                    pointerEvents: 'none',
-                                    boxShadow: '0 0 4px rgba(0,0,0,0.5)'
-                                }} />
+                                    display: 'flex', alignItems: 'center', gap: '8px',
+                                    background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.5)',
+                                    borderRadius: '20px', padding: '4px 14px',
+                                }}>
+                                    <div style={{
+                                        width: '8px', height: '8px', borderRadius: '50%',
+                                        background: '#ef4444',
+                                        animation: 'pulse-live 1.5s ease-in-out infinite',
+                                    }} />
+                                    <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#ef4444', letterSpacing: '1px' }}>LIVE</span>
+                                </div>
+                                <style>{`@keyframes pulse-live { 0%,100%{opacity:1} 50%{opacity:0.3} }`}</style>
                             </div>
+                        ) : (
+                            <div style={{
+                                display: 'flex', alignItems: 'center', gap: '1rem',
+                                position: 'relative', height: '24px'
+                            }}>
+                                <span style={{ fontSize: '0.9rem', color: '#ddd', minWidth: '45px', textAlign: 'right' }}>{formatTime(currentTime)}</span>
 
-                            <span style={{ fontSize: '0.9rem', color: '#ddd', minWidth: '45px' }}>{formatTime(duration)}</span>
-                        </div>
+                                <div style={{ flex: 1, position: 'relative', height: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                                    <div style={{
+                                        position: 'absolute', left: 0, right: 0, height: '4px',
+                                        background: 'rgba(255,255,255,0.2)', borderRadius: '2px'
+                                    }} />
+
+                                    <div style={{
+                                        position: 'absolute', left: 0,
+                                        width: `${buffered}%`, height: '4px',
+                                        background: 'rgba(255,255,255,0.4)', borderRadius: '2px',
+                                        transition: 'width 0.2s linear'
+                                    }} />
+
+                                    <input
+                                        type="range"
+                                        min="0"
+                                        max="100"
+                                        value={progress || 0}
+                                        onChange={handleSeek}
+                                        style={{
+                                            width: '100%', height: '100%', margin: 0, padding: 0,
+                                            opacity: 0, cursor: 'pointer', position: 'absolute', zIndex: 10
+                                        }}
+                                    />
+
+                                    <div style={{
+                                        position: 'absolute', left: 0,
+                                        width: `${progress}%`, height: '4px',
+                                        background: '#6366f1', borderRadius: '2px',
+                                        pointerEvents: 'none'
+                                    }} />
+
+                                    <div style={{
+                                        position: 'absolute', left: `${progress}%`,
+                                        width: '12px', height: '12px',
+                                        background: '#fff', borderRadius: '50%',
+                                        transform: 'translate(-50%, 0)',
+                                        pointerEvents: 'none',
+                                        boxShadow: '0 0 4px rgba(0,0,0,0.5)'
+                                    }} />
+                                </div>
+
+                                <span style={{ fontSize: '0.9rem', color: '#ddd', minWidth: '45px' }}>{formatTime(duration)}</span>
+                            </div>
+                        )
                     )}
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 0.5rem' }}>

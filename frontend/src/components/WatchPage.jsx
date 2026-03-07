@@ -4,7 +4,8 @@ import VideoPlayer from './VideoPlayer';
 
 const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, preloadedEpisodes }) => {
     // State
-    const isMovieContent = item.type === 'movie' || item.type === 'anime_movie';
+    const isTVChannel = item.source === 'tv' || item.type === 'channel';
+    const isMovieContent = item.type === 'movie' || item.type === 'anime_movie' || isTVChannel;
     const [currentSeason, setCurrentSeason] = useState(initialSeason != null ? Number(initialSeason) : (isMovieContent ? null : 1));
     const [currentEpisode, setCurrentEpisode] = useState(initialEpisode != null ? Number(initialEpisode) : (isMovieContent ? null : 1));
     const [streamUrl, setStreamUrl] = useState(null);
@@ -140,7 +141,8 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
     // Fetch Details & Episodes
     useEffect(() => {
         const fetchDetails = async () => {
-            if (isMovieContent) return;
+            if (isMovieContent) return; // Covers TV channels too (isMovieContent=true for TV)
+            if (isTVChannel) return;   // Extra guard
             setLoadingDetails(true);
             try {
                 if (activeSource === 'moviebox') {
@@ -200,6 +202,23 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
             }
 
             try {
+                // --- TV CHANNELS (Direct play, no backend needed) ---
+                if (activeSource === 'tv') {
+                    const streamUrl = item.url;
+                    if (!streamUrl) {
+                        setStreamError('No stream URL available for this channel.');
+                        setLoadingStream(false);
+                        return;
+                    }
+                    console.log('[WatchPage] Playing TV:', item.stream_type, streamUrl);
+                    // URL is already prepared by TVDiscovery (autoplay added for YT, direct m3u8 for IPTV)
+                    setStreamUrl(streamUrl);
+                    setStreamType(item.stream_type || 'hls');
+                    setLoadingStream(false);
+                    return;
+                }
+
+
                 // --- HI-ANIME IFRAME STRATEGY (Requested by User) ---
                 if (activeSource === 'hianime') {
                     let epId = fullDetails.episodeId || item.id;
@@ -302,7 +321,7 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                     <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                         <span style={{ fontWeight: 'bold', fontSize: '1.2rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title}</span>
                         <span style={{ fontSize: '1rem', color: '#6366f1', fontWeight: 'bold' }}>
-                            {isMovieContent ? 'Movie' : (activeSource === 'hianime' ? `Episode ${currentEpisode || 1}` : `S${currentSeason || 1} E${currentEpisode || 1}`)}
+                            {isTVChannel ? '🔴 Live' : isMovieContent ? 'Movie' : (activeSource === 'hianime' ? `Episode ${currentEpisode || 1}` : `S${currentSeason || 1} E${currentEpisode || 1}`)}
                         </span>
                     </div>
                 </div>

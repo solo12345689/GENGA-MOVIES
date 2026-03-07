@@ -43,6 +43,7 @@
 | :--- | :--- |
 | **Home / Discovery** | ![Home Screen](screenshots/screenshot_home.png) |
 | **MovieBox (Streaming)** | ![MovieBox Section](screenshots/screenshot_moviebox.png) |
+| **Live TV** | ![Live TV Section](screenshots/Screenshot_Live%20TV.png) |
 | **Anime (HiAnime)** | ![Anime Section](screenshots/screenshot_anime.png) |
 | **Manga (Scans)** | ![Manga Section](screenshots/screenshot_manga_v2.png) |
 | **Music (GaanaPy)** | ![Music Section](screenshots/screenshot_music_v2.png) |
@@ -59,6 +60,7 @@
 | :--- | :--- |
 | **Anime Player** | ![Anime Player](screenshots/player_frieren.png) |
 | **MovieBox Player** | ![MovieBox Player](screenshots/player_naruto.png) |
+| **Live TV Player** | ![Live TV Player](screenshots/player_live%20tv.png) |
 | **Manga Reader** | ![Manga Reader](screenshots/reader_manga.png) |
 | **News Reader** | ![News Reader](screenshots/reader_news.png) |
 | **Music Player** | ![Music Player](screenshots/player_music.png) |
@@ -109,14 +111,20 @@
 -   **Charts & Playlists**: Browse "Hindi Top 50" and other regional charts with full tracklist selection.
 -   **Playback**: Direct high-quality streaming links provided by Gaana servers.
 
-### 5. News (Feed)
+### 5. Live TV (Streaming)
+*Global TV channels driven completely by the frontend.*
+-   **How it works**: The app fetches country and channel metadata directly from the public GitHub repository of Famelack (`famelack-channels`) avoiding any backend API overhead.
+-   **Playback (IPTV)**: Standard `.m3u8` links are played natively in the browser using an integrated, low-latency customized `HLS.js` configuration.
+-   **Playback (YouTube)**: YouTube live streams bypass iframe restrictions by using the official **YouTube IFrame API** (`YT.Player`). This ensures maximum compatibility for channels that block standard embeds.
+
+### 6. News (Feed)
 - 📰 **News Feed:** Stay updated with the latest in anime, movies, and games via combined RSS feeds.
 - 📖 **Novel API:** Consumet-style backend for searching and crawling light novels from 460+ sources.
 - 🌓 **Modern UI/UX:** Responsive design with glassmorphism, smooth transitions, and a premium aesthetic.
 
 ---
 
-## 6. Novel Crawler Ecosystem
+## 7. Novel Crawler Ecosystem
 
 MovieBox integrates with the **Lightnovel Crawler** backend, a powerful multi-source engine for light novels.
 
@@ -130,7 +138,7 @@ MovieBox integrates with the **Lightnovel Crawler** backend, a powerful multi-so
 
 ---
 
-## 7. Setup & Usage
+## 8. Setup & Usage
 
 ### Prerequisites
 -   Python 3.8+

@@ -17,6 +17,7 @@ from mal_service import MALService
 from manga_service import MangaService
 from music_service import MusicService
 from novel_service import NovelService
+from tv_service import TVService
 from typing import Optional, Union, get_args, get_origin
 import pydantic
 import asyncio
@@ -76,6 +77,7 @@ ANIME_API_BASE = "https://aniwatch-api-dotd.onrender.com/api/v2/hianime"
 manga_service = MangaService()
 music_service = MusicService()
 novel_service = NovelService()
+tv_service = TVService()
 
 DEFAULT_HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -524,6 +526,22 @@ async def get_novel_chapter(id: str = None, url: str = None, format: str = "html
     if not content:
         raise HTTPException(status_code=404, detail="Chapter not found")
     return content
+
+# --- TV Endpoints ---
+@router.get("/tv/countries")
+async def get_tv_countries():
+    countries = await tv_service.get_countries()
+    return {"results": countries}
+
+@router.get("/tv/country/{code}")
+async def get_tv_channels_by_country(code: str):
+    channels = await tv_service.get_channels_by_country(code)
+    return {"results": channels}
+
+@router.get("/tv/category/{category}")
+async def get_tv_channels_by_category(category: str):
+    channels = await tv_service.get_channels_by_category(category)
+    return {"results": channels}
 
 async def warmup_session() -> None:
     """

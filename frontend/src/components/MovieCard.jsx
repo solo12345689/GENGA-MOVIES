@@ -37,7 +37,8 @@ const MovieCard = ({ movie, onClick }) => {
                     {movie.source === 'hianime' ? 'Anime' :
                         movie.source === 'manga' ? 'Manga' :
                             movie.source === 'novel' ? 'Novel' :
-                                movie.year || 'Unknown Year'}
+                                movie.source === 'tv' ? (movie.type === 'country' ? 'Country' : 'Live TV') :
+                                    movie.year || 'Unknown Year'}
 
                 </p>
             </div>

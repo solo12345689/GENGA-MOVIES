@@ -11,6 +11,7 @@ import MusicPlayer from './components/MusicPlayer';
 import NewsCard from './components/NewsCard';
 import NewsReader from './components/NewsReader';
 import NovelReader from './components/NovelReader';
+import TVDiscovery from './components/TVDiscovery';
 import './styles/index.css';
 
 // Auto-detect local server IP
@@ -264,7 +265,14 @@ function App() {
                         }]);
                         setHomepageLoading(false);
                         return;
-
+                    } else if (activeSource === 'tv') {
+                        setHomepageContent([{
+                            title: 'Live TV',
+                            items: [],
+                            _tvWelcome: true,
+                        }]);
+                        setHomepageLoading(false);
+                        return;
                     } else if (activeSource === 'music') {
                         const data = await res.json();
                         // Backend returns { "groups": [...] }
@@ -333,6 +341,9 @@ function App() {
     }, [API_BASE]); // Re-connect when API_BASE changes
 
     const handleSearch = async (query, type = 'all') => {
+        // TV section has its own built-in filter — don't run global search
+        if (activeSource === 'tv') return;
+
         setLoading(true);
         try {
             // Determine endpoint based on activeSource
@@ -570,6 +581,12 @@ function App() {
         if (epValue !== null && epValue !== undefined) params.set('episode', String(epValue));
         if (season !== null && season !== undefined) params.set('season', String(season));
         params.set('source', src);
+        // For TV channels, pass the stream URL and type in the query so loadWatch can reconstruct state
+        if (src === 'tv') {
+            if (item.url) params.set('url', item.url);
+            if (item.stream_type) params.set('stream_type', item.stream_type);
+            if (item.title) params.set('title', encodeURIComponent(item.title));
+        }
         navigate(`/watch/${item.id}?${params.toString()}`);
 
         // Close the modal after navigation to avoid onClose navigations interfering
@@ -599,6 +616,11 @@ function App() {
         const search = location.search || '';
 
         const loadDetails = async (id, source, type = 'movie') => {
+            // TV channels don't have a details page — just clear state
+            if (source === 'tv') {
+                setDetailsLoading(false);
+                return;
+            }
             // If loadDetails is called, it means we definitely need to fetch more data.
             // We set detailsLoading(true) to show the prominent spinner.
             setDetailsLoading(true);
@@ -716,6 +738,19 @@ function App() {
                     // Provide enough info for WatchPage to construct embed URL / episodeId mapping
                     const item = { ...details, id, source: 'hianime', type: 'anime', hasFullDetails: true };
                     setVideoPlayerData({ item, season: season || null, episode: ep || null, animeEpisodes: episodes });
+                    setSelectedItem(null);
+                    return;
+                }
+
+                // TV channels: no details endpoint, just play directly
+                if (source === 'tv') {
+                    const params = new URLSearchParams(location.search);
+                    const url = params.get('url');
+                    const streamType = params.get('stream_type') || 'hls';
+                    // Decode title — it was encoded with encodeURIComponent
+                    const rawTitle = params.get('title') || '';
+                    const title = rawTitle ? decodeURIComponent(rawTitle) : id;
+                    setVideoPlayerData({ item: { id, source: 'tv', type: 'channel', url, stream_type: streamType, title }, season: null, episode: null });
                     setSelectedItem(null);
                     return;
                 }
@@ -883,7 +918,7 @@ function App() {
                     </div>
 
                     {/* Top Bar with Search */}
-                    {activeSource !== 'history' && activeSource !== 'news' && (
+                    {activeSource !== 'history' && activeSource !== 'news' && activeSource !== 'tv' && (
                         <div style={{
                             marginBottom: '2rem',
                             display: 'flex',
@@ -1052,7 +1087,9 @@ function App() {
                             ) : homepageContent && homepageContent.length > 0 ? (
                                 <div style={{ paddingBottom: '4rem' }}>
                                     {homepageContent.map((group, index) => (
-                                        group._novelWelcome ? (
+                                        group._tvWelcome ? (
+                                            <TVDiscovery key={index} apiBase={API_BASE} onStream={handleStream} />
+                                        ) : group._novelWelcome ? (
                                             /* Novel Welcome Screen */
                                             <div key={index} style={{ textAlign: 'center', padding: '4rem 2rem', maxWidth: '600px', margin: '0 auto' }}>
                                                 <div style={{ fontSize: '4rem', marginBottom: '1.5rem' }}>📚</div>
@@ -1169,8 +1206,14 @@ function App() {
                     API_BASE={getTargetBase(videoPlayerData.item.source)}
                     onBack={() => {
                         const src = videoPlayerData.item && videoPlayerData.item.source ? videoPlayerData.item.source : 'moviebox';
-                        const type = videoPlayerData.item && videoPlayerData.item.type ? videoPlayerData.item.type : 'movie';
-                        navigate(`/details/${videoPlayerData.item.id}?source=${encodeURIComponent(src)}&type=${encodeURIComponent(type)}`);
+                        // TV channels should go back to the TV section, not open DetailsModal
+                        if (src === 'tv') {
+                            setVideoPlayerData(null);
+                            navigate('/');
+                        } else {
+                            const type = videoPlayerData.item && videoPlayerData.item.type ? videoPlayerData.item.type : 'movie';
+                            navigate(`/details/${videoPlayerData.item.id}?source=${encodeURIComponent(src)}&type=${encodeURIComponent(type)}`);
+                        }
                     }}
                     preloadedEpisodes={videoPlayerData.animeEpisodes}
                 />
