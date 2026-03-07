@@ -448,6 +448,7 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                     onClick={togglePlay}
                     onDoubleClick={toggleFullscreen}
                     playsInline
+                    {...(source === 'moviebox' ? { crossOrigin: 'anonymous' } : {})}
                     onError={(e) => {
                         const error = videoRef.current?.error;
                         console.error("[VideoPlayer] Video element error:", error?.message || error);

@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Mac
+.DS_Store
+
+# User requests: Logs and test/debug files
+*.log
+*debug*.txt
+*output*.txt
+*test*.txt
+*info*.txt
+*json*.txt
+*result*.txt
+*verify*.txt
+*source*.txt
+*list*.txt
+*loc*.txt
+debug_*.py
+test_*.py
+verify_*.py
+inspect_*.py
+check_*.py
+explore_*.py
+reproduce_*.py
+*debug*.json
+*output*.json

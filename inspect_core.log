@@ -1,3 +1,0 @@
-Inspecting SubjectTrailerModel...
-Trailer Annotation: <class 'moviebox_api.extractor.models.json.SubjectTrailerModel'>
-Error: name 'Union' is not defined

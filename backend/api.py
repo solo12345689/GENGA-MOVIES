@@ -1171,6 +1171,7 @@ async def stream(
             
         # 4. Resolve Media File with encoding error handling
         media_file = None
+        files_metadata = None
         quality_options = ["BEST", "WORST", "720P", "480P", "360P"]
         
         for quality in quality_options:
@@ -1223,7 +1224,7 @@ async def stream(
             
             # Extract subtitles
             subtitles = []
-            if 'files_metadata' in locals() and hasattr(files_metadata, 'captions'):
+            if files_metadata and hasattr(files_metadata, 'captions'):
                 for caption in files_metadata.captions:
                     # Proxy the subtitle URL to avoid CORS/Forbidden issues
                     proxied_sub_url = f"/api/proxy-stream?url={quote(str(caption.url))}&source=moviebox"

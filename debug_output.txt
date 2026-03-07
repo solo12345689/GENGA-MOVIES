@@ -1,3 +1,0 @@
-Starting script...
-Failed to import moviebox: No module named 'moviebox'
-Script finished.
