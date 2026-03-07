@@ -36,16 +36,9 @@ yarn-error.log*
 
 # User requests: Logs and test/debug files
 *.log
-*debug*.txt
-*output*.txt
-*test*.txt
-*info*.txt
-*json*.txt
-*result*.txt
-*verify*.txt
-*source*.txt
-*list*.txt
-*loc*.txt
+*.txt
+!requirements.txt
+!CMakeLists.txt
 debug_*.py
 test_*.py
 verify_*.py

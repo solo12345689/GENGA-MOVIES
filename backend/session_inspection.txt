@@ -1,6 +1,0 @@
-Session: <Session(MovieBoxAPI) timeout=Timeout(timeout=5.0)>
-Has _headers: True
-Headers: {'Accept': '*/*', 'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:137.0) Gecko/20100101 Firefox/137.0', 'Origin': 'h5.aoneroom.com', 'Referer': 'https://fmoviesunblocked.net/'}
-Found client in _client
-Client headers: Headers({'accept-encoding': 'gzip, deflate', 'connection': 'keep-alive', 'accept': '*/*', 'user-agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:137.0) Gecko/20100101 Firefox/137.0', 'origin': 'h5.aoneroom.com', 'referer': 'https://fmoviesunblocked.net/'})
-Client cookies: {}
