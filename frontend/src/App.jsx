@@ -300,43 +300,62 @@ function App() {
 
 
     React.useEffect(() => {
-        // WebSocket URL needs to match the current API_BASE
-        // Replace http/https with ws/wss
-        const wsUrl = API_BASE
-            ? API_BASE.replace(/^http/, 'ws') + '/api/ws'
-            : (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/api/ws';
-
         let ws;
-        try {
-            ws = new WebSocket(wsUrl);
+        let reconnectTimeout;
 
-            ws.onopen = () => {
-                console.log('Connected to WebSocket at', wsUrl);
-            };
+        const connect = () => {
+            const wsUrl = API_BASE
+                ? API_BASE.replace(/^http/, 'ws') + '/api/ws'
+                : (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/api/ws';
 
-            ws.onmessage = (event) => {
-                try {
-                    const data = JSON.parse(event.data);
-                    console.log('WS Message:', data);
-                    if (data.status === 'downloading') {
-                        setDownloadProgress(data.progress);
-                    } else if (data.status === 'completed') {
-                        setDownloadProgress(null);
-                        alert('Download Complete!');
-                    } else if (data.status === 'error') {
-                        setDownloadProgress(null);
-                        alert(`Error: ${data.message}`);
+            try {
+                ws = new WebSocket(wsUrl);
+
+                ws.onopen = () => {
+                    console.log('Connected to WebSocket at', wsUrl);
+                };
+
+                ws.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        console.log('WS Message:', data);
+                        if (data.status === 'downloading') {
+                            setDownloadProgress(data.progress);
+                        } else if (data.status === 'completed') {
+                            setDownloadProgress(null);
+                            alert('Download Complete!');
+                        } else if (data.status === 'error') {
+                            setDownloadProgress(null);
+                            alert(`Error: ${data.message}`);
+                        }
+                    } catch (e) {
+                        console.error('WS Error:', e);
                     }
-                } catch (e) {
-                    console.error('WS Error:', e);
-                }
-            };
-        } catch (err) {
-            console.error("WebSocket connection failed", err);
-        }
+                };
+
+                ws.onclose = () => {
+                    console.log('WebSocket closed. Retrying in 3s...');
+                    reconnectTimeout = setTimeout(connect, 3000);
+                };
+
+                ws.onerror = (err) => {
+                    console.error('WebSocket error:', err);
+                    ws.close();
+                };
+            } catch (err) {
+                console.error("WebSocket connection failure", err);
+                reconnectTimeout = setTimeout(connect, 3000);
+            }
+        };
+
+        connect();
 
         return () => {
-            if (ws) ws.close();
+            if (ws) {
+                ws.onclose = null; // Prevent reconnect on unmount
+                ws.close();
+            }
+            if (reconnectTimeout) clearTimeout(reconnectTimeout);
         };
     }, [API_BASE]); // Re-connect when API_BASE changes
 

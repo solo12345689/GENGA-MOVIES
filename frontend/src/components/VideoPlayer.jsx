@@ -147,22 +147,34 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
         if (!video || type === 'embed' || !url) return;
 
         // --- HLS and Standard Source Setup ---
-        let hls = null;
+        const safePlay = () => {
+            if (autoPlay && video.paused) {
+                const playPromise = video.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch(error => {
+                        // Suppress AbortError (interrupted by new load) and generic autoplay blocks
+                        if (error.name !== 'AbortError') {
+                            console.log("[VideoPlayer] Autoplay prevented or interrupted:", error.message);
+                        }
+                    });
+                }
+            }
+        };
+
         const setupSource = () => {
             if (url.includes('.m3u8')) {
                 if (video.canPlayType('application/vnd.apple.mpegurl')) {
                     // Safari native HLS
                     video.src = url;
-                    video.play().catch(() => { });
+                    safePlay();
                 } else if (window.Hls && window.Hls.isSupported()) {
                     hls = new window.Hls({
                         enableWorker: true,
-                        startFragPrefetch: true, // Prefetch next fragment for seamless playback
+                        startFragPrefetch: true,
                         lowLatencyMode: true,
-                        // Instant playback: sync to 1s from live edge
                         liveSyncDuration: 1,
                         liveMaxLatencyDuration: 3,
-                        maxBufferLength: 6, // Keep buffer small for fast startup
+                        maxBufferLength: 6,
                         maxMaxBufferLength: 10,
                         manifestLoadingRetryDelay: 500,
                         levelLoadingRetryDelay: 500,
@@ -170,11 +182,10 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                     hls.loadSource(url);
                     hls.attachMedia(video);
                     hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
-                        video.play().catch(() => { });
+                        safePlay();
                     });
                     hls.on(window.Hls.Events.ERROR, (event, data) => {
                         if (data.fatal) {
-                            console.warn('[HLS.js] Fatal error, trying to recover...', data);
                             if (data.type === window.Hls.ErrorTypes.NETWORK_ERROR) {
                                 hls.startLoad();
                             } else {
@@ -197,9 +208,10 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                             });
                             hls.loadSource(url);
                             hls.attachMedia(video);
-                            hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => { }));
+                            hls.on(Hls.Events.MANIFEST_PARSED, () => safePlay());
                         } else {
                             video.src = url;
+                            safePlay();
                         }
                     };
                     document.head.appendChild(script);
@@ -207,10 +219,7 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
 
             } else {
                 video.src = url;
-            }
-
-            if (autoPlay) {
-                video.play().catch(e => console.log("Autoplay prevented:", e));
+                safePlay();
             }
         };
 
