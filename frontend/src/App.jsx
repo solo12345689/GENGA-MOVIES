@@ -88,7 +88,7 @@ const detectLocalServer = async (onProgress) => {
             const results = await Promise.all(promises);
             const found = results.find(url => url);
             if (found) {
-                console.log(`Found local server at ${found}`);
+                // Silent found
                 return found;
             }
         }
@@ -108,6 +108,12 @@ const CLOUD_BASE = 'https://moviebox-knh8.onrender.com';
 
 function App() {
     // State for local server configuration
+
+    const navigate = useNavigate();
+    const location = useLocation();
+
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const internalNavRef = React.useRef(false);
 
     const [localServerURL, setLocalServerURL] = useState(() => {
         const saved = localStorage.getItem('moviebox_local_ip');
@@ -282,7 +288,7 @@ function App() {
                     }
                 }
             } catch (err) {
-                console.error("Failed to fetch homepage", err);
+                // Silent catch
                 setHomepageContent([]); // Clear homepage content on error
             } finally {
                 setHomepageLoading(false);
@@ -302,8 +308,10 @@ function App() {
     React.useEffect(() => {
         let ws;
         let reconnectTimeout;
+        let didUnmount = false;
 
         const connect = () => {
+            if (didUnmount) return;
             const wsUrl = API_BASE
                 ? API_BASE.replace(/^http/, 'ws') + '/api/ws'
                 : (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/api/ws';
@@ -312,13 +320,12 @@ function App() {
                 ws = new WebSocket(wsUrl);
 
                 ws.onopen = () => {
-                    console.log('Connected to WebSocket at', wsUrl);
+                    // Silent connection
                 };
 
                 ws.onmessage = (event) => {
                     try {
                         const data = JSON.parse(event.data);
-                        console.log('WS Message:', data);
                         if (data.status === 'downloading') {
                             setDownloadProgress(data.progress);
                         } else if (data.status === 'completed') {
@@ -329,33 +336,44 @@ function App() {
                             alert(`Error: ${data.message}`);
                         }
                     } catch (e) {
-                        console.error('WS Error:', e);
+                        // Silent error
                     }
                 };
 
                 ws.onclose = () => {
-                    console.log('WebSocket closed. Retrying in 3s...');
-                    reconnectTimeout = setTimeout(connect, 3000);
+                    if (!didUnmount) {
+                        // Use a longer backoff (30s) for non-local URLs to reduce console spam on cloud backends
+                        const isCloud = API_BASE && (API_BASE.includes('render.com') || API_BASE.includes('ngrok') || API_BASE.includes('loca.lt'));
+                        const delay = isCloud ? 30000 : 5000;
+                        reconnectTimeout = setTimeout(connect, delay);
+                    }
                 };
 
-                ws.onerror = (err) => {
-                    // Suppress verbose error logs to keep console clean during dev/reconnects
-                    ws.close();
+                ws.onerror = () => {
+                    if (ws) ws.close();
                 };
             } catch (err) {
-                reconnectTimeout = setTimeout(connect, 3000);
+                if (!didUnmount) {
+                    const isCloud = API_BASE && (API_BASE.includes('render.com') || API_BASE.includes('ngrok'));
+                    const delay = isCloud ? 30000 : 5000;
+                    reconnectTimeout = setTimeout(connect, delay);
+                }
             }
         };
 
         connect();
 
         return () => {
+            didUnmount = true;
             if (ws) {
                 ws.onclose = null;
                 ws.onerror = null;
-                // Only close if it's not already closing or closed
-                if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+                ws.onopen = null;
+                // Only close if it's OPEN
+                if (ws.readyState === WebSocket.OPEN) {
                     ws.close();
+                } else if (ws.readyState === WebSocket.CONNECTING) {
+                    // Nulled handlers ensure it dies quietly when it finishes opening
                 }
             }
             if (reconnectTimeout) clearTimeout(reconnectTimeout);
@@ -587,7 +605,7 @@ function App() {
             return;
         }
 
-        console.log("[App] handleStream called for:", item && item.title, "Ep arg:", episode, "itemEp:", item && (item.episodeNo || item.episodeId || item.episode));
+        // console.log("[App] handleStream called for:", item && item.title);
 
         // Determine episode value from explicit arg or from item payload (HiAnime uses episodeNo/episodeId)
         let epValue = null;
@@ -604,22 +622,27 @@ function App() {
             episode: epValue || null,
             animeEpisodes: item && item.animeEpisodes ? item.animeEpisodes : null
         };
-        setVideoPlayerData(preload);
-
         // Navigate to watch route with episode and source params
         const params = new URLSearchParams();
         if (epValue !== null && epValue !== undefined) params.set('episode', String(epValue));
         if (season !== null && season !== undefined) params.set('season', String(season));
         params.set('source', src);
+
         // For TV channels, pass the stream URL and type in the query so loadWatch can reconstruct state
         if (src === 'tv') {
             if (item.url) params.set('url', item.url);
             if (item.stream_type) params.set('stream_type', item.stream_type);
-            if (item.title) params.set('title', encodeURIComponent(item.title));
+            if (item.title) params.set('title', item.title);
         }
-        navigate(`/watch/${item.id}?${params.toString()}`);
 
-        // Close the modal after navigation to avoid onClose navigations interfering
+        internalNavRef.current = true;
+        setVideoPlayerData(preload);
+
+        const watchUrl = `/watch/${encodeURIComponent(item.id)}?${params.toString()}`;
+        // console.log("[App] handleStream navigating to:", watchUrl);
+        navigate(watchUrl);
+
+        // ALWAYS close modal manually upon streaming to avoid UI overlap
         setSelectedItem(null);
     };
 
@@ -634,11 +657,6 @@ function App() {
             console.error("Failed to remove history item", err);
         }
     };
-
-    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-
-    const navigate = useNavigate();
-    const location = useLocation();
 
     useEffect(() => {
         // Keep UI in sync with React Router location
@@ -748,6 +766,7 @@ function App() {
         };
 
         const loadWatch = async (id, ep, source = 'moviebox', season = null) => {
+            console.log("[App] loadWatch triggered for:", id, "Source:", source);
             try {
                 let details = { id, source }; // Default with known info
                 if (source === 'hianime') {
@@ -779,7 +798,8 @@ function App() {
                     const streamType = params.get('stream_type') || 'hls';
                     // Decode title — it was encoded with encodeURIComponent
                     const rawTitle = params.get('title') || '';
-                    const title = rawTitle ? decodeURIComponent(rawTitle) : id;
+                    const title = rawTitle || id;
+                    // console.log("[App] loadWatch TV data reconstructed:", { id, url, title });
                     setVideoPlayerData({ item: { id, source: 'tv', type: 'channel', url, stream_type: streamType, title }, season: null, episode: null });
                     setSelectedItem(null);
                     return;
@@ -802,15 +822,16 @@ function App() {
         };
 
         // Route handling
-        if (pathname === '/' || pathname === '') {
-            setSelectedItem(null);
-            setVideoPlayerData(null);
-            setMangaReaderItem(null);
-            setNewsReaderItem(null); // Clear NewsReader item
-            return;
-        }
+        // console.log("[App] Route Sync Hook triggered. Path:", pathname, "Params:", search);
 
+        // Group route handlers to avoid clearing state during transitions
         if (pathname.startsWith('/details/')) {
+            // Guard: If we are navigating TOWARDS a player/reader, don't clear state or reload details.
+            if (internalNavRef.current) {
+                internalNavRef.current = false; // Reset now that we are at the route 
+                return;
+            }
+
             const rawId = pathname.replace('/details/', '').split('?')[0];
             const id = decodeURIComponent(rawId);
             const params = new URLSearchParams(search);
@@ -826,7 +847,7 @@ function App() {
 
             // First check if it's already in active state (e.g. from Reader/Player)
             if (videoPlayerData && String(videoPlayerData.item.id) === String(id)) {
-                setSelectedItem(videoPlayerData.item);
+                setSelectedItem(null); // Ensure modal is closed when watching/reading
                 effectiveItem = videoPlayerData.item;
             } else if (mangaReaderItem && String(mangaReaderItem.item.id) === String(id)) {
                 setSelectedItem(mangaReaderItem.item);
@@ -834,23 +855,23 @@ function App() {
             }
 
             // Ensure other main views are cleared when viewing details
-            if (videoPlayerData) setVideoPlayerData(null);
-            if (mangaReaderItem) setMangaReaderItem(null);
-            if (newsReaderItem) setNewsReaderItem(null); // Clear NewsReader item
+            setVideoPlayerData(null);
+            setMangaReaderItem(null);
+            setNovelReaderItem(null);
+            setNewsReaderItem(null);
 
             // Determine if the item is "full enough" for the requested ID
             const isFullItem = (it) => {
                 if (!it || String(it.id) !== String(id)) return false;
                 if (!it.hasFullDetails) return false;
 
-                // Source-specific checks to ensure we don't show "information not available"
+                // Source-specific checks
                 if (source === 'hianime') return it.animeEpisodes && it.animeEpisodes.length > 0;
                 if (source === 'manga') return it.volumes && Object.keys(it.volumes).length > 0;
                 if (source === 'music') return (it.tracks && it.tracks.length > 0) || (it.songs && it.songs.length > 0);
                 if (it.type === 'series' || it.type === 'anime') return it.seasons && it.seasons.length > 0;
 
-                // For movies, just check for a plot/description
-                return !!(it.plot || it.description || (source === 'manga' && it.poster_url));
+                return !!(it.plot || it.description);
             };
 
             if (!isFullItem(effectiveItem)) {
@@ -860,20 +881,43 @@ function App() {
         }
 
         if (pathname.startsWith('/watch/')) {
+            internalNavRef.current = false; // Destination reached
             const id = pathname.replace('/watch/', '').split('/')[0];
             const params = new URLSearchParams(search);
             const ep = params.get('episode');
             const season = params.get('season');
             const source = params.get('source') || 'moviebox';
 
-            // Sync activeSource state if it differs from the URL (handles deep-linking)
             if (source !== activeSource && source !== 'home' && activeSource !== 'history') {
                 setActiveSource(source);
             }
 
-            loadWatch(id, ep, source, season);
+            const shouldReload = !videoPlayerData ||
+                String(videoPlayerData.item.id) !== String(id) ||
+                String(videoPlayerData.episode) !== String(ep);
+
+            setSelectedItem(null);
+            if (shouldReload) {
+                loadWatch(id, ep, source, season);
+            }
             return;
         }
+
+        // Fallback for Home/Root
+        if (pathname === '/' || pathname === '' || pathname === '/home') {
+            if (internalNavRef.current) {
+                internalNavRef.current = false;
+                return;
+            }
+            setSelectedItem(null);
+            setVideoPlayerData(null);
+            setMangaReaderItem(null);
+            setNewsReaderItem(null);
+            return;
+        }
+
+        // Reset guard if we are on any other route
+        internalNavRef.current = false;
     }, [location, API_BASE]);
 
     return (
@@ -1235,14 +1279,18 @@ function App() {
                     initialEpisode={videoPlayerData.episode}
                     API_BASE={getTargetBase(videoPlayerData.item.source)}
                     onBack={() => {
-                        const src = videoPlayerData.item && videoPlayerData.item.source ? videoPlayerData.item.source : 'moviebox';
+                        const item = videoPlayerData.item;
+                        const src = item && item.source ? item.source : 'moviebox';
                         // TV channels should go back to the TV section, not open DetailsModal
                         if (src === 'tv') {
                             setVideoPlayerData(null);
                             navigate('/');
                         } else {
-                            const type = videoPlayerData.item && videoPlayerData.item.type ? videoPlayerData.item.type : 'movie';
-                            navigate(`/details/${videoPlayerData.item.id}?source=${encodeURIComponent(src)}&type=${encodeURIComponent(type)}`);
+                            const type = item && item.type ? item.type : 'movie';
+                            internalNavRef.current = true; // GUARD TRANSITION
+                            setSelectedItem(item); // INSTANT RECOVERY
+                            setVideoPlayerData(null); // INSTANT HIDE PLAYER
+                            navigate(`/details/${item.id}?source=${encodeURIComponent(src)}&type=${encodeURIComponent(type)}`);
                         }
                     }}
                     preloadedEpisodes={videoPlayerData.animeEpisodes}
@@ -1256,17 +1304,34 @@ function App() {
                     chapterId={mangaReaderItem.chapterId}
                     chapterTitle={mangaReaderItem.chapterTitle}
                     API_BASE={API_BASE}
-                    onBack={() => setMangaReaderItem(null)}
+                    onBack={() => {
+                        const item = mangaReaderItem.item;
+                        const type = item && item.type ? item.type : 'manga';
+                        const src = item && item.source ? item.source : 'manga';
+                        internalNavRef.current = true; // GUARD TRANSITION
+                        setSelectedItem(item); // INSTANT RECOVERY
+                        setMangaReaderItem(null); // INSTANT HIDE READER
+                        navigate(`/details/${item.id}?source=${encodeURIComponent(src)}&type=${encodeURIComponent(type)}`);
+                    }}
                 />
             )}
 
             {novelReaderItem && (
                 <NovelReader
+                    key={`novel-${novelReaderItem.item.id}`}
                     item={novelReaderItem.item}
                     chapterId={novelReaderItem.chapterId}
                     chapterTitle={novelReaderItem.chapterTitle}
                     API_BASE={API_BASE}
-                    onBack={() => setNovelReaderItem(null)}
+                    onBack={() => {
+                        const item = novelReaderItem.item;
+                        const type = item && item.type ? item.type : 'novel';
+                        const src = item && item.source ? item.source : 'novel';
+                        internalNavRef.current = true; // GUARD TRANSITION
+                        setSelectedItem(item); // INSTANT RECOVERY
+                        setNovelReaderItem(null); // INSTANT HIDE READER
+                        navigate(`/details/${item.id}?source=${encodeURIComponent(src)}&type=${encodeURIComponent(type)}`);
+                    }}
                     onChapterChange={(newId, newTitle) => {
                         setNovelReaderItem(prev => ({ ...prev, chapterId: newId, chapterTitle: newTitle }));
                     }}

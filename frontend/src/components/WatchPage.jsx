@@ -51,6 +51,10 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
 
     // Sync current season/episode with URL search params
     useEffect(() => {
+        // CRITICAL: Only sync URL if we are actually on the watch route.
+        // If we are on /details/ it means the transition hasn't finished yet or we are going back.
+        if (!location.pathname.startsWith('/watch/')) return;
+
         try {
             // Build new search params
             const params = new URLSearchParams(location.search || '');
@@ -61,14 +65,19 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
             else params.delete('season');
 
             const search = params.toString();
-            // Replace the current history entry so navigation doesn't spam back-stack
-            navigate(`${location.pathname}${search ? `?${search}` : ''}`, { replace: true });
+            const currentSearch = location.search.replace('?', '');
+
+            // Only navigate if search params actually changed to avoid loop/redirect
+            if (search !== currentSearch) {
+                // Replace the current history entry so navigation doesn't spam back-stack
+                navigate(`${location.pathname}${search ? `?${search}` : ''}`, { replace: true });
+            }
         } catch (e) {
             // ignore navigation errors
             console.error('Failed to sync episode to URL', e);
         }
         // Only run when episode/season change
-    }, [currentEpisode, currentSeason]);
+    }, [currentEpisode, currentSeason, location.pathname, location.search, navigate]);
 
     // Respond to prop changes (when App navigates to a different /watch link)
     useEffect(() => {

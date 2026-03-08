@@ -39,7 +39,11 @@ const MusicPlayer = ({ track, onClose }) => {
             } else {
                 audio.src = url;
             }
-            audio.play().catch(e => console.log("Playback failed:", e));
+            audio.play().catch(e => {
+                if (e.name !== 'AbortError' && e.name !== 'NotAllowedError' && e.name !== 'NotSupportedError') {
+                    console.log("Initial playback failed:", e);
+                }
+            });
         };
 
         setupSource();
@@ -58,13 +62,27 @@ const MusicPlayer = ({ track, onClose }) => {
         }
     };
 
-    const togglePlay = () => {
-        if (audioRef.current.paused) {
-            audioRef.current.play();
-            setIsPlaying(true);
-        } else {
-            audioRef.current.pause();
-            setIsPlaying(false);
+    const togglePlay = async () => {
+        const audio = audioRef.current;
+        if (audio) {
+            if (audio.paused) {
+                // If the audio element already has an error, don't try to play it
+                if (audio.error) {
+                    // console.log("[MusicPlayer] Cannot play: audio has error", audio.error.message);
+                    return;
+                }
+                try {
+                    await audio.play();
+                } catch (e) {
+                    if (e.name !== 'AbortError' && e.name !== 'NotAllowedError' && e.name !== 'NotSupportedError') {
+                        console.log("[MusicPlayer] Toggle play failed:", e.name, e.message);
+                    }
+                }
+                setIsPlaying(true);
+            } else {
+                audio.pause();
+                setIsPlaying(false);
+            }
         }
     };
 
@@ -106,6 +124,12 @@ const MusicPlayer = ({ track, onClose }) => {
                 onTimeUpdate={handleTimeUpdate}
                 onPlay={() => setIsPlaying(true)}
                 onPause={() => setIsPlaying(false)}
+                onError={() => {
+                    const error = audioRef.current?.error;
+                    const msg = error?.message || error || '';
+                    if (msg.includes('DEMUXER_ERROR_COULD_NOT_PARSE')) return;
+                    // console.error("[MusicPlayer] Audio element error:", msg);
+                }}
             />
 
             {/* Track Info */}

@@ -147,14 +147,15 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
         if (!video || type === 'embed' || !url) return;
 
         // --- HLS and Standard Source Setup ---
+        let hls = null;
         const safePlay = () => {
-            if (autoPlay && video.paused) {
+            if (video.paused) {
                 const playPromise = video.play();
                 if (playPromise !== undefined) {
                     playPromise.catch(error => {
-                        // Suppress AbortError (interrupted by new load) and generic autoplay blocks
-                        if (error.name !== 'AbortError') {
-                            console.log("[VideoPlayer] Autoplay prevented or interrupted:", error.message);
+                        // Suppress AbortError, NotAllowedError, and NotSupportedError
+                        if (error.name !== 'AbortError' && error.name !== 'NotAllowedError' && error.name !== 'NotSupportedError') {
+                            console.log("[VideoPlayer] Play interrupted:", error.name, error.message);
                         }
                     });
                 }
@@ -359,11 +360,27 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
         }
     };
 
-    const togglePlay = (e) => {
+    const togglePlay = async (e) => {
         if (e) e.stopPropagation();
-        if (videoRef.current) {
-            if (isPlaying) videoRef.current.pause();
-            else videoRef.current.play();
+        const video = videoRef.current;
+        if (video) {
+            if (isPlaying) {
+                video.pause();
+            } else {
+                // If the video element already has an error, don't try to play it
+                if (video.error) {
+                    // console.log("[VideoPlayer] Cannot play: video has error", video.error.message);
+                    return;
+                }
+                try {
+                    await video.play();
+                } catch (error) {
+                    // Suppress AbortError, NotAllowedError, and NotSupportedError
+                    if (error.name !== 'AbortError' && error.name !== 'NotAllowedError' && error.name !== 'NotSupportedError') {
+                        console.log("[VideoPlayer] Toggle play failed:", error.name, error.message);
+                    }
+                }
+            }
         }
     };
 
@@ -464,8 +481,10 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                     {...(source === 'moviebox' ? { crossOrigin: 'anonymous' } : {})}
                     onError={(e) => {
                         const error = videoRef.current?.error;
-                        console.error("[VideoPlayer] Video element error:", error?.message || error);
-                        // Do NOT alert — live TV streams frequently get CORS/geo errors
+                        const msg = error?.message || error || '';
+                        // Silence transient demuxer parsing errors — common in live TV streams
+                        if (msg.includes('DEMUXER_ERROR_COULD_NOT_PARSE')) return;
+                        console.error("[VideoPlayer] Video element error:", msg);
                     }}
                 >
                     {subtitles.map((sub, idx) => (
