@@ -339,11 +339,10 @@ function App() {
                 };
 
                 ws.onerror = (err) => {
-                    console.error('WebSocket error:', err);
+                    // Suppress verbose error logs to keep console clean during dev/reconnects
                     ws.close();
                 };
             } catch (err) {
-                console.error("WebSocket connection failure", err);
                 reconnectTimeout = setTimeout(connect, 3000);
             }
         };
@@ -352,8 +351,12 @@ function App() {
 
         return () => {
             if (ws) {
-                ws.onclose = null; // Prevent reconnect on unmount
-                ws.close();
+                ws.onclose = null;
+                ws.onerror = null;
+                // Only close if it's not already closing or closed
+                if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+                    ws.close();
+                }
             }
             if (reconnectTimeout) clearTimeout(reconnectTimeout);
         };
@@ -557,7 +560,18 @@ function App() {
         }
     };
 
+    // Use a ref to prevent double-execution of streams (e.g. StrictMode or ghost clicks)
+    const streamGuardRef = React.useRef(null);
     const handleStream = async (item, season = null, episode = null) => {
+        if (!item) return;
+
+        // Simple debounce guard
+        const now = Date.now();
+        if (streamGuardRef.current && streamGuardRef.current.id === item.id && (now - streamGuardRef.current.time < 500)) {
+            return;
+        }
+        streamGuardRef.current = { id: item.id, time: now };
+
         if (item.source === 'music' || item.type === 'music' || item.type === 'music_playlist') {
             handleMusicPlay(item);
             return;
@@ -565,14 +579,11 @@ function App() {
 
         if (item.type === 'manga') {
             setMangaReaderItem({ item, chapterId: item.chapterId, chapterTitle: item.chapterTitle });
-            // Do not clear selectedItem, so we can go back to it
             return;
         }
 
         if (item.type === 'novel') {
-            const encodedId = encodeURIComponent(item.id);
             setNovelReaderItem({ item, chapterId: item.chapterId, chapterTitle: item.chapterTitle });
-            // Do not clear selectedItem, so we can go back to it
             return;
         }
 
