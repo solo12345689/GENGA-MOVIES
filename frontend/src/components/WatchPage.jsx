@@ -307,7 +307,8 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
             }
         };
 
-        const timer = setTimeout(fetchStream, 400);
+        // Fetch immediately or with minimal delay to prevent rapid duplicate calls
+        const timer = setTimeout(fetchStream, 50);
         return () => clearTimeout(timer);
     }, [currentSeason, currentEpisode, activeSource, item.id, item.type, API_BASE, fullDetails.episodeId, animeLanguage, retryCounter]);
 

@@ -157,14 +157,15 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                 } else if (window.Hls && window.Hls.isSupported()) {
                     hls = new window.Hls({
                         enableWorker: true,
-                        // Relaxed settings for better reliability on varied internet speeds
-                        liveSyncDurationCount: 3, // Stay safely behind the live edge to prevent stalling
-                        liveMaxLatencyDurationCount: 10,
-                        backBufferLength: 30,
-                        maxBufferLength: 30, // Larger buffer for smoother playback
-                        maxMaxBufferLength: 60,
-                        manifestLoadingRetryDelay: 1000,
-                        levelLoadingRetryDelay: 1000,
+                        startFragPrefetch: true, // Prefetch next fragment for seamless playback
+                        lowLatencyMode: true,
+                        // Instant playback: sync to 1s from live edge
+                        liveSyncDuration: 1,
+                        liveMaxLatencyDuration: 3,
+                        maxBufferLength: 6, // Keep buffer small for fast startup
+                        maxMaxBufferLength: 10,
+                        manifestLoadingRetryDelay: 500,
+                        levelLoadingRetryDelay: 500,
                     });
                     hls.loadSource(url);
                     hls.attachMedia(video);
@@ -187,7 +188,13 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                     script.onload = () => {
                         const Hls = window.Hls;
                         if (Hls.isSupported()) {
-                            hls = new Hls({ enableWorker: true, liveSyncDurationCount: 3, maxBufferLength: 30 });
+                            hls = new Hls({
+                                enableWorker: true,
+                                startFragPrefetch: true,
+                                lowLatencyMode: true,
+                                liveSyncDuration: 1,
+                                maxBufferLength: 6
+                            });
                             hls.loadSource(url);
                             hls.attachMedia(video);
                             hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => { }));

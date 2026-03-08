@@ -2104,9 +2104,8 @@ async def proxy_stream(request: Request, url: str, source: str = None):
     # Forward Range from browser
     client_range = request.headers.get('range')
     
-    # User Request: Fix Format Error (Client closing too early)
-    # We must NOT use 'async with' because StreamingResponse needs the client open!
-    client = httpx.AsyncClient(verify=False, follow_redirects=True)
+    # Use the global persistent client to benefit from connection pooling and reuse TLS handshakes
+    client = get_http_client()
     
     try:
         last_error = None
@@ -2159,8 +2158,8 @@ async def proxy_stream(request: Request, url: str, source: str = None):
                     
                     rewritten_content = "\n".join(new_lines)
                     
-                    # Close client since we are done
-                    await client.aclose()
+                    # No need to close the global client
+
                     
                     return Response(
                         content=rewritten_content,
@@ -2217,7 +2216,8 @@ async def proxy_stream(request: Request, url: str, source: str = None):
                             new_lines.append(proxied_url)
                             
                     rewritten_content = "\n".join(new_lines)
-                    await client.aclose()
+                    # No need to close the global client
+
                     
                     return Response(
                         content=rewritten_content,
@@ -2249,7 +2249,8 @@ async def proxy_stream(request: Request, url: str, source: str = None):
                 
                 async def cleanup():
                     await resp.aclose()
-                    await client.aclose()
+                    # Global client is NOT closed here
+
 
                 return StreamingResponse(
                     resp.aiter_raw(),
@@ -2264,13 +2265,14 @@ async def proxy_stream(request: Request, url: str, source: str = None):
                 continue
                 
         # If we exit loop without returning
-        await client.aclose()
+        # No need to close the global client
+
         raise HTTPException(status_code=502, detail=f"Proxy failed: {last_error}")
 
     except Exception as e:
         # Fallback closure
-        if 'client' in locals():
-            await client.aclose()
+        # No need to close the global client
+
         print(f"[PROXY FATAL] {e}")
         import traceback
         traceback.print_exc()
