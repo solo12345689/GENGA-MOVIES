@@ -237,6 +237,19 @@ def get_source_headers(url: str, source: str = None) -> list[dict]:
     if "hianime" in url_lower or "aniwatch" in url_lower or "megacloud" in url_lower or "vidcloud" in url_lower or "rabbitstream" in url_lower:
         configs_refs.append({'Referer': 'https://hianime.to/', 'Origin': 'https://hianime.to'})
     
+    # VLC/MPV mimicking for TV streams (helps bypass browser-based throttling)
+    if source == 'tv':
+        configs_refs.append({
+            'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18',
+            'Accept': '*/*',
+            'Connection': 'keep-alive'
+        })
+        configs_refs.append({
+            'User-Agent': 'mpv 0.35.1',
+            'Accept': '*/*',
+            'Connection': 'keep-alive'
+        })
+
     # Standard MovieBox Fallbacks
     if is_moviebox_cdn or source == 'moviebox':
         configs_refs.append({'Referer': 'https://fmoviesunblocked.net/', 'Origin': 'https://h5.aoneroom.com'})
