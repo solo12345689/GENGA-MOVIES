@@ -1,4 +1,4 @@
-# MovieBox Web App
+#  GENGA MOVIES App
 
 **MovieBox Web App** is a self-hosted web interface for aggregating metadata and controlling media playback. It connects to external APIs to resolve stream URLs and provides a unified frontend for search and discovery.
 
