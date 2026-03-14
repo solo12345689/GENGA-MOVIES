@@ -103,7 +103,7 @@ const detectLocalServer = async (onProgress) => {
 };
 
 // Define available backends
-const CLOUD_BASE = 'https://moviebox-knh8.onrender.com';
+const CLOUD_BASE = 'https://moviebox-3xxv.onrender.com';
 
 
 function App() {
