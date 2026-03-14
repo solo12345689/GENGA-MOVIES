@@ -72,7 +72,7 @@ patch_moviebox_models()
 
 router = APIRouter()
 
-ANIME_API_BASE = "https://aniwatch-api-dotd.onrender.com/api/v2/hianime"
+ANIME_API_BASE = "https://aniwatch-api-3e2f.onrender.com/api/v2/hianime"
 
 manga_service = MangaService()
 music_service = MusicService()
