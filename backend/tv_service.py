@@ -3,7 +3,7 @@ import re
 
 class TVService:
     def __init__(self):
-        self.base_url = "https://raw.githubusercontent.com/famelack/famelack-channels/main/channels/raw"
+        self.base_url = "https://raw.githubusercontent.com/famelack/famelack-data/main/tv/raw"
         self.client = httpx.AsyncClient(timeout=20.0)
         self.cache = {}
 
