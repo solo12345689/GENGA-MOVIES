@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 
 // ─── Famelack data source (plain JSON, same as Famelack uses internally) ─────
-const FAMELACK_RAW = 'https://raw.githubusercontent.com/famelack/famelack-data/c28d90693a3cf7466f1be73a290e209076b5b23f/tv/compressed';
+const FAMELACK_RAW = 'https://raw.githubusercontent.com/famelack/famelack-data/c28d90693a3cf7466f1be73a290e209076b5b23f/channels/compressed';
 
 // Parse a YouTube embed URL into a clean embed URL with autoplay
 function cleanYoutubeEmbedUrl(url) {
