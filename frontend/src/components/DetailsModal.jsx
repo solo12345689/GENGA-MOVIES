@@ -142,13 +142,7 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
             fetch(`${url}&check_only=true`)
                 .then(res => {
                     if (res.ok) {
-                        const iframe = document.createElement('iframe');
-                        iframe.style.display = 'none';
-                        iframe.src = url;
-                        document.body.appendChild(iframe);
-                        setTimeout(() => {
-                            document.body.removeChild(iframe);
-                        }, 5000);
+                        window.location.href = url;
                     } else {
                         alert("No downloadable streams available for this item.");
                     }
