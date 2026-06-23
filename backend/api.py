@@ -90,6 +90,39 @@ def patch_moviebox_models():
 # Apply patch immediately
 patch_moviebox_models()
 
+def ensure_v1_item(item):
+    """
+    Converts any item (V3 ResultsSubjectModel or dict) into a V1 SearchResultsItem 
+    compatible with V1 download classes.
+    """
+    if isinstance(item, SearchResultsItem):
+        return item
+        
+    # Extract properties
+    subject_id = None
+    detail_path = ""
+    title = "Video"
+    
+    if isinstance(item, dict):
+        subject_id = item.get('subject_id') or item.get('subjectId') or item.get('id')
+        detail_path = item.get('detail_url') or item.get('detailPath') or ""
+        title = item.get('title') or "Video"
+    else:
+        subject_id = getattr(item, 'subject_id', getattr(item, 'subjectId', getattr(item, 'id', None)))
+        detail_path = getattr(item, 'detail_url', getattr(item, 'detailPath', ''))
+        title = getattr(item, 'title', 'Video')
+        
+    # Convert to string and sanitize
+    detail_path = str(detail_path) if detail_path else ""
+    if detail_path and '/' in detail_path:
+        detail_path = detail_path.split('/')[-1]
+        
+    return SearchResultsItem.construct(
+        subjectId=str(subject_id) if subject_id else "",
+        detailPath=detail_path,
+        title=title
+    )
+
 router = APIRouter()
 
 
@@ -223,6 +256,7 @@ def get_source_headers(url: str, source: str = None) -> list[dict]:
     Returns a LIST of dictionary headers to try.
     Provides fallbacks for 403 Forbidden scenarios by cycling through possible Referers.
     """
+    url = str(url)
     base_headers = DEFAULT_HEADERS.copy()
     
     # 2. Exhaustive Referer Cycling
@@ -791,12 +825,14 @@ async def details(item_id: str) -> dict:
     item_type = cached.get("type", "movie")
     
     try:
-        subject_id = getattr(item, 'id', getattr(item, 'subjectId', None))
+        subject_id = None
+        if isinstance(item, dict):
+            subject_id = item.get('subject_id') or item.get('subjectId') or item.get('id')
+        else:
+            subject_id = getattr(item, 'subject_id', getattr(item, 'subjectId', getattr(item, 'id', None)))
+            
         if not subject_id:
-            if isinstance(item, dict):
-                subject_id = item.get('id') or item.get('subjectId')
-            else:
-                subject_id = cached.get('item', {}).get('id')
+            raise ValueError("Could not resolve subject_id for item details")
 
         async with MovieBoxHttpClient() as client:
             details_provider = ItemDetailsV3(client_session=client, include_seasons=True)
@@ -928,8 +964,11 @@ async def details(item_id: str) -> dict:
             elif hasattr(details_model, 'resource') and hasattr(details_model.resource, 'seasons'):
                 seasons_list = details_model.resource.seasons
             # Path 3: details_model.seasons
-            elif hasattr(details_model, 'seasons'):
-                seasons_list = details_model.seasons
+            elif hasattr(details_model, 'seasons') and details_model.seasons:
+                if hasattr(details_model.seasons, 'seasons'):
+                    seasons_list = details_model.seasons.seasons
+                else:
+                    seasons_list = details_model.seasons
             # Path 4: details_model.item.seasons
             elif hasattr(details_model, 'item') and hasattr(details_model.item, 'seasons'):
                 seasons_list = details_model.item.seasons
@@ -943,10 +982,10 @@ async def details(item_id: str) -> dict:
                 for season in seasons_list:
                     if isinstance(season, dict):
                         s_num = season.get('se', season.get('number', season.get('season_number', 0)))
-                        m_ep = season.get('maxEp', season.get('max_episodes', season.get('episode_count', season.get('episodeCount', 0))))
+                        m_ep = season.get('max_ep', season.get('maxEp', season.get('max_episodes', season.get('episode_count', season.get('episodeCount', 0)))))
                     else:
                         s_num = getattr(season, 'se', getattr(season, 'number', getattr(season, 'season_number', 0)))
-                        m_ep = getattr(season, 'maxEp', getattr(season, 'max_episodes', getattr(season, 'episode_count', getattr(season, 'episodeCount', 0))))
+                        m_ep = getattr(season, 'max_ep', getattr(season, 'maxEp', getattr(season, 'max_episodes', getattr(season, 'episode_count', getattr(season, 'episodeCount', 0)))))
                     
                     if s_num is not None:
                         seasons_data.append({
@@ -1050,14 +1089,15 @@ async def download_task(
         await manager.broadcast({"status": "resolving", "message": "Resolving files..."})
         
         media_file = None
+        v1_item = ensure_v1_item(item)
         if season is not None and episode is not None:
              # TV Series
-             files_provider = DownloadableTVSeriesFilesDetail(session=session, item=item)
+             files_provider = DownloadableTVSeriesFilesDetail(session=session, item=v1_item)
              files_metadata = await files_provider.get_content_model(season=season, episode=episode)
              media_file = resolve_media_file_to_be_downloaded("BEST", files_metadata)
         else:
              # Movie
-             files_provider = DownloadableMovieFilesDetail(session=session, item=item)
+             files_provider = DownloadableMovieFilesDetail(session=session, item=v1_item)
              files_metadata = await files_provider.get_content_model()
              media_file = resolve_media_file_to_be_downloaded("BEST", files_metadata)
         
@@ -1209,13 +1249,14 @@ async def stream(
         # We only need to fetch files_metadata ONCE, not for every quality
         for res_attempt in range(max_retries + 1):
             try:
+                v1_item = ensure_v1_item(target_item)
                 if season is not None and episode is not None:
                     # TV Series / Anime
-                    files_provider = DownloadableTVSeriesFilesDetail(session=session, item=target_item)
+                    files_provider = DownloadableTVSeriesFilesDetail(session=session, item=v1_item)
                     files_metadata = await files_provider.get_content_model(season=season, episode=episode)
                 else:
                     # Movie
-                    files_provider = DownloadableMovieFilesDetail(session=session, item=target_item)
+                    files_provider = DownloadableMovieFilesDetail(session=session, item=v1_item)
                     files_metadata = await files_provider.get_content_model()
                 
                 if files_metadata:
@@ -1396,11 +1437,12 @@ async def moviebox_download(
         
         for quality in quality_options:
             try:
+                v1_item = ensure_v1_item(target_item)
                 if season is not None and episode is not None:
-                    files_provider = DownloadableTVSeriesFilesDetail(session=session, item=target_item)
+                    files_provider = DownloadableTVSeriesFilesDetail(session=session, item=v1_item)
                     files_metadata = await files_provider.get_content_model(season=season, episode=episode)
                 else:
-                    files_provider = DownloadableMovieFilesDetail(session=session, item=target_item)
+                    files_provider = DownloadableMovieFilesDetail(session=session, item=v1_item)
                     files_metadata = await files_provider.get_content_model()
                 
                 media_file = resolve_media_file_to_be_downloaded(quality, files_metadata)
