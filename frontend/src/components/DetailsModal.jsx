@@ -138,19 +138,7 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
         // Use new Direct Download for MovieBox
         if (item.source === 'moviebox') {
             const url = `${API_BASE}/api/moviebox/download?id=${item.id}&query=${encodeURIComponent(item.title)}&content_type=${item.type || 'movie'}${selectedSeason ? `&season=${selectedSeason.season_number}` : ''}${selectedEpisode ? `&episode=${selectedEpisode}` : ''}`;
-            
-            fetch(`${url}&check_only=true`)
-                .then(res => {
-                    if (res.ok) {
-                        window.open(url, '_blank');
-                    } else {
-                        alert("No downloadable streams available for this item.");
-                    }
-                })
-                .catch(err => {
-                    console.error("Download check failed", err);
-                    alert("No downloadable streams available for this item.");
-                });
+            window.location.href = url;
             return;
         }
 
@@ -165,7 +153,7 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
                 // Default to ZIP download
                 const filename = `${item.title} - ${selectedMangaCh.title}`.replace(/[/\\?%*:|"<>]/g, '-');
                 const url = `${API_BASE}/api/manga/download/${selectedMangaCh.id}?title=${encodeURIComponent(filename)}`;
-                window.open(url, '_blank');
+                window.location.href = url;
             } else {
                 alert('Please select a chapter');
             }
