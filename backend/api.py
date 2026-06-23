@@ -21,7 +21,7 @@ from pydantic import BaseModel
 from typing import List, Optional, Any
 from moviebox_api.v1 import Session, Search, MovieAuto, TVSeriesDetails, Homepage
 SubjectType = PatchedSubjectType
-from moviebox_api.v3.core import Search as SearchV3, ItemDetails as ItemDetailsV3, MovieBoxHttpClient
+from moviebox_api.v3.core import Search as SearchV3, ItemDetails as ItemDetailsV3, MovieBoxHttpClient, Homepage as HomepageV3
 from moviebox_api.v1.download import (
     MediaFileDownloader, 
     DownloadableMovieFilesDetail, 
@@ -742,128 +742,127 @@ async def warmup_session() -> None:
 @router.get("/homepage")
 async def get_homepage_content() -> dict:
     """
-    Fetches trending and featured content for the homepage using the global session.
+    Fetches trending and featured content for the homepage using the MovieBox V3 API.
     """
     try:
-        print("Fetching homepage via moviebox_api using global session...")
-        # Use GLOBAL session
-        homepage = Homepage(session=session)
-        
-        # Get raw content
-        raw_response = await homepage.get_content()
-        
-        # Data is usually in 'data' key or root
-        raw_data = raw_response.get('data', raw_response)
+        print("Fetching homepage via moviebox_api V3...")
+        async with MovieBoxHttpClient() as client:
+            homepage = HomepageV3(client)
+            raw_response = await homepage.get_content()
         
         results = []
+        items = raw_response.get('items', [])
         
-        # Process operatingList (Main source for movies/banners)
-        if 'operatingList' in raw_data and raw_data['operatingList']:
-            for group in raw_data['operatingList']:
-                group_title = group.get('title')
-                if not group_title: continue
+        for group in items:
+            group_title = group.get('title')
+            if not group_title:
+                continue
                 
-                items_source = []
-                if 'subjects' in group and group['subjects']:
-                    items_source = group['subjects']
-                elif 'banner' in group and group.get('banner') and 'items' in group['banner']:
-                    items_source = group['banner']['items']
-                    if group_title == "Banner": group_title = "Featured"
+            # Process standard subjects and banners
+            items_source = []
+            
+            # 1. Subjects
+            if group.get('subjects'):
+                items_source.extend(group['subjects'])
                 
-                if not items_source: continue
+            # 2. Banners
+            if group.get('banner') and isinstance(group['banner'], dict) and group['banner'].get('banners'):
+                for banner in group['banner']['banners']:
+                    if banner.get('subject'):
+                        # Use the nested subject but fallback/override poster from banner
+                        sub = banner['subject'].copy()
+                        if 'image' in banner and banner['image']:
+                            sub['cover'] = banner['image']
+                        items_source.append(sub)
+                    else:
+                        items_source.append(banner)
+            
+            if not items_source:
+                continue
                 
-                group_results = []
-                for item in items_source:
-                    try:
-                        # Extract basic info
-                        sid = item.get('subjectId') or item.get('id')
-                        # For banners, id is often "0" but subjectId is valid
-                        if sid == "0" and 'subjectId' in item:
-                            sid = item['subjectId']
-                            
-                        # Extract poster
-                        poster_url = ""
-                        if 'cover' in item and isinstance(item['cover'], dict):
-                            poster_url = item['cover'].get('url', '')
-                        elif 'image' in item and isinstance(item['image'], dict):
-                            poster_url = item['image'].get('url', '')
-                            
-                        # Extract Title
-                        title = item.get('title', '')
-                        
-                        # Extract Year
-                        date_str = item.get('releaseDate', '')
-                        year = date_str[:4] if date_str else "N/A"
-                        
-                        # Extract Rating
-                        rating = str(item.get('imdbRatingValue', 'N/A'))
-                        
-                        if sid and title and sid != "0":
-                            # Store in search_cache for details fetching
-                            # Homepage items don't have all fields required by SearchResultsItem
-                            # So we cache them as dictionaries and handle them specially
-                            
-                            # Use the actual subjectType from API
-                            # 1=MOVIES, 2=TV_SERIES, 3=ANIME (likely), 6=MUSIC
-                            subject_type = item.get('subjectType', 1)  # Default to movie if missing
-                            
-                            # Determine content type
-                            # STRICTER ANIME CHECK: Only if explicitly type 3 or has "anime" in text
-                            # "Hindi" and "Urdu" checks were causing false positives for Indian movies.
-                            normalized_title = title.lower()
-                            is_anime = (subject_type == 3 or 
-                                       'anime' in normalized_title or
-                                       'myanimelist' in normalized_title)
-                            
-                            if is_anime:
-                                it_type = "anime"
-                            elif subject_type == 2:
-                                it_type = "series"
-                            else:
-                                it_type = "movie"
-
-                            
-                            # Cache as a simple dictionary - we'll do a fresh search if details are needed
-                            search_cache[str(sid)] = {
-                                "item": {
-                                    "id": str(sid),
-                                    "title": title,
-                                    "poster_url": poster_url,
-                                    "year": year,
-                                    "rating": rating,
-                                    "type": it_type,
-                                    "subjectType": subject_type,
-                                    "detailPath": item.get('detailPath'),
-                                    "source": "moviebox"
-                                },
-                                "search_instance": None,  # Will create on-demand
-                                "type": it_type,
-                                "is_homepage": True,
-                                "needs_search": True  # Flag to trigger fresh search in details endpoint
-                            }
-                            
-                            group_results.append({
-                                "id": str(sid),
-                                "title": title,
-                                "year": year,
-                                "type": it_type,
-                                "poster_url": poster_url,
-                                "rating": rating,
-                                "source": "moviebox"
-                            })
-                    except Exception as item_err:
-                        print(f"Skipping malformed homepage item: {item_err}")
+            if group_title == "Banner":
+                group_title = "Featured"
+                
+            group_results = []
+            for item in items_source:
+                try:
+                    # Extract basic info
+                    sid = item.get('subjectId') or item.get('subject_id') or item.get('id')
+                    if not sid or str(sid) == "0":
                         continue
                         
-                if group_results:
-                    results.append({
-                        "title": group_title,
-                        "items": group_results
-                    })
+                    # Extract poster
+                    poster_url = ""
+                    cover = item.get('cover') or item.get('image')
+                    if isinstance(cover, dict):
+                        poster_url = cover.get('url', '')
+                        
+                    # Extract Title
+                    title = item.get('title') or item.get('content') or ''
+                    if not title:
+                        continue
+                        
+                    # Extract Year
+                    date_str = item.get('releaseDate') or item.get('release_date') or ''
+                    year = str(date_str)[:4] if date_str else "N/A"
                     
-        print(f"Homepage fetch success. Returning {len(results)} groups.")
+                    # Extract Rating
+                    rating = str(item.get('imdbRatingValue') or item.get('imdbRate') or 'N/A')
+                    
+                    # Use subjectType (default to 1)
+                    subject_type_raw = item.get('subjectType') or item.get('subject_type', 1)
+                    subject_type_val = int(subject_type_raw.value) if hasattr(subject_type_raw, 'value') else int(subject_type_raw)
+                    
+                    # Determine type
+                    if subject_type_val in [3, 7]:
+                        it_type = "anime"
+                    elif subject_type_val == 2:
+                        it_type = "series"
+                    else:
+                        it_type = "movie"
+                        
+                    # Cache in memory
+                    search_cache[str(sid)] = {
+                        "item": {
+                            "id": str(sid),
+                            "title": title,
+                            "poster_url": poster_url,
+                            "year": year,
+                            "rating": rating,
+                            "type": it_type,
+                            "subjectType": subject_type_val,
+                            "detailPath": item.get('detailPath'),
+                            "source": "moviebox"
+                        },
+                        "search_instance": None,
+                        "type": it_type,
+                        "is_homepage": True,
+                        "needs_search": True
+                    }
+                    
+                    group_results.append({
+                        "id": str(sid),
+                        "title": title,
+                        "year": year,
+                        "type": it_type,
+                        "poster_url": poster_url,
+                        "rating": rating,
+                        "source": "moviebox"
+                    })
+                except Exception as item_err:
+                    print(f"Skipping malformed homepage item: {item_err}")
+                    continue
+                    
+            if group_results:
+                # Clean up any trailing / leading question marks in titles (V3 sometimes includes "?Cinema" etc)
+                clean_title = group_title.strip("? \t\r\n")
+                results.append({
+                    "title": clean_title,
+                    "items": group_results
+                })
+                
+        print(f"Homepage fetch success (V3). Returning {len(results)} groups.")
         return {"groups": results}
-
     except Exception as e:
         print(f"Error in /api/homepage: {e}")
         import traceback
