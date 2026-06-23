@@ -137,9 +137,26 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
 
         // Use new Direct Download for MovieBox
         if (item.source === 'moviebox') {
-            const filename = `${item.title}${item.type === 'series' ? ` S${selectedSeason?.season_number}E${selectedEpisode}` : ''}`.replace(/[/\\?%*:|"<>]/g, '-');
             const url = `${API_BASE}/api/moviebox/download?id=${item.id}&query=${encodeURIComponent(item.title)}&content_type=${item.type || 'movie'}${selectedSeason ? `&season=${selectedSeason.season_number}` : ''}${selectedEpisode ? `&episode=${selectedEpisode}` : ''}`;
-            window.location.href = url;
+            
+            fetch(`${url}&check_only=true`)
+                .then(res => {
+                    if (res.ok) {
+                        const iframe = document.createElement('iframe');
+                        iframe.style.display = 'none';
+                        iframe.src = url;
+                        document.body.appendChild(iframe);
+                        setTimeout(() => {
+                            document.body.removeChild(iframe);
+                        }, 5000);
+                    } else {
+                        alert("No downloadable streams available for this item.");
+                    }
+                })
+                .catch(err => {
+                    console.error("Download check failed", err);
+                    alert("No downloadable streams available for this item.");
+                });
             return;
         }
 

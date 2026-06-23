@@ -123,6 +123,78 @@ def ensure_v1_item(item):
         title=title
     )
 
+async def resolve_moviebox_media_file(target_item: Any, season: Optional[int] = None, episode: Optional[int] = None, quality: str = "BEST") -> Any:
+    """
+    Resolves the best quality media file using V3 APIs directly, bypassing buggy V1 classes.
+    """
+    from moviebox_api.v3.models.downloadables import RootDownloadableFilesDetailModel
+    from moviebox_api.v3.constants import CustomResolutionType
+    
+    # 1. Resolve subject_id
+    subject_id = None
+    if isinstance(target_item, dict):
+        subject_id = target_item.get('subject_id') or target_item.get('subjectId') or target_item.get('id')
+    else:
+        subject_id = getattr(target_item, 'subject_id', getattr(target_item, 'subjectId', getattr(target_item, 'id', None)))
+        
+    if not subject_id:
+        raise ValueError("Could not resolve subject_id for resource lookup")
+        
+    # Map quality to enum value
+    res_type = CustomResolutionType.BEST
+    if quality == "WORST":
+        res_type = CustomResolutionType.WORST
+    elif quality == "720P":
+        res_type = CustomResolutionType._720P
+    elif quality == "480P":
+        res_type = CustomResolutionType._480P
+    elif quality == "360P":
+        res_type = CustomResolutionType._360P
+        
+    res_val = CustomResolutionType.convert_to_default_resolution(res_type).value
+    
+    params = {
+        "subjectId": str(subject_id),
+        "resolution": str(res_val),
+        "page": "1",
+        "perPage": "20"
+    }
+    if season is not None:
+        params["se"] = str(season)
+    if episode is not None:
+        params["ep"] = str(episode)
+        
+    async with MovieBoxHttpClient() as client:
+        res = await client.get_from_api("/wefeed-mobile-bff/subject-api/resource", params=params)
+        
+    model = RootDownloadableFilesDetailModel.model_validate(res)
+    if not model.list:
+        raise ValueError("No downloadable files returned in list")
+        
+    # Filter files
+    files = model.list
+    if season is not None and episode is not None:
+        files = [f for f in files if f.season == int(season) and f.episode == int(episode)]
+        if not files:
+            raise ValueError(f"No downloadable files found for Season {season} Episode {episode}")
+            
+    # Sort files to find the desired one
+    if quality == "BEST":
+        files.sort(key=lambda x: x.resolution, reverse=True)
+        return files[0]
+    elif quality == "WORST":
+        files.sort(key=lambda x: x.resolution)
+        return files[0]
+    else:
+        # Try to find exact resolution match
+        target_res = int(quality.replace("P", ""))
+        exact_matches = [f for f in files if f.resolution == target_res]
+        if exact_matches:
+            return exact_matches[0]
+        # Fallback to best available
+        files.sort(key=lambda x: x.resolution, reverse=True)
+        return files[0]
+
 router = APIRouter()
 
 
@@ -409,11 +481,13 @@ async def determine_item_type(item: Any, content_type_filter: str = "all") -> st
     """
     item_type = "movie"  # Default
     
-    # 1. Check explicit subjectType from library model
-    if hasattr(item, 'subjectType'):
-        if item.subjectType == SubjectType.TV_SERIES:
+    # 1. Check explicit subjectType / subject_type from library model
+    subject_type_val = getattr(item, 'subject_type', getattr(item, 'subjectType', None))
+    if subject_type_val is not None:
+        # Check both enum class instances and raw integer comparisons
+        if subject_type_val == SubjectType.TV_SERIES or str(subject_type_val) == '2' or (hasattr(subject_type_val, 'value') and subject_type_val.value == 2):
             item_type = "series"
-        elif item.subjectType == SubjectType.MOVIES:
+        elif subject_type_val == SubjectType.MOVIES or str(subject_type_val) == '1' or (hasattr(subject_type_val, 'value') and subject_type_val.value == 1):
             item_type = "movie"
     
     # 2. Refine based on frontend content_type filter
@@ -546,26 +620,26 @@ async def search(query: str, page: int = 1, content_type: str = "all") -> dict:
                         "type": item_type
                     }
                 
-                # Improved Year Extraction
-                year = getattr(item, 'year', None)
-                if not year:
-                    year = getattr(item, 'release_date', None)
-                if not year:
-                    year = getattr(item, 'released', None)
-                if not year:
-                    year = getattr(item, 'premiered', None)
-                
-                # Format year if it's a full date string
-                if year and isinstance(year, str) and len(year) >= 4:
-                    year = year[:4]
+                    # Improved Year Extraction
+                    year = getattr(item, 'year', None)
+                    if not year:
+                        year = getattr(item, 'release_date', None)
+                    if not year:
+                        year = getattr(item, 'released', None)
+                    if not year:
+                        year = getattr(item, 'premiered', None)
+                    
+                    # Format year if it's a full date string
+                    if year and isinstance(year, str) and len(year) >= 4:
+                        year = year[:4]
 
-                items.append({
-                    "id": item_id,
-                    "title": getattr(item, 'title', 'Unknown'),
-                    "year": year,
-                    "poster_url": poster_url,
-                    "type": item_type
-                })
+                    items.append({
+                        "id": item_id,
+                        "title": getattr(item, 'title', 'Unknown'),
+                        "year": year,
+                        "poster_url": poster_url,
+                        "type": item_type
+                    })
         
         return {"results": items}
     except UnicodeDecodeError as e:
@@ -868,30 +942,54 @@ async def details(item_id: str) -> dict:
         imdb_rating_value = None
         
         # Try to get rating value from details_model first
-        if hasattr(details_model, 'imdbRatingValue'):
-            value = getattr(details_model, 'imdbRatingValue')
+        rating_attr = None
+        if hasattr(details_model, 'imdb_rating_value'):
+            rating_attr = 'imdb_rating_value'
+        elif hasattr(details_model, 'imdbRatingValue'):
+            rating_attr = 'imdbRatingValue'
+            
+        if rating_attr:
+            value = getattr(details_model, rating_attr)
             if value:
                 imdb_rating_value = float(value)
                 imdb_rating = f"{value}/10"
-                print(f"[DEBUG] Found rating in details_model.imdbRatingValue: {imdb_rating}")
+                print(f"[DEBUG] Found rating in details_model.{rating_attr}: {imdb_rating}")
         
         # Fallback: Try to get from resData
         if not imdb_rating_value and hasattr(details_model, 'resData'):
             resData = details_model.resData
-            if hasattr(resData, 'imdbRatingValue'):
-                value = getattr(resData, 'imdbRatingValue')
+            res_rating_attr = None
+            if hasattr(resData, 'imdb_rating_value'):
+                res_rating_attr = 'imdb_rating_value'
+            elif hasattr(resData, 'imdbRatingValue'):
+                res_rating_attr = 'imdbRatingValue'
+                
+            if res_rating_attr:
+                value = getattr(resData, res_rating_attr)
                 if value:
                     imdb_rating_value = float(value)
                     imdb_rating = f"{value}/10"
-                    print(f"[DEBUG] Found rating in resData.imdbRatingValue: {imdb_rating}")
+                    print(f"[DEBUG] Found rating in resData.{res_rating_attr}: {imdb_rating}")
         
         # Fallback: Try to get from the original search item
-        if not imdb_rating_value and hasattr(item, 'imdbRatingValue'):
-            value = getattr(item, 'imdbRatingValue')
-            if value:
-                imdb_rating_value = float(value)
-                imdb_rating = f"{value}/10"
-                print(f"[DEBUG] Found rating in item.imdbRatingValue: {imdb_rating}")
+        if not imdb_rating_value:
+            item_rating_attr = None
+            if hasattr(item, 'imdb_rating_value'):
+                item_rating_attr = 'imdb_rating_value'
+            elif hasattr(item, 'imdbRatingValue'):
+                item_rating_attr = 'imdbRatingValue'
+            elif isinstance(item, dict):
+                if 'imdb_rating_value' in item:
+                    item_rating_attr = 'imdb_rating_value'
+                elif 'imdbRatingValue' in item:
+                    item_rating_attr = 'imdbRatingValue'
+                    
+            if item_rating_attr:
+                value = item.get(item_rating_attr) if isinstance(item, dict) else getattr(item, item_rating_attr)
+                if value:
+                    imdb_rating_value = float(value)
+                    imdb_rating = f"{value}/10"
+                    print(f"[DEBUG] Found rating in item.{item_rating_attr}: {imdb_rating}")
         
         print(f"[DEBUG] Final rating: {imdb_rating}, rating_value: {imdb_rating_value}")
         
@@ -1088,18 +1186,7 @@ async def download_task(
         # 2. Get Files
         await manager.broadcast({"status": "resolving", "message": "Resolving files..."})
         
-        media_file = None
-        v1_item = ensure_v1_item(item)
-        if season is not None and episode is not None:
-             # TV Series
-             files_provider = DownloadableTVSeriesFilesDetail(session=session, item=v1_item)
-             files_metadata = await files_provider.get_content_model(season=season, episode=episode)
-             media_file = resolve_media_file_to_be_downloaded("BEST", files_metadata)
-        else:
-             # Movie
-             files_provider = DownloadableMovieFilesDetail(session=session, item=v1_item)
-             files_metadata = await files_provider.get_content_model()
-             media_file = resolve_media_file_to_be_downloaded("BEST", files_metadata)
+        media_file = await resolve_moviebox_media_file(item, season=season, episode=episode, quality="BEST")
         
         # 4. Download
         downloader = MediaFileDownloader()
@@ -1242,48 +1329,19 @@ async def stream(
                     raise e
 
             
-        # 4. Resolve Media File with encoding error handling
+        # 4. Resolve Media File with V3 APIs directly
         media_file = None
-        files_metadata = None
-        
-        # We only need to fetch files_metadata ONCE, not for every quality
         for res_attempt in range(max_retries + 1):
             try:
-                v1_item = ensure_v1_item(target_item)
-                if season is not None and episode is not None:
-                    # TV Series / Anime
-                    files_provider = DownloadableTVSeriesFilesDetail(session=session, item=v1_item)
-                    files_metadata = await files_provider.get_content_model(season=season, episode=episode)
-                else:
-                    # Movie
-                    files_provider = DownloadableMovieFilesDetail(session=session, item=v1_item)
-                    files_metadata = await files_provider.get_content_model()
-                
-                if files_metadata:
+                media_file = await resolve_moviebox_media_file(target_item, season=season, episode=episode, quality="BEST")
+                if media_file and media_file.url:
                     break
             except Exception as res_err:
                 if res_attempt < max_retries:
                     print(f"[STREAM] Metadata fetch attempt {res_attempt + 1} failed: {res_err}. Retrying...")
                     await asyncio.sleep(1)
                     continue
-                raise res_err
-
-        # Now try to find the best quality from the single files_metadata
-        quality_options = ["BEST", "WORST", "720P", "480P", "360P"]
-        
-        if files_metadata:
-            for quality in quality_options:
-                try:
-                    media_file = resolve_media_file_to_be_downloaded(quality, files_metadata)
-                    if media_file and media_file.url:
-                        print(f"[SUCCESS] Resolved media file with quality: {quality}")
-                        break
-                except UnicodeDecodeError as e:
-                    print(f"[ENCODING ERROR] Quality {quality} failed with encoding error: {e}")
-                    continue
-                except Exception as e:
-                    print(f"[ERROR] Quality {quality} failed: {e}")
-                    continue
+                raise HTTPException(status_code=404, detail="Playable stream URL not found")
              
         if not media_file or not media_file.url:
             raise HTTPException(status_code=404, detail="Playable stream URL not found")
@@ -1294,17 +1352,38 @@ async def stream(
             # This bypasses 403 Forbidden errors from streaming providers
             proxy_url = f"/api/proxy-stream?url={quote(str(media_file.url))}"
             
-            # Extract subtitles
+            # Extract subtitles using V3 details
             subtitles = []
-            if files_metadata and hasattr(files_metadata, 'captions'):
-                for caption in files_metadata.captions:
-                    # Proxy the subtitle URL to avoid CORS/Forbidden issues
-                    proxied_sub_url = f"/api/proxy-stream?url={quote(str(caption.url))}&source=moviebox"
-                    subtitles.append({
-                        "lang": caption.lanName,
-                        "language": caption.lan,
-                        "url": proxied_sub_url
-                    })
+            try:
+                subject_id = None
+                if isinstance(target_item, dict):
+                    subject_id = target_item.get('subject_id') or target_item.get('subjectId') or target_item.get('id')
+                else:
+                    subject_id = getattr(target_item, 'subject_id', getattr(target_item, 'subjectId', getattr(target_item, 'id', None)))
+                if subject_id:
+                    async with MovieBoxHttpClient() as client:
+                        details_provider = ItemDetailsV3(client_session=client, include_seasons=True)
+                        details_model = await details_provider.get_content_model(subject_id=str(subject_id))
+                        if hasattr(details_model, 'subtitles') and details_model.subtitles:
+                            # Note: V3 returns subtitles list. If details model has subtitles, let's map them
+                            # (usually V3 returns direct URLs in details model subtitles or play_info)
+                            pass
+                
+                # Fallback to media_file's ext_captions if present
+                if hasattr(media_file, 'ext_captions') and media_file.ext_captions:
+                    for caption in media_file.ext_captions:
+                        url = caption.get('url') if isinstance(caption, dict) else getattr(caption, 'url', None)
+                        lan = caption.get('lan') if isinstance(caption, dict) else getattr(caption, 'lan', None)
+                        lan_name = caption.get('lanName') if isinstance(caption, dict) else getattr(caption, 'lanName', None)
+                        if url:
+                            proxied_sub_url = f"/api/proxy-stream?url={quote(str(url))}&source=moviebox"
+                            subtitles.append({
+                                "lang": lan_name or lan or "Unknown",
+                                "language": lan or "en",
+                                "url": proxied_sub_url
+                            })
+            except Exception as sub_err:
+                print(f"[SUBTITLE ERROR] Failed to fetch subtitles: {sub_err}")
             
             return {
                 "status": "success", 
@@ -1369,6 +1448,8 @@ async def stream(
         subprocess.Popen(cmd)
         
         return {"status": "success", "message": "Streaming started locally"}
+    except HTTPException as e:
+        raise e
     except Exception as e:
         print(f"Streaming error: {e}")
         import traceback
@@ -1377,11 +1458,13 @@ async def stream(
 
 @router.get("/moviebox/download")
 async def moviebox_download(
+    request: Request,
     query: str, 
     id: Optional[str] = None, 
     content_type: str = "all", 
     season: Optional[int] = None, 
-    episode: Optional[int] = None
+    episode: Optional[int] = None,
+    check_only: bool = False
 ):
     """
     Direct video download for MovieBox items. 
@@ -1437,210 +1520,63 @@ async def moviebox_download(
         
         for quality in quality_options:
             try:
-                v1_item = ensure_v1_item(target_item)
-                if season is not None and episode is not None:
-                    files_provider = DownloadableTVSeriesFilesDetail(session=session, item=v1_item)
-                    files_metadata = await files_provider.get_content_model(season=season, episode=episode)
-                else:
-                    files_provider = DownloadableMovieFilesDetail(session=session, item=v1_item)
-                    files_metadata = await files_provider.get_content_model()
-                
-                media_file = resolve_media_file_to_be_downloaded(quality, files_metadata)
+                media_file = await resolve_moviebox_media_file(target_item, season=season, episode=episode, quality=quality)
                 if media_file and media_file.url:
                     break
-            except:
+            except Exception as e:
+                print(f"[DOWNLOAD RESOLUTION ERROR] Quality {quality} resolution attempt failed: {e}")
                 continue
                 
         if not media_file or not media_file.url:
             raise HTTPException(status_code=404, detail="Downloadable stream URL not found")
 
-        # 3. Proxy the download
+        if check_only:
+            return {"status": "available"}
+
+        # 3. Proxy the download directly using the same connection-pooling range-supporting logic as proxy-stream
+        import re
+        from starlette.background import BackgroundTask
+        
         filename = f"{getattr(target_item, 'title', 'video')}.mp4"
         if season is not None and episode is not None:
             filename = f"{getattr(target_item, 'title', 'video')} S{season}E{episode}.mp4"
-        
-        # Sanitize filename
-        filename = filename.replace("/", "_").replace("\\", "_")
-        
-        # We reuse get_source_headers to get correct credentials for the CDN
+        filename = re.sub(r'[/\\?%*:|"<>]', '-', filename)
+
+        # Cycle through headers until success
         candidates = get_source_headers(str(media_file.url), "moviebox")
-        headers = candidates[0]
-        
-        # We MUST NOT use 'async with' because StreamingResponse needs the client open!
-        client = httpx.AsyncClient(verify=False, follow_redirects=True, timeout=60.0)
-        req = client.build_request("GET", str(media_file.url), headers=headers)
-        resp = await client.send(req, stream=True, follow_redirects=True)
-        
-        if resp.status_code >= 400:
-            await resp.aclose()
-            await client.aclose()
-            raise HTTPException(status_code=resp.status_code, detail=f"CDN returned {resp.status_code}")
+        client_range = request.headers.get('range')
+        client = get_http_client()
 
-        res_headers = {
-            "Content-Disposition": f'attachment; filename="{filename}"',
-            "Content-Type": resp.headers.get("Content-Type", "video/mp4"),
-            "Access-Control-Allow-Origin": "*"
-        }
-        if "Content-Length" in resp.headers:
-            res_headers["Content-Length"] = resp.headers["Content-Length"]
-
-        from starlette.background import BackgroundTask
-        async def cleanup():
-            await resp.aclose()
-            await client.aclose()
-
-        return StreamingResponse(
-            resp.aiter_raw(),
-            status_code=resp.status_code,
-            headers=res_headers,
-            background=BackgroundTask(cleanup)
-        )
-
-    except Exception as e:
-        print(f"[DOWNLOAD ERROR] {e}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/proxy-stream")
-async def proxy_stream(request: Request, url: str, source: str = None):
-    """
-    Proxies a stream URL through the backend in a single pass.
-    Bypasses 403s and supports range requests via browser headers.
-    """
-    # Cycle through headers until success
-    candidates = get_source_headers(url, source)
-    
-    # Forward Range from browser
-    client_range = request.headers.get('range')
-    
-    # User Request: Fix Format Error (Client closing too early)
-    # We must NOT use 'async with' because StreamingResponse needs the client open!
-    client = httpx.AsyncClient(verify=False, follow_redirects=True)
-    
-    try:
         last_error = None
         for headers in candidates:
             if client_range:
                 headers['Range'] = client_range
 
             try:
-                # Check if this is an HLS request
-                is_m3u8 = url.split("?")[0].endswith(".m3u8")
-                
-                if is_m3u8:
-                    # For playlists, we download and REWRITE absolute URLs to proxy through US
-                    resp = await client.get(url, headers=headers, follow_redirects=True, timeout=15.0)
-                    if resp.status_code != 200:
-                        last_error = f"Source returned {resp.status_code}"
-                        continue
-                    
-                    content = resp.text
-                    base_url = str(resp.url).rsplit('/', 1)[0]
-                    lines = content.splitlines()
-                    new_lines = []
-                    
-                    proxy_base = f"{request.url.scheme}://{request.url.netloc}/api/proxy-stream"
-                    
-                    for line in lines:
-                        line = line.strip()
-                        if not line:
-                            new_lines.append(line)
-                            continue
-                        
-                        if line.startswith("#"):
-                            if "URI=" in line:
-                                import re
-                                def wrap_uri(match):
-                                    uri = match.group(2)
-                                    if not uri.startswith("http"):
-                                        uri = f"{base_url}/{uri}"
-                                    return f'{match.group(1)}="{proxy_base}?url={quote(uri)}&source={source or ""}"'
-                                line = re.sub(r'(URI)=["\']([^"\']+)["\']', wrap_uri, line)
-                            new_lines.append(line)
-                        else:
-                            target_url = line
-                            if not target_url.startswith("http"):
-                                target_url = f"{base_url}/{target_url}"
-                            proxied_url = f"{proxy_base}?url={quote(target_url)}&source={source or ''}"
-                            new_lines.append(proxied_url)
-                    
-                    rewritten_content = "\n".join(new_lines)
-                    
-                    # Close client since we are done
-                    await client.aclose()
-                    
-                    return Response(
-                        content=rewritten_content,
-                        media_type="application/vnd.apple.mpegurl",
-                        headers={
-                            "Access-Control-Allow-Origin": "*",
-                            "X-Proxy-Status": "Rewritten-M3U8"
-                        }
-                    )
-
-                # Not M3U8 -> Standard Proxy
-                is_srt = ".srt" in url.lower()
-                if is_srt:
-                    # Use regular GET for subtitles (more robust for CloudFront)
-                    resp = await client.get(url, headers=headers, follow_redirects=True, timeout=15.0)
-                else:
-                    req = client.build_request("GET", url, headers=headers)
-                    resp = await client.send(req, stream=True, follow_redirects=True)
+                req = client.build_request("GET", str(media_file.url), headers=headers)
+                resp = await client.send(req, stream=True, follow_redirects=True)
                 
                 if resp.status_code >= 400:
+                    print(f"[DOWNLOAD PROXY ERROR] {resp.status_code} for {str(media_file.url)[:50]}")
                     await resp.aclose()
                     last_error = f"Source returned {resp.status_code}"
                     continue
                 
                 # Success!
-                
-                # Intercept SRT for conversion to VTT (Browsers don't support SRT natively in tracks)
-                is_srt = ".srt" in url.lower() or "application/x-subrip" in resp.headers.get("Content-Type", "").lower()
-                
-                if is_srt:
-                    try:
-                        print(f"[SUBTITLE] Processing {url[:100]}")
-                        content = await resp.aread()
-                        try:
-                            text = content.decode('utf-8')
-                        except:
-                            text = content.decode('latin-1', errors='replace')
-                        
-                        vtt_text = srt_to_vtt(text)
-                        await resp.aclose()
-                        await client.aclose()
-                        
-                        print(f"[SUBTITLE] Successfully converted {url[:50]} to VTT")
-                        return Response(
-                            content=vtt_text,
-                            media_type="text/vtt",
-                            headers={
-                                "Access-Control-Allow-Origin": "*",
-                                "X-Proxy-Status": "Converted-SRT-to-VTT"
-                            }
-                        )
-                    except Exception as sub_e:
-                        print(f"[SUBTITLE ERROR] Conversion failed: {sub_e}")
-                        traceback.print_exc()
-                        # Fallback: if conversion fails, return raw if possible or raise
-                        raise HTTPException(status_code=500, detail=f"Subtitle conversion error: {str(sub_e)}")
-                
                 excluded_headers = ["content-encoding", "content-length", "transfer-encoding", "connection", "keep-alive", "content-disposition"]
                 res_headers = {k: v for k, v in resp.headers.items() if k.lower() not in excluded_headers}
                 res_headers.update({
                     "Access-Control-Allow-Origin": "*",
                     "Connection": "keep-alive",
-                    "X-Proxy-Status": "One-Shot"
+                    "Content-Disposition": f'attachment; filename="{filename}"',
+                    "Content-Type": "application/octet-stream",
+                    "X-Proxy-Status": "Direct-Download"
                 })
                 if "Content-Length" in resp.headers:
                     res_headers["Content-Length"] = resp.headers["Content-Length"]
 
-                from starlette.background import BackgroundTask
-                
                 async def cleanup():
                     await resp.aclose()
-                    await client.aclose()
 
                 return StreamingResponse(
                     resp.aiter_raw(),
@@ -1650,27 +1586,20 @@ async def proxy_stream(request: Request, url: str, source: str = None):
                 )
 
             except Exception as e:
-                print(f"[PROXY ATTEMPT FAILED] {e} for {url[:50]}")
+                print(f"[DOWNLOAD PROXY ATTEMPT FAILED] {e} for {str(media_file.url)[:50]}")
                 last_error = str(e)
                 continue
-                
-        # If we exit loop without returning
-        await client.aclose()
-        raise HTTPException(status_code=502, detail=f"Proxy failed: {last_error or 'Unknown error'}")
 
-    except HTTPException:
-        # Re-raise HTTPExceptions as-is to preserve status codes (avoid 500)
-        raise
+        raise HTTPException(status_code=502, detail=f"Proxy failed: {last_error}")
+
+
+    except HTTPException as e:
+        raise e
     except Exception as e:
-        # Fallback closure for actual crashes
-        if 'client' in locals():
-            try: await client.aclose()
-            except: pass
-        print(f"[PROXY FATAL] {e}")
+        print(f"[DOWNLOAD ERROR] {e}")
+        import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
-
-
 
 # --- Anilist & MegaPlay Section ---
 
@@ -1889,7 +1818,7 @@ window.addEventListener("message", function (event) {{
     )
     
 @router.get("/proxy-stream")
-async def proxy_stream(request: Request, url: str, source: str = None):
+async def proxy_stream(request: Request, url: str, source: str = None, download: bool = False, filename: str = "video.mp4"):
     """
     Proxies a stream URL through the backend in a single pass.
     Bypasses 403s and supports range requests via browser headers.
@@ -2038,6 +1967,9 @@ async def proxy_stream(request: Request, url: str, source: str = None):
                     "Connection": "keep-alive",
                     "X-Proxy-Status": "One-Shot"
                 })
+                if download:
+                    res_headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+                    res_headers["Content-Type"] = "application/octet-stream"
                 if "Content-Length" in resp.headers:
                     res_headers["Content-Length"] = resp.headers["Content-Length"]
 

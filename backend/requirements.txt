@@ -1,6 +1,7 @@
 fastapi
-uvicorn
+uvicorn[standard]
 moviebox-api
 pydantic
 requests
 httpx
+websockets
