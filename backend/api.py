@@ -1825,8 +1825,7 @@ async def iframe_proxy(url: str):
   id="player"
   src="{url}"
   allow="autoplay; fullscreen; picture-in-picture"
-  allowfullscreen
-  sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-storage-access-by-user-activation">
+  allowfullscreen>
 </iframe>
 
 <script>
