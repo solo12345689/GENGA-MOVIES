@@ -607,7 +607,8 @@ async def search(query: str, page: int = 1, content_type: str = "all") -> dict:
             items = []
             if hasattr(results_model, 'items'):
                 for item in results_model.items:
-                    item_id = str(uuid.uuid4())
+                    sub_id = str(getattr(item, 'subject_id', getattr(item, 'subjectId', getattr(item, 'id', ''))))
+                    item_id = f"moviebox_{sub_id}" if sub_id else str(uuid.uuid4())
                     
                     # Use async helper to determine type and poster
                     item_type = await determine_item_type(item, content_type)
@@ -892,7 +893,18 @@ async def details(item_id: str) -> dict:
     Retrieves detailed information (plot, rating, seasons) for a specific item.
     """
     if item_id not in search_cache:
-        raise HTTPException(status_code=404, detail="Item not found in cache. Please search again.")
+        if item_id.startswith("moviebox_") or (item_id.isdigit() and len(item_id) >= 18):
+            sub_id = item_id.replace("moviebox_", "")
+            search_cache[item_id] = {
+                "item": {
+                    "id": item_id,
+                    "subject_id": sub_id,
+                    "type": "movie"
+                },
+                "type": "movie"
+            }
+        else:
+            raise HTTPException(status_code=404, detail="Item not found in cache. Please search again.")
     
     cached = search_cache[item_id]
     item = cached["item"]
@@ -1254,6 +1266,19 @@ async def stream(
         search_instance = None
         max_retries = 2
         
+        if id and id not in search_cache:
+            if id.startswith("moviebox_") or (id.isdigit() and len(id) >= 18):
+                sub_id = id.replace("moviebox_", "")
+                search_cache[id] = {
+                    "item": {
+                        "id": id,
+                        "subject_id": sub_id,
+                        "title": query or "Video"
+                    },
+                    "type": content_type,
+                    "needs_search": True
+                }
+
         if id and id in search_cache:
             # Use cached item directly
             cached = search_cache[id]
@@ -1475,6 +1500,20 @@ async def moviebox_download(
         target_item = None
         search_instance = None
         
+        if id and id not in search_cache:
+            if id.startswith("moviebox_") or (id.isdigit() and len(id) >= 18):
+                sub_id = id.replace("moviebox_", "")
+                search_cache[id] = {
+                    "item": {
+                        "id": id,
+                        "subject_id": sub_id,
+                        "title": query or "Video"
+                    },
+                    "type": content_type,
+                    "search_instance": None,
+                    "needs_search": True
+                }
+
         if id and id in search_cache:
             cached = search_cache[id]
             target_item = cached["item"]
