@@ -1,8 +1,26 @@
+import enum
+import moviebox_api.v1.constants as const
+
+class PatchedSubjectType(enum.IntEnum):
+    ALL = 0
+    MOVIES = 1
+    TV_SERIES = 2
+    SHORT_VIDEO_3 = 3
+    SHORT_VIDEO_4 = 4
+    EDUCATION = 5
+    MUSIC = 6
+    ANIME = 7
+    SPORTS_8 = 8
+    UNKNOWN = 9
+
+const.SubjectType = PatchedSubjectType
+
 from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect, Response, Request, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Optional, Any
 from moviebox_api.v1 import Session, Search, SubjectType, MovieAuto, TVSeriesDetails, Homepage
+from moviebox_api.v3.core import Search as SearchV3, ItemDetails as ItemDetailsV3, MovieBoxHttpClient
 from moviebox_api.v1.download import (
     MediaFileDownloader, 
     DownloadableMovieFilesDetail, 
@@ -473,24 +491,25 @@ async def search(query: str, page: int = 1, content_type: str = "all") -> dict:
             # moviebox_api doesn't have ANIME type, so use TV_SERIES
             subject_type = SubjectType.TV_SERIES
             
-        search_instance = Search(session=session, query=query, page=page, subject_type=subject_type)
-        results_model = await search_instance.get_content_model()
-        
-        items = []
-        if hasattr(results_model, 'items'):
-            for item in results_model.items:
-                item_id = str(uuid.uuid4())
-                
-                # Use async helper to determine type and poster
-                item_type = await determine_item_type(item, content_type)
-                poster_url = await extract_item_poster(item)
-                
-                # Cache the results
-                search_cache[item_id] = {
-                    "item": item,
-                    "search_instance": search_instance,
-                    "type": item_type
-                }
+        async with MovieBoxHttpClient() as client:
+            search_instance = SearchV3(client_session=client, query=query, page=page, subject_type=subject_type)
+            results_model = await search_instance.get_content_model()
+            
+            items = []
+            if hasattr(results_model, 'items'):
+                for item in results_model.items:
+                    item_id = str(uuid.uuid4())
+                    
+                    # Use async helper to determine type and poster
+                    item_type = await determine_item_type(item, content_type)
+                    poster_url = await extract_item_poster(item)
+                    
+                    # Cache the results
+                    search_cache[item_id] = {
+                        "item": item,
+                        "search_instance": None,  # No longer need to cache the search instance since details uses ItemDetailsV3
+                        "type": item_type
+                    }
                 
                 # Improved Year Extraction
                 year = getattr(item, 'year', None)
@@ -599,9 +618,9 @@ async def warmup_session() -> None:
     """
     print("Warming up session...")
     try:
-        # MovieBox warmup
-        search_instance = Search(session=session, query="test")
-        await search_instance.get_content_model()
+        async with MovieBoxHttpClient() as client:
+            search_instance = SearchV3(client_session=client, query="test")
+            await search_instance.get_content_model()
         
         # Anilist warmup
         asyncio.create_task(AnilistService.warmup())
@@ -745,8 +764,9 @@ async def debug_search(query: str) -> dict:
     Debug endpoint to inspect the raw structure of a search result item.
     """
     try:
-        search_instance = Search(session=session, query=query)
-        results_model = await search_instance.get_content_model()
+        async with MovieBoxHttpClient() as client:
+            search_instance = SearchV3(client_session=client, query=query)
+            results_model = await search_instance.get_content_model()
         
         if hasattr(results_model, 'items') and results_model.items:
             item = results_model.items[0]
@@ -767,88 +787,44 @@ async def details(item_id: str) -> dict:
     
     cached = search_cache[item_id]
     item = cached["item"]
-    search_instance = cached["search_instance"]
     item_type = cached.get("type", "movie")
     
     try:
-        # If this is a homepage item, we can often bypass the fresh search
-        if cached.get("needs_search", False):
-            print(f"[FAST-PATH] Bypassing search for homepage item: {getattr(item, 'title', 'Unknown')}")
-            
-            # Construct a mock search item that moviebox_api can accept
-            class MockSearchItem(SearchResultsItem):
-                def __init__(self, fields_dict, sid, stype):
-                    # Use object.__setattr__ to bypass Pydantic's validation 
-                    # while still being an instance of SearchResultsItem
-                    object.__setattr__(self, 'id', sid)
-                    object.__setattr__(self, 'subjectId', sid)
-                    object.__setattr__(self, 'subjectType', stype)
-                    
-                    # detailPath is required for calculating page_url in moviebox_api.models
-                    detail_path = "movie" if stype == 1 else "tv"
-                    object.__setattr__(self, 'detailPath', detail_path)
-                    
-                    # Copy all other fields from original item
-                    for k, v in fields_dict.items():
-                        if not hasattr(self, k):
-                            object.__setattr__(self, k, v)
-            
-            # Use original subjectType if available, fallback to normalized logic
-            raw_stype = getattr(item, 'subjectType', None)
-            if raw_stype == 1: subject_type = SubjectType.MOVIES
-            elif raw_stype == 2: subject_type = SubjectType.TV_SERIES
-            elif raw_stype == 3: subject_type = SubjectType.ALL # Anime
+        subject_id = getattr(item, 'id', getattr(item, 'subjectId', None))
+        if not subject_id:
+            if isinstance(item, dict):
+                subject_id = item.get('id') or item.get('subjectId')
             else:
-                # Fallback based on item_type
-                if item_type == "anime": subject_type = SubjectType.ALL
-                elif item_type == "series": subject_type = SubjectType.TV_SERIES
-                else: subject_type = SubjectType.MOVIES
-            
-            # Use this mock item
-            item_fields = cached.get("item", {})
-            mock_detail_path = item_fields.get("detailPath")
-            item = MockSearchItem(item_fields, item_fields['id'], raw_stype or (1 if subject_type == SubjectType.MOVIES else 2))
-            # If we have a cached detailPath, set it explicitly to override the default "movie"/"tv" logic
-            if mock_detail_path:
-                object.__setattr__(item, 'detailPath', mock_detail_path)
-            
-            # We still need a search instance to call get_item_details
-            # An empty query search instance is fine for details fetching
-            from moviebox_api.v1 import Search
-            search_instance = Search(session=session, query='', subject_type=subject_type)
-            
-            # Update cache so we don't do this again if refreshed
-            search_cache[item_id]["item"] = item
-            search_cache[item_id]["search_instance"] = search_instance
-            search_cache[item_id]["needs_search"] = False
-            print(f"[FAST-PATH] Mock item constructed successfully for {item_id}")
+                subject_id = cached.get('item', {}).get('id')
 
-        
-        # Use the search instance to get details for this item
-        details_provider = search_instance.get_item_details(item)
-        
-        # PARALLELIZE: Fetch details and MAL ID at the same time
-        tasks = [details_provider.get_content_model()]
-        
-        # Only add MAL search if it's an anime
-        mal_task_idx = -1
-        if item_type == "anime":
-            title = getattr(item, 'title', '')
-            tasks.append(MALService.search_mal_id(title))
-            mal_task_idx = 1
+        async with MovieBoxHttpClient() as client:
+            details_provider = ItemDetailsV3(client_session=client, include_seasons=True)
             
-        results_parallel = await asyncio.gather(*tasks, return_exceptions=True)
-        
-        details_model = results_parallel[0]
-        if isinstance(details_model, Exception):
-            print(f"[RETRY] First details fetch failed: {details_model}. Retrying...")
-            details_model = await details_provider.get_content_model()
+            tasks = [details_provider.get_content_model(subject_id=str(subject_id))]
             
-        mal_id = None
-        if mal_task_idx != -1:
-            mal_res = results_parallel[mal_task_idx]
-            if not isinstance(mal_res, Exception):
-                mal_id = mal_res
+            # Only add MAL search if it's an anime
+            mal_task_idx = -1
+            if item_type == "anime":
+                title = getattr(item, 'title', '')
+                if not title and isinstance(item, dict):
+                    title = item.get('title', '')
+                tasks.append(MALService.search_mal_id(title))
+                mal_task_idx = 1
+                
+            results_parallel = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            details_model = results_parallel[0]
+            if isinstance(details_model, Exception):
+                print(f"[RETRY] First details fetch failed: {details_model}. Retrying...")
+                details_model = await details_provider.get_content_model(subject_id=str(subject_id))
+                
+            mal_id = None
+            if mal_task_idx != -1:
+                mal_res = results_parallel[mal_task_idx]
+                if not isinstance(mal_res, Exception):
+                    mal_id = mal_res
+            
+
         
         # Extract IMDB rating if available
         imdb_rating = None
@@ -1055,8 +1031,9 @@ async def download_task(
             await manager.broadcast({"status": "searching", "message": f"Searching for {query}..."})
             
             subject_type = SubjectType.TV_SERIES if season is not None else SubjectType.ALL
-            search_instance = Search(session=session, query=query, subject_type=subject_type)
-            results = await search_instance.get_content_model()
+            async with MovieBoxHttpClient() as client:
+                search_instance = SearchV3(client_session=client, query=query, subject_type=subject_type)
+                results = await search_instance.get_content_model()
             
             if not results.items:
                 await manager.broadcast({"status": "error", "message": "No results found"})
@@ -1166,8 +1143,9 @@ async def stream(
                     subject_type = SubjectType.TV_SERIES
                 else:
                     subject_type = SubjectType.MOVIES
-                search_instance = Search(session=session, query=target_item['title'], subject_type=subject_type)
-                results = await search_instance.get_content_model()
+                async with MovieBoxHttpClient() as client:
+                    search_instance = SearchV3(client_session=client, query=target_item['title'], subject_type=subject_type)
+                    results = await search_instance.get_content_model()
                 
                 if not results.items:
                     raise HTTPException(status_code=404, detail="Content not found via search")
@@ -1178,7 +1156,6 @@ async def stream(
                 for search_item in results.items:
                     if str(getattr(search_item, 'id', '')) == str(original_id) or str(getattr(search_item, 'subjectId', '')) == str(original_id):
                         matched_item = search_item
-
                         break
                 
                 # If no ID match, fall back to first result (but log warning)
@@ -1189,7 +1166,7 @@ async def stream(
                 
                 # Update cache with proper SearchResultsItem
                 search_cache[id]["item"] = target_item
-                search_cache[id]["search_instance"] = search_instance
+                search_cache[id]["search_instance"] = None
                 search_cache[id]["needs_search"] = False
 
         else:
@@ -1202,8 +1179,9 @@ async def stream(
 
             for attempt in range(max_retries + 1):
                 try:
-                    search_instance = Search(session=session, query=query, subject_type=subject_type)
-                    results = await search_instance.get_content_model()
+                    async with MovieBoxHttpClient() as client:
+                        search_instance = SearchV3(client_session=client, query=query, subject_type=subject_type)
+                        results = await search_instance.get_content_model()
                     
                     if not results.items:
                         if attempt < max_retries:
@@ -1384,8 +1362,9 @@ async def moviebox_download(
                     subject_type = SubjectType.TV_SERIES
                 else:
                     subject_type = SubjectType.MOVIES
-                search_instance = Search(session=session, query=target_item['title'], subject_type=subject_type)
-                results = await search_instance.get_content_model()
+                async with MovieBoxHttpClient() as client:
+                    search_instance = SearchV3(client_session=client, query=target_item['title'], subject_type=subject_type)
+                    results = await search_instance.get_content_model()
                 if results.items:
                     original_id = target_item['id']
                     matched_item = None
@@ -1395,7 +1374,7 @@ async def moviebox_download(
                             break
                     target_item = matched_item or results.items[0]
                     search_cache[id]["item"] = target_item
-                    search_cache[id]["search_instance"] = search_instance
+                    search_cache[id]["search_instance"] = None
                     search_cache[id]["needs_search"] = False
         else:
             subject_type = SubjectType.ALL
@@ -1403,8 +1382,9 @@ async def moviebox_download(
                 subject_type = SubjectType.MOVIES
             elif content_type.lower() in ["series", "anime"]:
                 subject_type = SubjectType.TV_SERIES
-            search_instance = Search(session=session, query=query, subject_type=subject_type)
-            results = await search_instance.get_content_model()
+            async with MovieBoxHttpClient() as client:
+                search_instance = SearchV3(client_session=client, query=query, subject_type=subject_type)
+                results = await search_instance.get_content_model()
             if not results.items:
                 raise HTTPException(status_code=404, detail="Content not found")
             target_item = results.items[0]
