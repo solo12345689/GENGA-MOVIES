@@ -142,7 +142,7 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
             fetch(`${url}&check_only=true`)
                 .then(res => {
                     if (res.ok) {
-                        window.location.href = url;
+                        window.open(url, '_blank');
                     } else {
                         alert("No downloadable streams available for this item.");
                     }
@@ -165,7 +165,7 @@ const DetailsModal = ({ item, onClose, onDownload, onStream, progress, serverMod
                 // Default to ZIP download
                 const filename = `${item.title} - ${selectedMangaCh.title}`.replace(/[/\\?%*:|"<>]/g, '-');
                 const url = `${API_BASE}/api/manga/download/${selectedMangaCh.id}?title=${encodeURIComponent(filename)}`;
-                window.location.href = url;
+                window.open(url, '_blank');
             } else {
                 alert('Please select a chapter');
             }
