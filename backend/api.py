@@ -833,7 +833,8 @@ async def get_homepage_content() -> dict:
                                     "rating": rating,
                                     "type": it_type,
                                     "subjectType": subject_type,
-                                    "detailPath": item.get('detailPath')
+                                    "detailPath": item.get('detailPath'),
+                                    "source": "moviebox"
                                 },
                                 "search_instance": None,  # Will create on-demand
                                 "type": it_type,
@@ -847,7 +848,8 @@ async def get_homepage_content() -> dict:
                                 "year": year,
                                 "type": it_type,
                                 "poster_url": poster_url,
-                                "rating": rating
+                                "rating": rating,
+                                "source": "moviebox"
                             })
                     except Exception as item_err:
                         print(f"Skipping malformed homepage item: {item_err}")
