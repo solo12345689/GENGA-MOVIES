@@ -19,7 +19,8 @@ from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconn
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Optional, Any
-from moviebox_api.v1 import Session, Search, SubjectType, MovieAuto, TVSeriesDetails, Homepage
+from moviebox_api.v1 import Session, Search, MovieAuto, TVSeriesDetails, Homepage
+SubjectType = PatchedSubjectType
 from moviebox_api.v3.core import Search as SearchV3, ItemDetails as ItemDetailsV3, MovieBoxHttpClient
 from moviebox_api.v1.download import (
     MediaFileDownloader, 
