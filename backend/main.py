@@ -1,4 +1,13 @@
 import sys
+import enum
+
+# Polyfill StrEnum for Python < 3.11 (since throttlebuster requires it)
+if not hasattr(enum, 'StrEnum'):
+    class StrEnum(str, enum.Enum):
+        def __str__(self):
+            return str(self.value)
+    enum.StrEnum = StrEnum
+
 import asyncio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
