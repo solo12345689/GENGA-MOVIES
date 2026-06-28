@@ -2062,16 +2062,33 @@ async def proxy_stream(request: Request, url: str, source: str = None, download:
         # If we exit loop without returning
         # No need to close the global client
 
-        raise HTTPException(status_code=502, detail=f"Proxy failed: {last_error}")
+        return Response(
+            content=json.dumps({"detail": f"Proxy failed: {last_error}"}),
+            status_code=502,
+            media_type="application/json",
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "*",
+                "Access-Control-Allow-Methods": "GET, OPTIONS",
+                "Cross-Origin-Resource-Policy": "cross-origin"
+            }
+        )
 
     except Exception as e:
-        # Fallback closure
-        # No need to close the global client
-
         print(f"[PROXY FATAL] {e}")
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
+        return Response(
+            content=json.dumps({"detail": str(e)}),
+            status_code=500,
+            media_type="application/json",
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "*",
+                "Access-Control-Allow-Methods": "GET, OPTIONS",
+                "Cross-Origin-Resource-Policy": "cross-origin"
+            }
+        )
 
 @router.get("/proxy/download")
 async def proxy_download(url: str, filename: str = "download.mp4"):
