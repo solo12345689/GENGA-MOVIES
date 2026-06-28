@@ -189,6 +189,8 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                         if (data.fatal) {
                             if (data.type === window.Hls.ErrorTypes.NETWORK_ERROR) {
                                 hls.startLoad();
+                            } else if (data.type === window.Hls.ErrorTypes.MEDIA_ERROR) {
+                                hls.recoverMediaError();
                             } else {
                                 hls.destroy();
                             }
@@ -482,8 +484,8 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                     onError={(e) => {
                         const error = videoRef.current?.error;
                         const msg = error?.message || error || '';
-                        // Silence transient demuxer parsing errors — common in live TV streams
-                        if (msg.includes('DEMUXER_ERROR_COULD_NOT_PARSE')) return;
+                        // Silence transient demuxer and format errors — common in live streams
+                        if (msg.includes('DEMUXER_ERROR') || msg.includes('MEDIA_ELEMENT_ERROR') || msg.includes('Format error') || msg.includes('PIPELINE_ERROR')) return;
                         console.error("[VideoPlayer] Video element error:", msg);
                     }}
                 >

@@ -157,5 +157,44 @@ class TVService:
         
         return None
 
+    async def parse_m3u_playlist(self, url: str):
+        """Fetches and parses an M3U playlist URL with memory caching for instant loads."""
+        cache_key = f"m3u_{url}"
+        if cache_key in self.cache:
+            return self.cache[cache_key]
+
+        try:
+            resp = await self.client.get(url, follow_redirects=True)
+            resp.raise_for_status()
+            text = resp.text
+
+            lines = text.splitlines()
+            channels = []
+            current = None
+            for idx, line in enumerate(lines):
+                line = line.strip()
+                if not line:
+                    continue
+                if line.startswith('#EXTINF:'):
+                    logo_match = re.search(r'tvg-logo="([^"]+)"', line, re.IGNORECASE)
+                    logo = logo_match.group(1) if logo_match else ''
+                    comma_idx = line.rfind(',')
+                    title = line[comma_idx + 1:].strip() if comma_idx != -1 else 'Channel'
+                    current = {"title": title, "poster_url": logo, "url": ""}
+                elif not line.startswith('#') and current:
+                    current["url"] = line
+                    current["id"] = f"m3u_{len(channels)}_{idx}"
+                    current["stream_type"] = "hls" if ".m3u8" in line else ("embed" if ("youtube" in line or "youtu.be" in line) else "hls")
+                    current["source"] = "tv"
+                    current["type"] = "channel"
+                    channels.append(current)
+                    current = None
+
+            self.cache[cache_key] = channels
+            return channels
+        except Exception as e:
+            print(f"[TVService] Error parsing M3U playlist {url}: {e}")
+            return []
+
     async def close(self):
         await self.client.aclose()

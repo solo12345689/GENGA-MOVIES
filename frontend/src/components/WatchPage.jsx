@@ -256,32 +256,23 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
 
                     if (isM3U && tvPlaylistChannels.length === 0) {
                         try {
-                            const res = await fetch(targetUrl, { signal: abortController.signal });
-                            const text = await res.text();
-                            
-                            // Parse M3U
-                            const lines = text.split(/\r?\n/);
-                            const parsedChannels = [];
-                            let current = null;
-                            for (let l of lines) {
-                                l = l.trim();
-                                if (!l) continue;
-                                if (l.startsWith('#EXTINF:')) {
-                                    const logoMatch = l.match(/tvg-logo="([^"]+)"/i);
-                                    const logo = logoMatch ? logoMatch[1] : '';
-                                    const commaIdx = l.lastIndexOf(',');
-                                    const title = commaIdx !== -1 ? l.substring(commaIdx + 1).trim() : 'Channel';
-                                    current = { title, poster_url: logo, url: '' };
-                                } else if (!l.startsWith('#') && current) {
-                                    current.url = l;
-                                    current.id = `m3u_${parsedChannels.length}_${Date.now()}`;
-                                    current.stream_type = l.includes('.m3u8') ? 'hls' : (l.includes('youtube') || l.includes('youtu.be') ? 'embed' : 'hls');
-                                    current.source = 'tv';
-                                    current.type = 'channel';
-                                    parsedChannels.push(current);
-                                    current = null;
+                            const cacheKey = `m3u_cache_${targetUrl}`;
+                            const cached = sessionStorage.getItem(cacheKey);
+                            let parsedChannels = [];
+                            if (cached) {
+                                try { parsedChannels = JSON.parse(cached); } catch (e) {}
+                            }
+
+                            if (!parsedChannels || parsedChannels.length === 0) {
+                                const parseUrl = `${API_BASE}/api/tv/parse-playlist?url=${encodeURIComponent(targetUrl)}`;
+                                const res = await fetch(parseUrl, { signal: abortController.signal });
+                                const data = await res.json();
+                                parsedChannels = data.results || [];
+                                if (parsedChannels.length > 0) {
+                                    sessionStorage.setItem(cacheKey, JSON.stringify(parsedChannels));
                                 }
                             }
+
                             if (parsedChannels.length > 0) {
                                 setTvPlaylistChannels(parsedChannels);
                                 setActiveTvChannel(parsedChannels[0]);

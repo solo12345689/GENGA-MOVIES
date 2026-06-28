@@ -669,6 +669,11 @@ async def get_tv_channels_by_country(code: str):
     channels = await tv_service.get_channels_by_country(code)
     return {"results": channels}
 
+@router.get("/tv/parse-playlist")
+async def parse_tv_playlist(url: str):
+    channels = await tv_service.parse_m3u_playlist(url)
+    return {"results": channels}
+
 @router.get("/tv/resolve-youtube/{yt_id}")
 async def resolve_youtube_hls(yt_id: str):
     """
