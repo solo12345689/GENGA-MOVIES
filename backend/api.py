@@ -1923,7 +1923,10 @@ async def proxy_stream(request: Request, url: str, source: str = None, download:
                     new_lines = []
                     
                     # Use the endpoint that this function is mounted on
-                    proxy_base = f"{request.url.scheme}://{request.url.netloc}/api/proxy-stream"
+                    scheme = request.headers.get("x-forwarded-proto", request.url.scheme)
+                    if "onrender.com" in str(request.url.netloc):
+                        scheme = "https"
+                    proxy_base = f"{scheme}://{request.url.netloc}/api/proxy-stream"
                     
                     for line in lines:
                         line = line.strip()
@@ -1986,7 +1989,10 @@ async def proxy_stream(request: Request, url: str, source: str = None, download:
                     base_url = str(resp.url).rsplit('/', 1)[0]
                     lines = text.splitlines()
                     new_lines = []
-                    proxy_base = f"{request.url.scheme}://{request.url.netloc}/api/proxy-stream"
+                    scheme = request.headers.get("x-forwarded-proto", request.url.scheme)
+                    if "onrender.com" in str(request.url.netloc):
+                        scheme = "https"
+                    proxy_base = f"{scheme}://{request.url.netloc}/api/proxy-stream"
                     
                     import re
                     for line in lines:
