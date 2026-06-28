@@ -138,13 +138,27 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
     const [isStreamOffline, setIsStreamOffline] = useState(false);
     const [subtitleSearch, setSubtitleSearch] = useState('');
     const [preferredLang, setPreferredLang] = useState(localStorage.getItem('preferred_subtitle_lang') || 'English');
+    const [qualityLevels, setQualityLevels] = useState([]);
+    const [currentQuality, setCurrentQuality] = useState(-1); // -1 = Auto
+    const [showQualityMenu, setShowQualityMenu] = useState(false);
+    const hlsRef = useRef(null);
 
     // FIX 1: Add a ref to track if the user is using touch (Mobile)
     const isTouch = useRef(false);
 
+    const handleQualityChange = (levelIndex) => {
+        setCurrentQuality(levelIndex);
+        if (hlsRef.current) {
+            hlsRef.current.currentLevel = levelIndex;
+        }
+        setShowQualityMenu(false);
+    };
+
     // Unified source loading effect
     useEffect(() => {
         setIsStreamOffline(false);
+        setQualityLevels([]);
+        setCurrentQuality(-1);
         const video = videoRef.current;
         if (!video || type === 'embed' || !url) return;
 
@@ -166,9 +180,19 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
         };
 
         const attachHlsEvents = (hlsInstance) => {
-            hlsInstance.on(window.Hls.Events.MANIFEST_PARSED, () => {
+            hlsRef.current = hlsInstance;
+            hlsInstance.on(window.Hls.Events.MANIFEST_PARSED, (event, data) => {
                 setIsStreamOffline(false);
                 safePlay();
+                if (data && data.levels && data.levels.length > 1) {
+                    const levels = data.levels.map((lvl, idx) => ({
+                        index: idx,
+                        label: lvl.height ? `${lvl.height}p` : `${Math.round((lvl.bitrate || 0) / 1000)}k`
+                    })).filter((lvl, idx, self) => self.findIndex(t => t.label === lvl.label) === idx);
+                    setQualityLevels(levels);
+                } else {
+                    setQualityLevels([]);
+                }
             });
             hlsInstance.on(window.Hls.Events.ERROR, (event, data) => {
                 if (data.fatal) {
@@ -849,6 +873,70 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                                                         })}
                                                 </div>
                                             )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Quality Selector */}
+                            {qualityLevels.length > 0 && (
+                                <div style={{ position: 'relative' }}>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); setShowQualityMenu(!showQualityMenu); setShowSubtitleMenu(false); }}
+                                        style={{
+                                            background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)',
+                                            color: '#fff', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600',
+                                            padding: '4px 10px', borderRadius: '6px',
+                                            display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s'
+                                        }}
+                                        title="Video Quality"
+                                    >
+                                        <span style={{ fontSize: '0.9rem' }}>⚙️</span>
+                                        <span>{currentQuality === -1 ? 'Auto' : (qualityLevels.find(q => q.index === currentQuality)?.label || 'HD')}</span>
+                                    </button>
+
+                                    {showQualityMenu && (
+                                        <div style={{
+                                            position: 'absolute', bottom: '150%', right: '0',
+                                            background: 'rgba(20, 20, 25, 0.95)',
+                                            backdropFilter: 'blur(12px)',
+                                            border: '1px solid rgba(255,255,255,0.15)',
+                                            borderRadius: '12px', padding: '8px',
+                                            minWidth: '130px', zIndex: 100,
+                                            boxShadow: '0 8px 32px rgba(0,0,0,0.5)'
+                                        }}>
+                                            <div style={{ padding: '6px 8px', borderBottom: '1px solid rgba(255,255,255,0.08)', marginBottom: '4px', fontSize: '0.75rem', opacity: 0.6, fontWeight: 'bold' }}>QUALITY</div>
+                                            <button
+                                                onClick={() => handleQualityChange(-1)}
+                                                style={{
+                                                    width: '100%', padding: '7px 10px', textAlign: 'left',
+                                                    background: currentQuality === -1 ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
+                                                    color: currentQuality === -1 ? '#818cf8' : 'white',
+                                                    border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem',
+                                                    fontWeight: currentQuality === -1 ? 'bold' : 'normal',
+                                                    display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                                                }}
+                                            >
+                                                <span>Auto</span>
+                                                {currentQuality === -1 && <span style={{ color: '#818cf8' }}>✓</span>}
+                                            </button>
+                                            {qualityLevels.map((lvl) => (
+                                                <button
+                                                    key={lvl.index}
+                                                    onClick={() => handleQualityChange(lvl.index)}
+                                                    style={{
+                                                        width: '100%', padding: '7px 10px', textAlign: 'left',
+                                                        background: currentQuality === lvl.index ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
+                                                        color: currentQuality === lvl.index ? '#818cf8' : 'white',
+                                                        border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem',
+                                                        fontWeight: currentQuality === lvl.index ? 'bold' : 'normal',
+                                                        display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                                                    }}
+                                                >
+                                                    <span>{lvl.label}</span>
+                                                    {currentQuality === lvl.index && <span style={{ color: '#818cf8' }}>✓</span>}
+                                                </button>
+                                            ))}
                                         </div>
                                     )}
                                 </div>
