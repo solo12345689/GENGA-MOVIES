@@ -221,6 +221,7 @@ def get_http_client() -> httpx.AsyncClient:
         _global_http_async_client = httpx.AsyncClient(
             timeout=httpx.Timeout(60.0, connect=10.0),
             follow_redirects=True,
+            verify=False,
             limits=httpx.Limits(max_connections=500, max_keepalive_connections=50),
             headers=DEFAULT_HEADERS
         )

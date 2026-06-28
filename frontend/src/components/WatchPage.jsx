@@ -242,6 +242,17 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
 
                     const isM3U = item.stream_type === 'm3u_playlist' || targetUrl.toLowerCase().endsWith('.m3u') || (targetUrl.toLowerCase().includes('.m3u') && !targetUrl.toLowerCase().includes('.m3u8'));
 
+                    const formatStreamUrl = (rawUrl, sType) => {
+                        if (!rawUrl || sType === 'embed' || rawUrl.includes('youtube.com') || rawUrl.includes('youtu.be')) return rawUrl;
+                        if (rawUrl.startsWith('http')) {
+                            const isInternal = API_BASE ? rawUrl.includes(API_BASE) : rawUrl.includes(window.location.origin);
+                            if (!isInternal) {
+                                return `${API_BASE}/api/proxy-stream?url=${encodeURIComponent(rawUrl)}`;
+                            }
+                        }
+                        return rawUrl;
+                    };
+
                     if (isM3U && tvPlaylistChannels.length === 0) {
                         try {
                             const res = await fetch(targetUrl, { signal: abortController.signal });
@@ -273,7 +284,7 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                             if (parsedChannels.length > 0) {
                                 setTvPlaylistChannels(parsedChannels);
                                 setActiveTvChannel(parsedChannels[0]);
-                                setStreamUrl(parsedChannels[0].url);
+                                setStreamUrl(formatStreamUrl(parsedChannels[0].url, parsedChannels[0].stream_type));
                                 setStreamType(parsedChannels[0].stream_type || 'hls');
                                 setLoadingStream(false);
                                 return;
@@ -283,8 +294,9 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                         }
                     }
 
-                    setStreamUrl(targetUrl);
-                    setStreamType((activeTvChannel && activeTvChannel.stream_type) || item.stream_type || 'hls');
+                    const stType = (activeTvChannel && activeTvChannel.stream_type) || item.stream_type || 'hls';
+                    setStreamUrl(formatStreamUrl(targetUrl, stType));
+                    setStreamType(stType);
                     setLoadingStream(false);
                     return;
                 }
@@ -393,7 +405,7 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                         </span>
                     </div>
                 </div>
-                {item.type !== 'movie' && (!isMobile || isSmartTV) && (
+                {item.type !== 'movie' && (!isTVChannel || item.stream_type === 'm3u_playlist' || tvPlaylistChannels.length > 1) && (!isMobile || isSmartTV) && (
                     <button
                         onClick={() => setShowEpisodes(!showEpisodes)}
                         style={{
@@ -456,7 +468,7 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                 </div>
 
                 {/* Episode List / Sidebar */}
-                {!isMovieContent && showEpisodes && (
+                {!isMovieContent && (!isTVChannel || item.stream_type === 'm3u_playlist' || tvPlaylistChannels.length > 1) && showEpisodes && (
                     <div style={{
                         width: isMobile ? '100%' : '320px',
                         flex: isMobile ? 1 : 'none',
@@ -531,8 +543,16 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                                             key={chan.id || idx}
                                             onClick={() => {
                                                 setActiveTvChannel(chan);
-                                                setStreamUrl(chan.url);
-                                                setStreamType(chan.stream_type || 'hls');
+                                                const sType = chan.stream_type || 'hls';
+                                                let finalUrl = chan.url;
+                                                if (finalUrl && sType !== 'embed' && !finalUrl.includes('youtube.com') && !finalUrl.includes('youtu.be') && finalUrl.startsWith('http')) {
+                                                    const isInternal = API_BASE ? finalUrl.includes(API_BASE) : finalUrl.includes(window.location.origin);
+                                                    if (!isInternal) {
+                                                        finalUrl = `${API_BASE}/api/proxy-stream?url=${encodeURIComponent(finalUrl)}`;
+                                                    }
+                                                }
+                                                setStreamUrl(finalUrl);
+                                                setStreamType(sType);
                                             }}
                                             title={chan.title || chan.name}
                                             style={{
