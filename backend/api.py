@@ -2146,6 +2146,8 @@ async def manga_save_local(chapter_id: str, manga_title: str, chapter_title: str
         raise HTTPException(status_code=500, detail=result["message"])
     return result
 
+TRANSPARENT_SVG = b'<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>'
+
 @router.get("/manga/image-proxy")
 async def manga_image_proxy(url: str, referer: str = "https://mangapill.com/"):
     """
@@ -2153,7 +2155,7 @@ async def manga_image_proxy(url: str, referer: str = "https://mangapill.com/"):
     Adds CORS and CORP headers to ensure browsers allow embedding.
     """
     if not url or url == "null":
-        return Response(content="Invalid URL", status_code=400)
+        return Response(content=TRANSPARENT_SVG, media_type="image/svg+xml")
         
     headers = {
         "Referer": referer,
@@ -2161,10 +2163,17 @@ async def manga_image_proxy(url: str, referer: str = "https://mangapill.com/"):
     }
     client = get_http_client()
     try:
-        resp = await client.get(url, headers=headers, follow_redirects=True, timeout=15.0)
+        resp = await client.get(url, headers=headers, follow_redirects=True, timeout=10.0)
         if resp.status_code != 200:
-            print(f"[IMAGE PROXY] Failed to fetch {url[:50]}... Status: {resp.status_code}")
-            return Response(content=f"Error {resp.status_code}", status_code=resp.status_code)
+            return Response(
+                content=TRANSPARENT_SVG,
+                media_type="image/svg+xml",
+                headers={
+                    "Cache-Control": "public, max-age=86400",
+                    "Access-Control-Allow-Origin": "*",
+                    "Cross-Origin-Resource-Policy": "cross-origin"
+                }
+            )
         
         return Response(
             content=resp.content,
@@ -2177,8 +2186,15 @@ async def manga_image_proxy(url: str, referer: str = "https://mangapill.com/"):
             }
         )
     except Exception as e:
-        print(f"[IMAGE PROXY FATAL] {e} for {url[:50]}")
-        return Response(content=str(e), status_code=500)
+        return Response(
+            content=TRANSPARENT_SVG,
+            media_type="image/svg+xml",
+            headers={
+                "Cache-Control": "public, max-age=3600",
+                "Access-Control-Allow-Origin": "*",
+                "Cross-Origin-Resource-Policy": "cross-origin"
+            }
+        )
 
 @router.get("/image-proxy")
 async def generic_image_proxy(url: str, referer: str = None):
