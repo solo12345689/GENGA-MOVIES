@@ -1977,7 +1977,8 @@ async def proxy_stream(request: Request, url: str, source: str = None, download:
                 
                 # Check if Content-Type indicates M3U8 even if extension didn't (Second Chance)
                 ct = resp.headers.get("Content-Type", "").lower()
-                if "mpegurl" in ct or "m3u8" in ct:
+                is_ts_file = url.split("?")[0].lower().endswith(".ts")
+                if not is_ts_file and ("mpegurl" in ct or "m3u8" in ct):
                     # It IS M3U8, but we started streaming it.
                     # We need to read it and rewrite.
                     content = await resp.read() # Read all
