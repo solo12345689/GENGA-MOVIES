@@ -112,7 +112,7 @@ const YouTubeIframePlayer = ({ url, source }) => {
     );
 };
 
-const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext, showNext, autoPlay = true, source = 'moviebox', useArtPlayer = false }) => {
+const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext, showNext, autoPlay = true, source = 'moviebox', useVideoJS = false }) => {
     const videoRef = useRef(null);
     const [isPlaying, setIsPlaying] = useState(autoPlay);
     const [isBuffering, setIsBuffering] = useState(true);
@@ -142,8 +142,8 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
     const [currentQuality, setCurrentQuality] = useState(-1);
     const [showQualityMenu, setShowQualityMenu] = useState(false);
     const hlsRef = useRef(null);
-    const artplayerRef = useRef(null);
-    const artplayerInstance = useRef(null);
+    const videojsRef = useRef(null);
+    const videojsPlayerInstance = useRef(null);
 
     // FIX 1: Add a ref to track if the user is using touch (Mobile)
     const isTouch = useRef(false);
@@ -161,7 +161,7 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
         setIsStreamOffline(false);
         setQualityLevels([]);
         setCurrentQuality(-1);
-        if (useArtPlayer) return;
+        if (useVideoJS) return;
         const video = videoRef.current;
         if (!video || type === 'embed' || !url) return;
 
@@ -283,81 +283,78 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
         return () => {
             if (hls) hls.destroy();
         };
-    }, [url, type, autoPlay, useArtPlayer]);
+    }, [url, type, autoPlay, useVideoJS]);
 
-    // Artplayer loading and initialization effect
+    // VideoJS loading and initialization effect
     useEffect(() => {
-        if (!useArtPlayer || !url) return;
-        let art = null;
+        if (!useVideoJS || !url) return;
 
-        const initArtPlayer = () => {
-            if (!artplayerRef.current || !window.Artplayer) return;
+        const initVideoJS = () => {
+            if (!videojsRef.current || !window.videojs) return;
 
-            // Destroy previous instance
-            if (artplayerInstance.current) {
-                try { artplayerInstance.current.destroy(); } catch (e) {}
+            // Destroy previous instance if any
+            if (videojsPlayerInstance.current) {
+                try { videojsPlayerInstance.current.dispose(); } catch (e) {}
+                videojsPlayerInstance.current = null;
             }
 
-            art = new window.Artplayer({
-                container: artplayerRef.current,
-                url: url,
-                type: type === 'hls' || url.includes('.m3u8') ? 'm3u8' : 'mp4',
-                customType: {
-                    m3u8: function (video, url) {
-                        if (window.Hls && window.Hls.isSupported()) {
-                            const hls = new window.Hls({
-                                enableWorker: true,
-                                lowLatencyMode: false,
-                                maxBufferLength: 30,
-                            });
-                            hls.loadSource(url);
-                            hls.attachMedia(video);
-                        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                            video.src = url;
-                        }
-                    }
-                },
-                fullscreen: true,
-                fullscreenWeb: true,
-                volume: 0.7,
-                isLive: source === 'tv',
-                autoPlay: true,
-                autoSize: true,
-                playbackRate: true,
-                aspectRatio: true,
-                setting: true,
-                pip: true,
-                miniProgressBar: true,
-                plugins: [],
-                subtitle: subtitles && subtitles.length > 0 ? {
-                    url: subtitles[0].url,
-                    type: 'vtt',
-                    style: {
-                        color: '#fff',
-                        fontSize: '20px',
-                    }
-                } : {}
+            // Create a video element dynamically inside container
+            const container = videojsRef.current;
+            container.innerHTML = '';
+            const videoEl = document.createElement('video');
+            videoEl.className = 'video-js vjs-default-skin vjs-big-play-centered';
+            videoEl.style.width = '100%';
+            videoEl.style.height = '100%';
+            videoEl.setAttribute('controls', 'true');
+            videoEl.setAttribute('playsinline', 'true');
+            videoEl.setAttribute('preload', 'auto');
+            container.appendChild(videoEl);
+
+            const player = window.videojs(videoEl, {
+                autoplay: true,
+                controls: true,
+                responsive: true,
+                fluid: false,
+                sources: [{
+                    src: url,
+                    type: type === 'hls' || url.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4'
+                }]
             });
 
-            artplayerInstance.current = art;
+            videojsPlayerInstance.current = player;
         };
 
-        if (window.Artplayer) {
-            initArtPlayer();
-        } else {
+        const loadVideoJS = () => {
+            if (window.videojs) {
+                initVideoJS();
+                return;
+            }
+
+            // Load CSS
+            if (!document.getElementById('videojs-css')) {
+                const link = document.createElement('link');
+                link.id = 'videojs-css';
+                link.rel = 'stylesheet';
+                link.href = "https://vjs.zencdn.net/8.10.0/video-js.css";
+                document.head.appendChild(link);
+            }
+
+            // Load Script
             const script = document.createElement('script');
-            script.src = "https://cdn.jsdelivr.net/npm/artplayer@5.3.0/dist/artplayer.js";
-            script.onload = initArtPlayer;
+            script.src = "https://vjs.zencdn.net/8.10.0/video.min.js";
+            script.onload = initVideoJS;
             document.head.appendChild(script);
-        }
+        };
+
+        loadVideoJS();
 
         return () => {
-            if (art) {
-                try { art.destroy(); } catch (e) {}
-                artplayerInstance.current = null;
+            if (videojsPlayerInstance.current) {
+                try { videojsPlayerInstance.current.dispose(); } catch (e) {}
+                videojsPlayerInstance.current = null;
             }
         };
-    }, [useArtPlayer, url, type, subtitles, source]);
+    }, [useVideoJS, url, type]);
 
     // Subtitle track control effect
     useEffect(() => {
@@ -584,8 +581,8 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                 fontFamily: 'monospace'
             }}
         >
-            {useArtPlayer ? (
-                <div ref={artplayerRef} style={{ width: '100%', height: '100%', position: 'absolute', inset: 0, zIndex: 1 }} />
+            {useVideoJS ? (
+                <div ref={videojsRef} style={{ width: '100%', height: '100%', position: 'absolute', inset: 0, zIndex: 1 }} />
             ) : type === 'embed' ? (
                 (url && (url.includes('youtube.com') || url.includes('youtu.be'))) ? (
                     <YouTubeIframePlayer url={url} source={source} />
@@ -630,7 +627,7 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
             )}
 
             {/* Offline Stream Overlay */}
-            {!useArtPlayer && isStreamOffline && type !== 'embed' && (
+            {!useVideoJS && isStreamOffline && type !== 'embed' && (
                 <div style={{
                     position: 'absolute', inset: 0,
                     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
@@ -661,7 +658,7 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
             )}
 
             {/* Buffering Indicator */}
-            {!useArtPlayer && isBuffering && type !== 'embed' && (
+            {!useVideoJS && isBuffering && type !== 'embed' && (
                 <div style={{
                     position: 'absolute', inset: 0,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -679,7 +676,7 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
             )}
 
             {/* Click to Play Overlay (if paused) */}
-            {!useArtPlayer && !isPlaying && !isBuffering && type !== 'embed' && currentTime > 0 && (
+            {!useVideoJS && !isPlaying && !isBuffering && type !== 'embed' && currentTime > 0 && (
                 <div
                     onClick={togglePlay}
                     style={{
@@ -700,7 +697,7 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
             )}
 
             {/* Top Bar (Hidden for embeds) */}
-            {!useArtPlayer && type !== 'embed' && (
+            {!useVideoJS && type !== 'embed' && (
                 <div style={{
                     position: 'absolute', top: 0, left: 0, right: 0,
                     padding: '1rem 2rem',
@@ -732,7 +729,7 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
             )}
 
             {/* Bottom Controls (Hidden for embeds) */}
-            {!useArtPlayer && type !== 'embed' && (
+            {!useVideoJS && type !== 'embed' && (
                 <div style={{
                     position: 'absolute', bottom: 0, left: 0, right: 0,
                     padding: '1.5rem 2rem',

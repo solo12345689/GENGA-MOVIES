@@ -42,23 +42,7 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
 
     const [isMobile, setIsMobile] = useState(!isSmartTV && window.innerWidth <= 1024);
     const [showEpisodes, setShowEpisodes] = useState(true);
-    const [useArtPlayer, setUseArtPlayer] = useState(false);
-
-    const handleOpenExternal = () => {
-        const rawUrl = (activeTvChannel && activeTvChannel.url) ? activeTvChannel.url : item.url;
-        if (!rawUrl) return;
-        const channelName = activeTvChannel?.title || activeTvChannel?.name || item.title || 'channel';
-        const m3uContent = `#EXTM3U\n#EXTINF:-1,${channelName}\n${rawUrl}`;
-        const blob = new Blob([m3uContent], { type: 'application/x-mpegurl' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `${channelName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.m3u`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-    };
+    const [useVideoJS, setUseVideoJS] = useState(false);
 
     useEffect(() => {
         const handleResize = () => setIsMobile(!isSmartTV && window.innerWidth <= 1024);
@@ -409,47 +393,24 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     {isTVChannel && (
-                        <>
-                            <button
-                                onClick={() => setUseArtPlayer(!useArtPlayer)}
-                                style={{
-                                    background: useArtPlayer ? 'rgba(99, 102, 241, 0.25)' : 'rgba(255, 255, 255, 0.05)',
-                                    border: '1px solid ' + (useArtPlayer ? '#6366f1' : 'rgba(255, 255, 255, 0.1)'),
-                                    color: 'white',
-                                    padding: '0.5rem 1rem',
-                                    borderRadius: '20px',
-                                    cursor: 'pointer',
-                                    fontSize: '0.9rem',
-                                    fontWeight: '600',
-                                    flexShrink: 0,
-                                    transition: 'all 0.2s'
-                                }}
-                                title="Switch to ArtPlayer (high performance HLS/TS player)"
-                            >
-                                🔄 {useArtPlayer ? 'Standard Player' : 'Use ArtPlayer'}
-                            </button>
-                            <button
-                                onClick={handleOpenExternal}
-                                style={{
-                                    background: 'rgba(239, 68, 68, 0.15)',
-                                    border: '1px solid rgba(239, 68, 68, 0.3)',
-                                    color: '#fca5a5',
-                                    padding: '0.5rem 1rem',
-                                    borderRadius: '20px',
-                                    cursor: 'pointer',
-                                    fontSize: '0.9rem',
-                                    fontWeight: '600',
-                                    flexShrink: 0,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '6px',
-                                    transition: 'all 0.2s'
-                                }}
-                                title="Open current channel in VLC/External Player"
-                            >
-                                <span>📺</span> Play in VLC / Player
-                            </button>
-                        </>
+                        <button
+                            onClick={() => setUseVideoJS(!useVideoJS)}
+                            style={{
+                                background: useVideoJS ? 'rgba(99, 102, 241, 0.25)' : 'rgba(255, 255, 255, 0.05)',
+                                border: '1px solid ' + (useVideoJS ? '#6366f1' : 'rgba(255, 255, 255, 0.1)'),
+                                color: 'white',
+                                padding: '0.5rem 1rem',
+                                borderRadius: '20px',
+                                cursor: 'pointer',
+                                fontSize: '0.9rem',
+                                fontWeight: '600',
+                                flexShrink: 0,
+                                transition: 'all 0.2s'
+                            }}
+                            title="Switch to Video.js player"
+                        >
+                            🔄 {useVideoJS ? 'Standard Player' : 'Use Video.js'}
+                        </button>
                     )}
                     {item.type !== 'movie' && (!isTVChannel || item.stream_type === 'm3u_playlist' || tvPlaylistChannels.length > 1) && (!isMobile || isSmartTV) && (
                         <button
@@ -510,7 +471,7 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                             autoPlay={true}
                             onNext={handleNextEpisode}
                             showNext={hasNext}
-                            useArtPlayer={useArtPlayer}
+                            useVideoJS={useVideoJS}
                         />
                     )}
                 </div>
