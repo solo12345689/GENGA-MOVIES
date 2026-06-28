@@ -16,6 +16,7 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
     const [animeEpisodes, setAnimeEpisodes] = useState([]); // For Anilist
     const [tvPlaylistChannels, setTvPlaylistChannels] = useState([]);
     const [activeTvChannel, setActiveTvChannel] = useState(item);
+    const [tvSearchQuery, setTvSearchQuery] = useState('');
     const [streamError, setStreamError] = useState(null);
     const [fullDetails, setFullDetails] = useState(item);
     const [loadingDetails, setLoadingDetails] = useState(false);
@@ -482,6 +483,11 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{isTVChannel ? 'Channels' : 'Episodes'}</h3>
                                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                    {isTVChannel && tvPlaylistChannels.length > 0 && (
+                                        <span style={{ fontSize: '0.75rem', color: '#888', background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: '10px' }}>
+                                            {tvSearchQuery ? `${tvPlaylistChannels.filter(c => (c.title || c.name || '').toLowerCase().includes(tvSearchQuery.toLowerCase())).length} / ${tvPlaylistChannels.length}` : `${tvPlaylistChannels.length} channels`}
+                                        </span>
+                                    )}
                                     {activeSource === 'anilist' && (
                                         <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '4px' }}>
                                             <button onClick={() => setAnimeLanguage('sub')} style={{ padding: '4px 8px', border: 'none', borderRadius: '4px', cursor: 'pointer', background: animeLanguage === 'sub' ? '#6366f1' : 'transparent', color: 'white', fontSize: '0.7rem' }}>SUB</button>
@@ -490,6 +496,27 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                                     )}
                                 </div>
                             </div>
+
+                            {isTVChannel && tvPlaylistChannels.length > 0 && (
+                                <input
+                                    type="text"
+                                    placeholder="🔍 Search channels..."
+                                    value={tvSearchQuery}
+                                    onChange={(e) => setTvSearchQuery(e.target.value)}
+                                    style={{
+                                        marginTop: '4px',
+                                        padding: '8px 12px',
+                                        borderRadius: '8px',
+                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        background: 'rgba(255,255,255,0.05)',
+                                        color: 'white',
+                                        fontSize: '0.85rem',
+                                        outline: 'none',
+                                        width: '100%',
+                                        boxSizing: 'border-box'
+                                    }}
+                                />
+                            )}
 
                             {/* Season Selector for MovieBox */}
                             {!isTVChannel && activeSource === 'moviebox' && seasonsData.length > 0 && (
@@ -535,8 +562,10 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
 
                         </div>
                         {isTVChannel ? (
-                            <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                {(tvPlaylistChannels.length > 0 ? tvPlaylistChannels : [item]).map((chan, idx) => {
+                            <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '8px', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'thin' }}>
+                                {(tvPlaylistChannels.length > 0 
+                                    ? (tvSearchQuery ? tvPlaylistChannels.filter(c => (c.title || c.name || '').toLowerCase().includes(tvSearchQuery.toLowerCase())) : tvPlaylistChannels) 
+                                    : [item]).map((chan, idx) => {
                                     const isActive = activeTvChannel && (activeTvChannel.url === chan.url || activeTvChannel.id === chan.id);
                                     return (
                                         <button
