@@ -399,26 +399,6 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                     </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    {isTVChannel && (
-                        <button
-                            onClick={() => setUseVideoJS(!useVideoJS)}
-                            style={{
-                                background: useVideoJS ? 'rgba(99, 102, 241, 0.25)' : 'rgba(255, 255, 255, 0.05)',
-                                border: '1px solid ' + (useVideoJS ? '#6366f1' : 'rgba(255, 255, 255, 0.1)'),
-                                color: 'white',
-                                padding: '0.5rem 1rem',
-                                borderRadius: '20px',
-                                cursor: 'pointer',
-                                fontSize: '0.9rem',
-                                fontWeight: '600',
-                                flexShrink: 0,
-                                transition: 'all 0.2s'
-                            }}
-                            title="Switch to Video.js player"
-                        >
-                            🔄 {useVideoJS ? 'Standard Player' : 'Use Video.js'}
-                        </button>
-                    )}
                     {item.type !== 'movie' && (!isTVChannel || item.stream_type === 'm3u_playlist' || tvPlaylistChannels.length > 1) && (!isMobile || isSmartTV) && (
                         <button
                             onClick={() => setShowEpisodes(!showEpisodes)}
@@ -478,7 +458,7 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                             autoPlay={true}
                             onNext={handleNextEpisode}
                             showNext={hasNext}
-                            useVideoJS={useVideoJS}
+                            useVideoJS={isTVChannel ? true : useVideoJS}
                         />
                     )}
                 </div>
