@@ -73,7 +73,7 @@ function App() {
 
     // Helper to determine target base URL for a given source
     const getTargetBase = (src = activeSource) => {
-        if (src === 'home') return 'http://localhost:8000';
+        if (src === 'home') return localServerURL;
         return (src === 'anilist' || src === 'manga' || src === 'music' || src === 'news' || src === 'tv' || src === 'radio')
             ? CLOUD_BASE
             : localServerURL;
