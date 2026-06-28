@@ -483,10 +483,9 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                     {...(source === 'moviebox' ? { crossOrigin: 'anonymous' } : {})}
                     onError={(e) => {
                         const error = videoRef.current?.error;
-                        const msg = error?.message || error || '';
-                        // Silence transient demuxer and format errors — common in live streams
-                        if (msg.includes('DEMUXER_ERROR') || msg.includes('MEDIA_ELEMENT_ERROR') || msg.includes('Format error') || msg.includes('PIPELINE_ERROR')) return;
-                        console.error("[VideoPlayer] Video element error:", msg);
+                        const msg = (error && typeof error.message === 'string') ? error.message : (typeof error === 'string' ? error : '');
+                        if (msg && (msg.includes('DEMUXER_ERROR') || msg.includes('MEDIA_ELEMENT_ERROR') || msg.includes('Format error') || msg.includes('PIPELINE_ERROR'))) return;
+                        if (msg) console.error("[VideoPlayer] Video element error:", msg);
                     }}
                 >
                     {subtitles.map((sub, idx) => (
