@@ -1884,12 +1884,28 @@ async def proxy_stream_options():
         }
     )
 
-@router.get("/proxy-stream")
-async def proxy_stream(request: Request, url: str, source: str = None, download: bool = False, filename: str = "video.mp4"):
+@router.api_route("/proxy-stream", methods=["GET", "OPTIONS"])
+async def proxy_stream(request: Request, url: str = None, source: str = None, download: bool = False, filename: str = "video.mp4"):
     """
     Proxies a stream URL through the backend in a single pass.
     Bypasses 403s and supports range requests via browser headers.
     """
+    if request.method == "OPTIONS":
+        origin = request.headers.get("Origin", "*")
+        return Response(
+            status_code=204,
+            headers={
+                "Access-Control-Allow-Origin": origin,
+                "Access-Control-Allow-Credentials": "true",
+                "Access-Control-Allow-Headers": "*",
+                "Access-Control-Allow-Methods": "GET, OPTIONS",
+                "Cross-Origin-Resource-Policy": "cross-origin",
+            }
+        )
+
+    if not url:
+        return Response("Missing url parameter", status_code=400)
+
     # Cycle through headers until success
     candidates = get_source_headers(url, source)
     
@@ -2019,11 +2035,13 @@ async def proxy_stream(request: Request, url: str, source: str = None, download:
                     # No need to close the global client
 
                     
+                    origin = request.headers.get("Origin", "*")
                     return Response(
                         content=rewritten_content,
                         media_type="application/vnd.apple.mpegurl",
                         headers={
-                            "Access-Control-Allow-Origin": "*",
+                            "Access-Control-Allow-Origin": origin,
+                            "Access-Control-Allow-Credentials": "true",
                             "Access-Control-Allow-Headers": "*",
                             "Access-Control-Allow-Methods": "GET, OPTIONS",
                             "Cross-Origin-Resource-Policy": "cross-origin",
@@ -2040,8 +2058,10 @@ async def proxy_stream(request: Request, url: str, source: str = None, download:
                 # Success!
                 excluded_headers = ["content-encoding", "content-length", "transfer-encoding", "connection", "keep-alive", "content-disposition", "cross-origin-resource-policy"]
                 res_headers = {k: v for k, v in resp.headers.items() if k.lower() not in excluded_headers}
+                origin = request.headers.get("Origin", "*")
                 res_headers.update({
-                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Origin": origin,
+                    "Access-Control-Allow-Credentials": "true",
                     "Access-Control-Allow-Headers": "*",
                     "Access-Control-Allow-Methods": "GET, OPTIONS",
                     "Cross-Origin-Resource-Policy": "cross-origin",
