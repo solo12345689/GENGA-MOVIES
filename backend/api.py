@@ -1902,18 +1902,16 @@ async def proxy_stream(request: Request, url: str, source: str = None, download:
     try:
         last_error = None
         for headers in candidates:
-            if client_range:
-                headers['Range'] = client_range
+            req_headers = headers.copy()
+            is_m3u8 = url.split("?")[0].lower().endswith(".m3u8")
+            if client_range and not is_m3u8:
+                req_headers['Range'] = client_range
 
             try:
-                # Check if this is an HLS request
-                # Combine robust checks: URL extension OR Content-Type (from previous check, but here we check URL first optimization)
-                is_m3u8 = url.split("?")[0].endswith(".m3u8")
-                
                 if is_m3u8:
                     # For playlists, we download and REWRITE absolute URLs to proxy through US
-                    resp = await client.get(url, headers=headers, follow_redirects=True, timeout=15.0)
-                    if resp.status_code != 200:
+                    resp = await client.get(url, headers=req_headers, follow_redirects=True, timeout=15.0)
+                    if resp.status_code not in [200, 206]:
                         last_error = f"Source returned {resp.status_code}"
                         continue
                     
@@ -1972,9 +1970,9 @@ async def proxy_stream(request: Request, url: str, source: str = None, download:
                 is_srt = ".srt" in url.lower()
                 if is_srt:
                     # Use regular GET for subtitles (worked in standalone test)
-                    resp = await client.get(url, headers=headers, follow_redirects=True, timeout=15.0)
+                    resp = await client.get(url, headers=req_headers, follow_redirects=True, timeout=15.0)
                 else:
-                    req = client.build_request("GET", url, headers=headers)
+                    req = client.build_request("GET", url, headers=req_headers)
                     resp = await client.send(req, stream=True, follow_redirects=True)
                 
                 # Check if Content-Type indicates M3U8 even if extension didn't (Second Chance)
