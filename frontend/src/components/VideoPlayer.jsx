@@ -228,13 +228,14 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                     hls = new window.Hls({
                         enableWorker: true,
                         startFragPrefetch: true,
-                        lowLatencyMode: true,
-                        liveSyncDuration: 1,
-                        liveMaxLatencyDuration: 3,
-                        maxBufferLength: 6,
-                        maxMaxBufferLength: 10,
-                        manifestLoadingRetryDelay: 500,
-                        levelLoadingRetryDelay: 500,
+                        lowLatencyMode: false,
+                        liveSyncDurationCount: 3,
+                        liveMaxLatencyDurationCount: 10,
+                        maxBufferLength: 30,
+                        maxMaxBufferLength: 60,
+                        manifestLoadingRetryDelay: 1000,
+                        levelLoadingRetryDelay: 1000,
+                        fragLoadingRetryDelay: 1000,
                     });
                     hls.loadSource(url);
                     hls.attachMedia(video);
@@ -248,9 +249,14 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                             hls = new Hls({
                                 enableWorker: true,
                                 startFragPrefetch: true,
-                                lowLatencyMode: true,
-                                liveSyncDuration: 1,
-                                maxBufferLength: 6
+                                lowLatencyMode: false,
+                                liveSyncDurationCount: 3,
+                                liveMaxLatencyDurationCount: 10,
+                                maxBufferLength: 30,
+                                maxMaxBufferLength: 60,
+                                manifestLoadingRetryDelay: 1000,
+                                levelLoadingRetryDelay: 1000,
+                                fragLoadingRetryDelay: 1000,
                             });
                             hls.loadSource(url);
                             hls.attachMedia(video);
