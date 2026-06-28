@@ -112,7 +112,7 @@ const YouTubeIframePlayer = ({ url, source }) => {
     );
 };
 
-const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext, showNext, autoPlay = true, source = 'moviebox' }) => {
+const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext, showNext, autoPlay = true, source = 'moviebox', useArtPlayer = false }) => {
     const videoRef = useRef(null);
     const [isPlaying, setIsPlaying] = useState(autoPlay);
     const [isBuffering, setIsBuffering] = useState(true);
@@ -130,18 +130,20 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
     const [subtitlesEnabled, setSubtitlesEnabled] = useState(() => {
         if (source === 'moviebox') {
             const saved = localStorage.getItem('moviebox_subtitles_enabled');
-            return saved !== 'false'; // Defaults to true if null/undefined, otherwise respects 'false'
+            return saved !== 'false';
         }
-        return true; // Default for other sources
+        return true;
     });
     const [selectedSubtitle, setSelectedSubtitle] = useState(0);
     const [isStreamOffline, setIsStreamOffline] = useState(false);
     const [subtitleSearch, setSubtitleSearch] = useState('');
     const [preferredLang, setPreferredLang] = useState(localStorage.getItem('preferred_subtitle_lang') || 'English');
     const [qualityLevels, setQualityLevels] = useState([]);
-    const [currentQuality, setCurrentQuality] = useState(-1); // -1 = Auto
+    const [currentQuality, setCurrentQuality] = useState(-1);
     const [showQualityMenu, setShowQualityMenu] = useState(false);
     const hlsRef = useRef(null);
+    const artplayerRef = useRef(null);
+    const artplayerInstance = useRef(null);
 
     // FIX 1: Add a ref to track if the user is using touch (Mobile)
     const isTouch = useRef(false);
@@ -159,6 +161,7 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
         setIsStreamOffline(false);
         setQualityLevels([]);
         setCurrentQuality(-1);
+        if (useArtPlayer) return;
         const video = videoRef.current;
         if (!video || type === 'embed' || !url) return;
 
@@ -280,7 +283,81 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
         return () => {
             if (hls) hls.destroy();
         };
-    }, [url, type, autoPlay]);
+    }, [url, type, autoPlay, useArtPlayer]);
+
+    // Artplayer loading and initialization effect
+    useEffect(() => {
+        if (!useArtPlayer || !url) return;
+        let art = null;
+
+        const initArtPlayer = () => {
+            if (!artplayerRef.current || !window.Artplayer) return;
+
+            // Destroy previous instance
+            if (artplayerInstance.current) {
+                try { artplayerInstance.current.destroy(); } catch (e) {}
+            }
+
+            art = new window.Artplayer({
+                container: artplayerRef.current,
+                url: url,
+                type: type === 'hls' || url.includes('.m3u8') ? 'm3u8' : 'mp4',
+                customType: {
+                    m3u8: function (video, url) {
+                        if (window.Hls && window.Hls.isSupported()) {
+                            const hls = new window.Hls({
+                                enableWorker: true,
+                                lowLatencyMode: false,
+                                maxBufferLength: 30,
+                            });
+                            hls.loadSource(url);
+                            hls.attachMedia(video);
+                        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                            video.src = url;
+                        }
+                    }
+                },
+                fullscreen: true,
+                fullscreenWeb: true,
+                volume: 0.7,
+                isLive: source === 'tv',
+                autoPlay: true,
+                autoSize: true,
+                playbackRate: true,
+                aspectRatio: true,
+                setting: true,
+                pip: true,
+                miniProgressBar: true,
+                plugins: [],
+                subtitle: subtitles && subtitles.length > 0 ? {
+                    url: subtitles[0].url,
+                    type: 'vtt',
+                    style: {
+                        color: '#fff',
+                        fontSize: '20px',
+                    }
+                } : {}
+            });
+
+            artplayerInstance.current = art;
+        };
+
+        if (window.Artplayer) {
+            initArtPlayer();
+        } else {
+            const script = document.createElement('script');
+            script.src = "https://cdn.jsdelivr.net/npm/artplayer@5.3.0/dist/artplayer.js";
+            script.onload = initArtPlayer;
+            document.head.appendChild(script);
+        }
+
+        return () => {
+            if (art) {
+                try { art.destroy(); } catch (e) {}
+                artplayerInstance.current = null;
+            }
+        };
+    }, [useArtPlayer, url, type, subtitles, source]);
 
     // Subtitle track control effect
     useEffect(() => {
@@ -507,7 +584,9 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                 fontFamily: 'monospace'
             }}
         >
-            {type === 'embed' ? (
+            {useArtPlayer ? (
+                <div ref={artplayerRef} style={{ width: '100%', height: '100%', position: 'absolute', inset: 0, zIndex: 1 }} />
+            ) : type === 'embed' ? (
                 (url && (url.includes('youtube.com') || url.includes('youtu.be'))) ? (
                     <YouTubeIframePlayer url={url} source={source} />
                 ) : (
@@ -551,7 +630,7 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
             )}
 
             {/* Offline Stream Overlay */}
-            {isStreamOffline && type !== 'embed' && (
+            {!useArtPlayer && isStreamOffline && type !== 'embed' && (
                 <div style={{
                     position: 'absolute', inset: 0,
                     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
@@ -582,7 +661,7 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
             )}
 
             {/* Buffering Indicator */}
-            {isBuffering && type !== 'embed' && (
+            {!useArtPlayer && isBuffering && type !== 'embed' && (
                 <div style={{
                     position: 'absolute', inset: 0,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -600,7 +679,7 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
             )}
 
             {/* Click to Play Overlay (if paused) */}
-            {!isPlaying && !isBuffering && type !== 'embed' && currentTime > 0 && (
+            {!useArtPlayer && !isPlaying && !isBuffering && type !== 'embed' && currentTime > 0 && (
                 <div
                     onClick={togglePlay}
                     style={{
@@ -621,7 +700,7 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
             )}
 
             {/* Top Bar (Hidden for embeds) */}
-            {type !== 'embed' && (
+            {!useArtPlayer && type !== 'embed' && (
                 <div style={{
                     position: 'absolute', top: 0, left: 0, right: 0,
                     padding: '1rem 2rem',
@@ -653,7 +732,7 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
             )}
 
             {/* Bottom Controls (Hidden for embeds) */}
-            {type !== 'embed' && (
+            {!useArtPlayer && type !== 'embed' && (
                 <div style={{
                     position: 'absolute', bottom: 0, left: 0, right: 0,
                     padding: '1.5rem 2rem',
