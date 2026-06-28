@@ -1949,6 +1949,7 @@ async def proxy_stream(request: Request, url: str, source: str = None, download:
                         media_type="application/vnd.apple.mpegurl",
                         headers={
                             "Cross-Origin-Resource-Policy": "cross-origin",
+                            "Cache-Control": "no-cache, no-store, must-revalidate",
                             "X-Proxy-Status": "Rewritten-M3U8"
                         }
                     )
@@ -2006,15 +2007,12 @@ async def proxy_stream(request: Request, url: str, source: str = None, download:
                     # No need to close the global client
 
                     
-                    origin = request.headers.get("Origin", "*")
-                    return Response(
-                        content=rewritten_content,
-                        media_type="application/vnd.apple.mpegurl",
                     return Response(
                         content=rewritten_content,
                         media_type="application/vnd.apple.mpegurl",
                         headers={
                             "Cross-Origin-Resource-Policy": "cross-origin",
+                            "Cache-Control": "no-cache, no-store, must-revalidate",
                             "X-Proxy-Status": "Rewritten-M3U8-CT"
                         }
                     )
@@ -2032,12 +2030,14 @@ async def proxy_stream(request: Request, url: str, source: str = None, download:
                     "cross-origin-resource-policy",
                     "access-control-allow-origin", "access-control-allow-credentials",
                     "access-control-allow-headers", "access-control-allow-methods",
-                    "access-control-expose-headers"
+                    "access-control-expose-headers",
+                    "cache-control", "etag", "expires", "last-modified"
                 ]
                 res_headers = {k: v for k, v in resp.headers.items() if k.lower() not in excluded_headers}
                 res_headers.update({
                     "Cross-Origin-Resource-Policy": "cross-origin",
                     "Connection": "keep-alive",
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
                     "X-Proxy-Status": "One-Shot"
                 })
                 if download:
