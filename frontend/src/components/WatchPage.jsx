@@ -43,6 +43,22 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
     const [isMobile, setIsMobile] = useState(!isSmartTV && window.innerWidth <= 1024);
     const [showEpisodes, setShowEpisodes] = useState(true);
 
+    const handleOpenExternal = () => {
+        const rawUrl = (activeTvChannel && activeTvChannel.url) ? activeTvChannel.url : item.url;
+        if (!rawUrl) return;
+        const channelName = activeTvChannel?.title || activeTvChannel?.name || item.title || 'channel';
+        const m3uContent = `#EXTM3U\n#EXTINF:-1,${channelName}\n${rawUrl}`;
+        const blob = new Blob([m3uContent], { type: 'application/x-mpegurl' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${channelName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.m3u`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
     useEffect(() => {
         const handleResize = () => setIsMobile(!isSmartTV && window.innerWidth <= 1024);
         window.addEventListener('resize', handleResize);
@@ -244,12 +260,6 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                     const isM3U = item.stream_type === 'm3u_playlist' || targetUrl.toLowerCase().endsWith('.m3u') || (targetUrl.toLowerCase().includes('.m3u') && !targetUrl.toLowerCase().includes('.m3u8'));
 
                     const formatStreamUrl = (rawUrl, sType) => {
-                        if (!rawUrl) return '';
-                        if (sType === 'embed' || rawUrl.includes('youtube.com') || rawUrl.includes('youtu.be')) return rawUrl;
-                        const isInternal = API_BASE ? rawUrl.includes(API_BASE) : rawUrl.includes(window.location.origin);
-                        if (!isInternal && (rawUrl.startsWith('http://') || rawUrl.startsWith('https://'))) {
-                            return `${API_BASE}/api/proxy-stream?url=${encodeURIComponent(rawUrl)}&source=tv`;
-                        }
                         return rawUrl;
                     };
 
@@ -396,26 +406,51 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                         </span>
                     </div>
                 </div>
-                {item.type !== 'movie' && (!isTVChannel || item.stream_type === 'm3u_playlist' || tvPlaylistChannels.length > 1) && (!isMobile || isSmartTV) && (
-                    <button
-                        onClick={() => setShowEpisodes(!showEpisodes)}
-                        style={{
-                            background: 'rgba(255,255,255,0.1)',
-                            border: 'none',
-                            color: 'white',
-                            padding: '0.5rem 1rem',
-                            borderRadius: '20px',
-                            cursor: 'pointer',
-                            fontSize: '0.9rem',
-                            fontWeight: '500',
-                            flexShrink: 0
-                        }}
-                    >
-                        {isTVChannel 
-                            ? (showEpisodes ? 'Hide Channels' : 'Show Channels')
-                            : (showEpisodes ? 'Hide Episodes' : 'Show Episodes')}
-                    </button>
-                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    {isTVChannel && (
+                        <button
+                            onClick={handleOpenExternal}
+                            style={{
+                                background: 'rgba(239, 68, 68, 0.15)',
+                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                color: '#fca5a5',
+                                padding: '0.5rem 1rem',
+                                borderRadius: '20px',
+                                cursor: 'pointer',
+                                fontSize: '0.9rem',
+                                fontWeight: '600',
+                                flexShrink: 0,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                transition: 'all 0.2s'
+                            }}
+                            title="Open current channel in VLC/External Player"
+                        >
+                            <span>📺</span> Play in VLC / Player
+                        </button>
+                    )}
+                    {item.type !== 'movie' && (!isTVChannel || item.stream_type === 'm3u_playlist' || tvPlaylistChannels.length > 1) && (!isMobile || isSmartTV) && (
+                        <button
+                            onClick={() => setShowEpisodes(!showEpisodes)}
+                            style={{
+                                background: 'rgba(255,255,255,0.1)',
+                                border: 'none',
+                                color: 'white',
+                                padding: '0.5rem 1rem',
+                                borderRadius: '20px',
+                                cursor: 'pointer',
+                                fontSize: '0.9rem',
+                                fontWeight: '500',
+                                flexShrink: 0
+                            }}
+                        >
+                            {isTVChannel 
+                                ? (showEpisodes ? 'Hide Channels' : 'Show Channels')
+                                : (showEpisodes ? 'Hide Episodes' : 'Show Episodes')}
+                        </button>
+                    )}
+                </div>
             </div>
 
             <div style={{ flex: 1, display: 'flex', flexDirection: isMobile ? 'column' : 'row', overflow: 'hidden' }}>
@@ -563,13 +598,7 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                                             onClick={() => {
                                                 setActiveTvChannel(chan);
                                                 const sType = chan.stream_type || 'hls';
-                                                let finalUrl = chan.url;
-                                                if (finalUrl && sType !== 'embed' && !finalUrl.includes('youtube.com') && !finalUrl.includes('youtu.be') && finalUrl.startsWith('http')) {
-                                                    const isInternal = API_BASE ? finalUrl.includes(API_BASE) : finalUrl.includes(window.location.origin);
-                                                    if (!isInternal) {
-                                                        finalUrl = `${API_BASE}/api/proxy-stream?url=${encodeURIComponent(finalUrl)}`;
-                                                    }
-                                                }
+                                                const finalUrl = chan.url;
                                                 setStreamUrl(finalUrl);
                                                 setStreamType(sType);
                                             }}
