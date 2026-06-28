@@ -227,7 +227,8 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                 } else if (window.Hls && window.Hls.isSupported()) {
                     hls = new window.Hls({
                         enableWorker: true,
-                        startFragPrefetch: true,
+                        startFragPrefetch: false,
+                        progressive: false,
                         lowLatencyMode: false,
                         maxBufferLength: 30,
                         maxMaxBufferLength: 60,
@@ -247,7 +248,8 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                         if (Hls.isSupported()) {
                             hls = new Hls({
                                 enableWorker: true,
-                                startFragPrefetch: true,
+                                startFragPrefetch: false,
+                                progressive: false,
                                 lowLatencyMode: false,
                                 maxBufferLength: 30,
                                 maxMaxBufferLength: 60,
