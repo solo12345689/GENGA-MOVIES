@@ -163,7 +163,8 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
         };
 
         const setupSource = () => {
-            if (url.includes('.m3u8')) {
+            const isHls = type === 'hls' || url.includes('.m3u8') || url.includes('proxy-stream');
+            if (isHls) {
                 if (video.canPlayType('application/vnd.apple.mpegurl')) {
                     // Safari native HLS
                     video.src = url;
