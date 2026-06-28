@@ -1872,17 +1872,6 @@ window.addEventListener("message", function (event) {{
         }
     )
     
-@router.options("/proxy-stream")
-async def proxy_stream_options():
-    return Response(
-        status_code=200,
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, OPTIONS",
-            "Access-Control-Allow-Headers": "*",
-            "Cross-Origin-Resource-Policy": "cross-origin"
-        }
-    )
 
 @router.get("/proxy-stream")
 async def proxy_stream(request: Request, url: str, source: str = None, download: bool = False, filename: str = "video.mp4"):
@@ -1959,9 +1948,6 @@ async def proxy_stream(request: Request, url: str, source: str = None, download:
                         content=rewritten_content,
                         media_type="application/vnd.apple.mpegurl",
                         headers={
-                            "Access-Control-Allow-Origin": "*",
-                            "Access-Control-Allow-Headers": "*",
-                            "Access-Control-Allow-Methods": "GET, OPTIONS",
                             "Cross-Origin-Resource-Policy": "cross-origin",
                             "X-Proxy-Status": "Rewritten-M3U8"
                         }
@@ -2090,9 +2076,6 @@ async def proxy_stream(request: Request, url: str, source: str = None, download:
             status_code=502,
             media_type="application/json",
             headers={
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Headers": "*",
-                "Access-Control-Allow-Methods": "GET, OPTIONS",
                 "Cross-Origin-Resource-Policy": "cross-origin"
             }
         )
@@ -2106,9 +2089,6 @@ async def proxy_stream(request: Request, url: str, source: str = None, download:
             status_code=500,
             media_type="application/json",
             headers={
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Headers": "*",
-                "Access-Control-Allow-Methods": "GET, OPTIONS",
                 "Cross-Origin-Resource-Policy": "cross-origin"
             }
         )
