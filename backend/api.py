@@ -2040,7 +2040,14 @@ async def proxy_stream(request: Request, url: str, source: str = None, download:
                     continue
                 
                 # Success!
-                excluded_headers = ["content-encoding", "content-length", "transfer-encoding", "connection", "keep-alive", "content-disposition", "cross-origin-resource-policy"]
+                excluded_headers = [
+                    "content-encoding", "content-length", "transfer-encoding", 
+                    "connection", "keep-alive", "content-disposition", 
+                    "cross-origin-resource-policy",
+                    "access-control-allow-origin", "access-control-allow-credentials",
+                    "access-control-allow-headers", "access-control-allow-methods",
+                    "access-control-expose-headers"
+                ]
                 res_headers = {k: v for k, v in resp.headers.items() if k.lower() not in excluded_headers}
                 res_headers.update({
                     "Cross-Origin-Resource-Policy": "cross-origin",
