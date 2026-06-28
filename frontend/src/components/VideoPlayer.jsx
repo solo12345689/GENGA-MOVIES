@@ -342,7 +342,7 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                 fluid: false,
                 sources: [{
                     src: activeUrl,
-                    type: type === 'hls' || activeUrl.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4'
+                    type: type === 'hls' || source === 'tv' || activeUrl.includes('.m3u8') || activeUrl.includes('proxy-stream') ? 'application/x-mpegURL' : 'video/mp4'
                 }]
             });
 
