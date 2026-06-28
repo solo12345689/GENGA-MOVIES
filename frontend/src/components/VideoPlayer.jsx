@@ -135,6 +135,7 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
         return true; // Default for other sources
     });
     const [selectedSubtitle, setSelectedSubtitle] = useState(0);
+    const [isStreamOffline, setIsStreamOffline] = useState(false);
     const [subtitleSearch, setSubtitleSearch] = useState('');
     const [preferredLang, setPreferredLang] = useState(localStorage.getItem('preferred_subtitle_lang') || 'English');
 
@@ -143,11 +144,13 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
 
     // Unified source loading effect
     useEffect(() => {
+        setIsStreamOffline(false);
         const video = videoRef.current;
         if (!video || type === 'embed' || !url) return;
 
         // --- HLS and Standard Source Setup ---
         let hls = null;
+        let networkRetryCount = 0;
         const safePlay = () => {
             if (video.paused) {
                 const playPromise = video.play();
@@ -160,6 +163,34 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                     });
                 }
             }
+        };
+
+        const attachHlsEvents = (hlsInstance) => {
+            hlsInstance.on(window.Hls.Events.MANIFEST_PARSED, () => {
+                setIsStreamOffline(false);
+                safePlay();
+            });
+            hlsInstance.on(window.Hls.Events.ERROR, (event, data) => {
+                if (data.fatal) {
+                    if (data.type === window.Hls.ErrorTypes.NETWORK_ERROR) {
+                        networkRetryCount++;
+                        if (networkRetryCount <= 3) {
+                            hlsInstance.startLoad();
+                        } else {
+                            console.warn("[VideoPlayer] Stream offline or unresolvable after retries");
+                            setIsStreamOffline(true);
+                            setIsBuffering(false);
+                            hlsInstance.destroy();
+                        }
+                    } else if (data.type === window.Hls.ErrorTypes.MEDIA_ERROR) {
+                        hlsInstance.recoverMediaError();
+                    } else {
+                        setIsStreamOffline(true);
+                        setIsBuffering(false);
+                        hlsInstance.destroy();
+                    }
+                }
+            });
         };
 
         const setupSource = () => {
@@ -183,20 +214,7 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                     });
                     hls.loadSource(url);
                     hls.attachMedia(video);
-                    hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
-                        safePlay();
-                    });
-                    hls.on(window.Hls.Events.ERROR, (event, data) => {
-                        if (data.fatal) {
-                            if (data.type === window.Hls.ErrorTypes.NETWORK_ERROR) {
-                                hls.startLoad();
-                            } else if (data.type === window.Hls.ErrorTypes.MEDIA_ERROR) {
-                                hls.recoverMediaError();
-                            } else {
-                                hls.destroy();
-                            }
-                        }
-                    });
+                    attachHlsEvents(hls);
                 } else {
                     const script = document.createElement('script');
                     script.src = "https://cdn.jsdelivr.net/npm/hls.js@latest";
@@ -212,7 +230,7 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                             });
                             hls.loadSource(url);
                             hls.attachMedia(video);
-                            hls.on(Hls.Events.MANIFEST_PARSED, () => safePlay());
+                            attachHlsEvents(hls);
                         } else {
                             video.src = url;
                             safePlay();
@@ -500,6 +518,37 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                         />
                     ))}
                 </video>
+            )}
+
+            {/* Offline Stream Overlay */}
+            {isStreamOffline && type !== 'embed' && (
+                <div style={{
+                    position: 'absolute', inset: 0,
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                    background: 'rgba(15, 23, 42, 0.92)', backdropFilter: 'blur(8px)',
+                    zIndex: 10, padding: '2rem', textAlign: 'center', color: '#fff'
+                }}>
+                    <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📡</div>
+                    <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.4rem', fontWeight: '600' }}>Channel Stream Offline</h3>
+                    <p style={{ margin: '0 0 1.5rem 0', color: '#94a3b8', fontSize: '0.95rem', maxWidth: '400px' }}>
+                        This live stream source is currently unavailable or offline. Please try selecting another channel from the playlist.
+                    </p>
+                    <button
+                        onClick={() => {
+                            setIsStreamOffline(false);
+                            setIsBuffering(true);
+                            window.location.reload();
+                        }}
+                        style={{
+                            background: 'linear-gradient(135deg, #e11d48, #be123c)',
+                            color: '#fff', border: 'none', padding: '0.75rem 1.5rem',
+                            borderRadius: '8px', fontWeight: '600', cursor: 'pointer',
+                            boxShadow: '0 4px 12px rgba(225, 29, 72, 0.3)'
+                        }}
+                    >
+                        🔄 Retry Stream
+                    </button>
+                </div>
             )}
 
             {/* Buffering Indicator */}
