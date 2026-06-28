@@ -825,7 +825,7 @@ function App() {
 
             const shouldReload = !videoPlayerData ||
                 String(videoPlayerData.item.id) !== String(id) ||
-                String(videoPlayerData.episode) !== String(ep);
+                (source !== 'tv' && String(videoPlayerData.episode) !== String(ep));
 
             setSelectedItem(null);
             if (shouldReload) {

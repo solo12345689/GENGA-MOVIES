@@ -117,12 +117,15 @@ class TVService:
         iptv_urls = [u for u in (sources.get('streams') or c.get('stream_urls') or []) if u and u.strip()]
         youtube_urls = [u for u in (sources.get('youtube') or c.get('youtube_urls') or []) if u and u.strip()]
 
+        logo_raw = c.get('logo', '')
+        poster_url = f"/api/image-proxy?url={logo_raw}" if (logo_raw and logo_raw.startswith('http')) else logo_raw
+
         # Priority 1: Direct IPTV (HLS)
         if iptv_urls:
             return {
                 "id": c.get('nanoid', name.replace(' ', '_').lower()),
                 "title": name,
-                "poster_url": c.get('logo', ''),
+                "poster_url": poster_url,
                 "url": iptv_urls[0],
                 "stream_type": "hls",
                 "source": "tv",
@@ -137,7 +140,7 @@ class TVService:
                 return {
                     "id": c.get('nanoid', name.replace(' ', '_').lower()),
                     "title": name,
-                    "poster_url": c.get('logo', ''),
+                    "poster_url": poster_url,
                     "yt_id": yt_id,
                     "stream_type": "youtube_hls",
                     "source": "tv",
@@ -148,7 +151,7 @@ class TVService:
             return {
                 "id": c.get('nanoid', name.replace(' ', '_').lower()),
                 "title": name,
-                "poster_url": c.get('logo', ''),
+                "poster_url": poster_url,
                 "url": yt_url,
                 "stream_type": "embed",
                 "source": "tv",
@@ -177,10 +180,11 @@ class TVService:
                     continue
                 if line.startswith('#EXTINF:'):
                     logo_match = re.search(r'tvg-logo="([^"]+)"', line, re.IGNORECASE)
-                    logo = logo_match.group(1) if logo_match else ''
+                    raw_logo = logo_match.group(1) if logo_match else ''
+                    logo_url = f"/api/image-proxy?url={raw_logo}" if (raw_logo and raw_logo.startswith('http')) else raw_logo
                     comma_idx = line.rfind(',')
                     title = line[comma_idx + 1:].strip() if comma_idx != -1 else 'Channel'
-                    current = {"title": title, "poster_url": logo, "url": ""}
+                    current = {"title": title, "poster_url": logo_url, "url": ""}
                 elif not line.startswith('#') and current:
                     current["url"] = line
                     current["id"] = f"m3u_{len(channels)}_{idx}"
