@@ -36,9 +36,28 @@ const TVDiscovery = ({ onStream, API_BASE = '' }) => {
     const [searchQuery, setSearchQuery] = useState('');
 
     // --- Custom Channels State ---
+    const DEFAULT_CHANNELS = [
+        {
+            id: 'default_iptv_org',
+            title: 'Free World IPTV Playlist',
+            poster_url: '',
+            url: 'https://iptv-org.github.io/iptv/index.m3u',
+            stream_type: 'm3u_playlist',
+            source: 'tv',
+            type: 'channel',
+            is_user_added: true
+        }
+    ];
+
     const [userChannels, setUserChannels] = useState(() => {
         const saved = localStorage.getItem('genga_user_tv_channels');
-        return saved ? JSON.parse(saved) : [];
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+            } catch (e) {}
+        }
+        return DEFAULT_CHANNELS;
     });
     const [showAddForm, setShowAddForm] = useState(false);
     const [newChanName, setNewChanName] = useState('');
@@ -127,6 +146,8 @@ const TVDiscovery = ({ onStream, API_BASE = '' }) => {
         if (newChanUrl.includes('youtube.com') || newChanUrl.includes('youtu.be')) {
             streamType = 'embed';
             finalUrl = cleanYoutubeEmbedUrl(newChanUrl);
+        } else if (newChanUrl.toLowerCase().endsWith('.m3u') || (newChanUrl.toLowerCase().includes('.m3u') && !newChanUrl.toLowerCase().includes('.m3u8'))) {
+            streamType = 'm3u_playlist';
         } else if (newChanUrl.toLowerCase().endsWith('.m3u8') || newChanUrl.toLowerCase().includes('.m3u8?')) {
             streamType = 'hls';
         }

@@ -41,8 +41,9 @@ class RadioService:
 
     def _format_channel(self, c: dict):
         name = c.get('name', 'Unknown Station')
-        # Audio streams are in 'stream_urls'
-        stream_urls = [u for u in (c.get('stream_urls') or []) if u and u.strip()]
+        # Audio streams are in 'sources.streams' or 'stream_urls'
+        sources = c.get('sources') or {}
+        stream_urls = [u for u in (sources.get('streams') or c.get('stream_urls') or []) if u and u.strip()]
 
         if not stream_urls:
             return None

@@ -5,7 +5,7 @@ import VideoPlayer from './VideoPlayer';
 const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, preloadedEpisodes }) => {
     // State
     const isTVChannel = item.source === 'tv' || item.type === 'channel';
-    const isMovieContent = item.type === 'movie' || item.type === 'anime_movie' || isTVChannel;
+    const isMovieContent = item.type === 'movie' || item.type === 'anime_movie';
     const [currentSeason, setCurrentSeason] = useState(initialSeason != null ? Number(initialSeason) : (isMovieContent ? null : 1));
     const [currentEpisode, setCurrentEpisode] = useState(initialEpisode != null ? Number(initialEpisode) : (isMovieContent ? null : 1));
     const [streamUrl, setStreamUrl] = useState(null);
@@ -14,6 +14,8 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
     const [loadingStream, setLoadingStream] = useState(false);
     const [seasonsData, setSeasonsData] = useState(item.seasons || []); // For MovieBox
     const [animeEpisodes, setAnimeEpisodes] = useState([]); // For Anilist
+    const [tvPlaylistChannels, setTvPlaylistChannels] = useState([]);
+    const [activeTvChannel, setActiveTvChannel] = useState(item);
     const [streamError, setStreamError] = useState(null);
     const [fullDetails, setFullDetails] = useState(item);
     const [loadingDetails, setLoadingDetails] = useState(false);
@@ -235,10 +237,54 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                         }
                     }
 
-                    const streamUrl = item.url;
-                    if (!streamUrl) throw new Error('No stream URL available');
-                    setStreamUrl(streamUrl);
-                    setStreamType(item.stream_type || 'hls');
+                    const targetUrl = (activeTvChannel && activeTvChannel.url) ? activeTvChannel.url : item.url;
+                    if (!targetUrl) throw new Error('No stream URL available');
+
+                    const isM3U = item.stream_type === 'm3u_playlist' || targetUrl.toLowerCase().endsWith('.m3u') || (targetUrl.toLowerCase().includes('.m3u') && !targetUrl.toLowerCase().includes('.m3u8'));
+
+                    if (isM3U && tvPlaylistChannels.length === 0) {
+                        try {
+                            const res = await fetch(targetUrl, { signal: abortController.signal });
+                            const text = await res.text();
+                            
+                            // Parse M3U
+                            const lines = text.split(/\r?\n/);
+                            const parsedChannels = [];
+                            let current = null;
+                            for (let l of lines) {
+                                l = l.trim();
+                                if (!l) continue;
+                                if (l.startsWith('#EXTINF:')) {
+                                    const logoMatch = l.match(/tvg-logo="([^"]+)"/i);
+                                    const logo = logoMatch ? logoMatch[1] : '';
+                                    const commaIdx = l.lastIndexOf(',');
+                                    const title = commaIdx !== -1 ? l.substring(commaIdx + 1).trim() : 'Channel';
+                                    current = { title, poster_url: logo, url: '' };
+                                } else if (!l.startsWith('#') && current) {
+                                    current.url = l;
+                                    current.id = `m3u_${parsedChannels.length}_${Date.now()}`;
+                                    current.stream_type = l.includes('.m3u8') ? 'hls' : (l.includes('youtube') || l.includes('youtu.be') ? 'embed' : 'hls');
+                                    current.source = 'tv';
+                                    current.type = 'channel';
+                                    parsedChannels.push(current);
+                                    current = null;
+                                }
+                            }
+                            if (parsedChannels.length > 0) {
+                                setTvPlaylistChannels(parsedChannels);
+                                setActiveTvChannel(parsedChannels[0]);
+                                setStreamUrl(parsedChannels[0].url);
+                                setStreamType(parsedChannels[0].stream_type || 'hls');
+                                setLoadingStream(false);
+                                return;
+                            }
+                        } catch (m3uErr) {
+                            console.error("M3U Playlist parse error:", m3uErr);
+                        }
+                    }
+
+                    setStreamUrl(targetUrl);
+                    setStreamType((activeTvChannel && activeTvChannel.stream_type) || item.stream_type || 'hls');
                     setLoadingStream(false);
                     return;
                 }
@@ -362,7 +408,9 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                             flexShrink: 0
                         }}
                     >
-                        {showEpisodes ? 'Hide Episodes' : 'Show Episodes'}
+                        {isTVChannel 
+                            ? (showEpisodes ? 'Hide Channels' : 'Show Channels')
+                            : (showEpisodes ? 'Hide Episodes' : 'Show Episodes')}
                     </button>
                 )}
             </div>
@@ -420,7 +468,7 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                     }}>
                         <div style={{ padding: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Episodes</h3>
+                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{isTVChannel ? 'Channels' : 'Episodes'}</h3>
                                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                                     {activeSource === 'anilist' && (
                                         <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '4px' }}>
@@ -432,7 +480,7 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                             </div>
 
                             {/* Season Selector for MovieBox */}
-                            {activeSource === 'moviebox' && seasonsData.length > 0 && (
+                            {!isTVChannel && activeSource === 'moviebox' && seasonsData.length > 0 && (
                                 <div style={{
                                     display: 'flex',
                                     gap: '8px',
@@ -474,40 +522,78 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                             )}
 
                         </div>
-                        <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(60px, 1fr))', gap: '8px' }}>
-                            {activeSource === 'anilist' ? (
-                                animeEpisodes.map(ep => (
-                                    <button
-                                        key={ep.episodeId}
-                                        onClick={() => {
-                                            if (currentEpisode !== ep.number) {
-                                                setStreamUrl(null); // Clear URL only when episode actually changes
-                                                setFullDetails(prev => ({ ...prev, episodeId: ep.episodeId }));
-                                                setCurrentEpisode(ep.number);
-                                            }
-                                        }}
-                                        style={{ padding: '12px 8px', borderRadius: '8px', border: '1px solid ' + (currentEpisode === ep.number ? '#6366f1' : 'rgba(255,255,255,0.1)'), background: currentEpisode === ep.number ? 'rgba(99, 102, 241, 0.1)' : 'transparent', color: 'white', cursor: 'pointer' }}
-                                    >
-                                        {ep.number}
-                                    </button>
-                                ))
-                            ) : (
-                                Array.from({ length: getMaxEpisodes() }, (_, i) => i + 1).map(ep => (
-                                    <button
-                                        key={ep}
-                                        onClick={() => {
-                                            if (currentEpisode !== ep) {
-                                                setStreamUrl(null); // Clear URL only when episode actually changes
-                                                setCurrentEpisode(ep);
-                                            }
-                                        }}
-                                        style={{ padding: '12px 8px', borderRadius: '8px', border: '1px solid ' + (currentEpisode === ep ? '#6366f1' : 'rgba(255,255,255,0.1)'), background: currentEpisode === ep ? 'rgba(99, 102, 241, 0.1)' : 'transparent', color: 'white', cursor: 'pointer' }}
-                                    >
-                                        {ep}
-                                    </button>
-                                ))
-                            )}
-                        </div>
+                        {isTVChannel ? (
+                            <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                {(tvPlaylistChannels.length > 0 ? tvPlaylistChannels : [item]).map((chan, idx) => {
+                                    const isActive = activeTvChannel && (activeTvChannel.url === chan.url || activeTvChannel.id === chan.id);
+                                    return (
+                                        <button
+                                            key={chan.id || idx}
+                                            onClick={() => {
+                                                setActiveTvChannel(chan);
+                                                setStreamUrl(chan.url);
+                                                setStreamType(chan.stream_type || 'hls');
+                                            }}
+                                            title={chan.title || chan.name}
+                                            style={{
+                                                padding: '10px 14px',
+                                                borderRadius: '8px',
+                                                border: '1px solid ' + (isActive ? '#6366f1' : 'rgba(255,255,255,0.08)'),
+                                                background: isActive ? 'rgba(99, 102, 241, 0.2)' : 'rgba(255,255,255,0.03)',
+                                                color: 'white',
+                                                cursor: 'pointer',
+                                                textAlign: 'left',
+                                                fontSize: '0.9rem',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '10px',
+                                                width: '100%',
+                                                minWidth: 0,
+                                                boxSizing: 'border-box'
+                                            }}
+                                        >
+                                            {chan.poster_url && <img src={chan.poster_url} alt="" style={{ width: '24px', height: '24px', objectFit: 'contain', borderRadius: '4px', flexShrink: 0 }} onError={(e) => e.target.style.display = 'none'} />}
+                                            <span style={{ flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{chan.title || chan.name || `Channel ${idx + 1}`}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(60px, 1fr))', gap: '8px' }}>
+                                {activeSource === 'anilist' ? (
+                                    animeEpisodes.map(ep => (
+                                        <button
+                                            key={ep.episodeId}
+                                            onClick={() => {
+                                                if (currentEpisode !== ep.number) {
+                                                    setStreamUrl(null); // Clear URL only when episode actually changes
+                                                    setFullDetails(prev => ({ ...prev, episodeId: ep.episodeId }));
+                                                    setCurrentEpisode(ep.number);
+                                                }
+                                            }}
+                                            style={{ padding: '12px 8px', borderRadius: '8px', border: '1px solid ' + (currentEpisode === ep.number ? '#6366f1' : 'rgba(255,255,255,0.1)'), background: currentEpisode === ep.number ? 'rgba(99, 102, 241, 0.1)' : 'transparent', color: 'white', cursor: 'pointer' }}
+                                        >
+                                            {ep.number}
+                                        </button>
+                                    ))
+                                ) : (
+                                    Array.from({ length: getMaxEpisodes() }, (_, i) => i + 1).map(ep => (
+                                        <button
+                                            key={ep}
+                                            onClick={() => {
+                                                if (currentEpisode !== ep) {
+                                                    setStreamUrl(null); // Clear URL only when episode actually changes
+                                                    setCurrentEpisode(ep);
+                                                }
+                                            }}
+                                            style={{ padding: '12px 8px', borderRadius: '8px', border: '1px solid ' + (currentEpisode === ep ? '#6366f1' : 'rgba(255,255,255,0.1)'), background: currentEpisode === ep ? 'rgba(99, 102, 241, 0.1)' : 'transparent', color: 'white', cursor: 'pointer' }}
+                                        >
+                                            {ep}
+                                        </button>
+                                    ))
+                                )}
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
