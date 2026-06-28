@@ -2050,6 +2050,9 @@ async def proxy_stream(request: Request, url: str, source: str = None, download:
                 if download:
                     res_headers["Content-Disposition"] = f'attachment; filename="{filename}"'
                     res_headers["Content-Type"] = "application/octet-stream"
+                elif url.split("?")[0].lower().endswith(".ts"):
+                    res_headers["Content-Type"] = "video/mp2t"
+                    
                 if "Content-Length" in resp.headers:
                     res_headers["Content-Length"] = resp.headers["Content-Length"]
 
