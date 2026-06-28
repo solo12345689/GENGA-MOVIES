@@ -151,6 +151,14 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
     }, [url]);
 
     const triggerProxyFallback = () => {
+        if (activeUrl && !activeUrl.includes('/api/proxy-stream') && !activeUrl.includes('youtube.com') && !activeUrl.includes('youtu.be')) {
+            const proxied = `/api/proxy-stream?url=${encodeURIComponent(activeUrl)}&source=tv`;
+            console.log("[VideoPlayer] Playback failed. Attempting proxy fallback:", proxied);
+            setActiveUrl(proxied);
+            setIsBuffering(true);
+            setIsStreamOffline(false);
+            return true;
+        }
         return false;
     };
 
