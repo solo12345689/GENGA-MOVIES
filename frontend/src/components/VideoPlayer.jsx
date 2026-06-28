@@ -144,6 +144,23 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
     const hlsRef = useRef(null);
     const videojsRef = useRef(null);
     const videojsPlayerInstance = useRef(null);
+    const [activeUrl, setActiveUrl] = useState(url);
+
+    useEffect(() => {
+        setActiveUrl(url);
+    }, [url]);
+
+    const triggerProxyFallback = () => {
+        if (activeUrl && !activeUrl.includes('/api/proxy-stream') && !activeUrl.includes('youtube.com') && !activeUrl.includes('youtu.be')) {
+            const proxied = `/api/proxy-stream?url=${encodeURIComponent(activeUrl)}&source=tv`;
+            console.log("[VideoPlayer] Playback failed. Attempting proxy fallback:", proxied);
+            setActiveUrl(proxied);
+            setIsBuffering(true);
+            setIsStreamOffline(false);
+            return true;
+        }
+        return false;
+    };
 
     // FIX 1: Add a ref to track if the user is using touch (Mobile)
     const isTouch = useRef(false);
@@ -163,7 +180,7 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
         setCurrentQuality(-1);
         if (useVideoJS) return;
         const video = videoRef.current;
-        if (!video || type === 'embed' || !url) return;
+        if (!video || type === 'embed' || !activeUrl) return;
 
         // --- HLS and Standard Source Setup ---
         let hls = null;
@@ -204,6 +221,10 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                         if (networkRetryCount <= 3) {
                             hlsInstance.startLoad();
                         } else {
+                            if (triggerProxyFallback()) {
+                                hlsInstance.destroy();
+                                return;
+                            }
                             console.warn("[VideoPlayer] Stream offline or unresolvable after retries");
                             setIsStreamOffline(true);
                             setIsBuffering(false);
@@ -212,6 +233,10 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                     } else if (data.type === window.Hls.ErrorTypes.MEDIA_ERROR) {
                         hlsInstance.recoverMediaError();
                     } else {
+                        if (triggerProxyFallback()) {
+                            hlsInstance.destroy();
+                            return;
+                        }
                         setIsStreamOffline(true);
                         setIsBuffering(false);
                         hlsInstance.destroy();
@@ -221,11 +246,11 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
         };
 
         const setupSource = () => {
-            const isHls = type === 'hls' || url.includes('.m3u8') || url.includes('proxy-stream');
+            const isHls = type === 'hls' || activeUrl.includes('.m3u8') || activeUrl.includes('proxy-stream');
             if (isHls) {
                 if (video.canPlayType('application/vnd.apple.mpegurl')) {
                     // Safari native HLS
-                    video.src = url;
+                    video.src = activeUrl;
                     safePlay();
                 } else if (window.Hls && window.Hls.isSupported()) {
                     hls = new window.Hls({
@@ -240,7 +265,7 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                         levelLoadingRetryDelay: 1000,
                         fragLoadingRetryDelay: 1000,
                     });
-                    hls.loadSource(url);
+                    hls.loadSource(activeUrl);
                     hls.attachMedia(video);
                     attachHlsEvents(hls);
                 } else {
@@ -261,11 +286,11 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                                 levelLoadingRetryDelay: 1000,
                                 fragLoadingRetryDelay: 1000,
                             });
-                            hls.loadSource(url);
+                            hls.loadSource(activeUrl);
                             hls.attachMedia(video);
                             attachHlsEvents(hls);
                         } else {
-                            video.src = url;
+                            video.src = activeUrl;
                             safePlay();
                         }
                     };
@@ -273,7 +298,7 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                 }
 
             } else {
-                video.src = url;
+                video.src = activeUrl;
                 safePlay();
             }
         };
@@ -283,11 +308,11 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
         return () => {
             if (hls) hls.destroy();
         };
-    }, [url, type, autoPlay, useVideoJS]);
+    }, [activeUrl, type, autoPlay, useVideoJS]);
 
     // VideoJS loading and initialization effect
     useEffect(() => {
-        if (!useVideoJS || !url) return;
+        if (!useVideoJS || !activeUrl) return;
 
         const initVideoJS = () => {
             if (!videojsRef.current || !window.videojs) return;
@@ -316,9 +341,21 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                 responsive: true,
                 fluid: false,
                 sources: [{
-                    src: url,
-                    type: type === 'hls' || url.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4'
+                    src: activeUrl,
+                    type: type === 'hls' || activeUrl.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4'
                 }]
+            });
+
+            player.on('error', () => {
+                const error = player.error();
+                console.log("[VideoPlayer Video.js Error]", error);
+                if (triggerProxyFallback()) {
+                    player.dispose();
+                    videojsPlayerInstance.current = null;
+                } else {
+                    setIsStreamOffline(true);
+                    setIsBuffering(false);
+                }
             });
 
             videojsPlayerInstance.current = player;
@@ -354,7 +391,7 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                 videojsPlayerInstance.current = null;
             }
         };
-    }, [useVideoJS, url, type]);
+    }, [useVideoJS, activeUrl, type]);
 
     // Subtitle track control effect
     useEffect(() => {
