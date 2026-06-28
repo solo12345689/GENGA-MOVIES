@@ -245,10 +245,6 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                     const isM3U = item.stream_type === 'm3u_playlist' || targetUrl.toLowerCase().endsWith('.m3u') || (targetUrl.toLowerCase().includes('.m3u') && !targetUrl.toLowerCase().includes('.m3u8'));
 
                     const formatStreamUrl = (rawUrl, sType) => {
-                        if (!rawUrl) return '';
-                        if (rawUrl.startsWith('http://')) {
-                            return `${API_BASE}/api/proxy-stream?url=${encodeURIComponent(rawUrl)}&source=tv`;
-                        }
                         return rawUrl;
                     };
 
@@ -336,10 +332,7 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                 if (activeSource === 'moviebox') {
                     if (data.status === 'success' && data.url) {
                         let finalUrl = data.url;
-                        const isInternal = API_BASE ? finalUrl.includes(API_BASE) : finalUrl.includes(window.location.origin);
-                        if (finalUrl.startsWith('http') && !isInternal) {
-                            finalUrl = `${API_BASE}/api/proxy-stream?url=${encodeURIComponent(finalUrl)}`;
-                        } else if (!finalUrl.startsWith('http')) {
+                        if (!finalUrl.startsWith('http')) {
                             finalUrl = `${API_BASE}${finalUrl}`;
                         }
                         setStreamUrl(finalUrl);
