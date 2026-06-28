@@ -363,8 +363,27 @@ def get_source_headers(url: str, source: str = None) -> list[dict]:
     if "anilist" in url_lower or "megacloud" in url_lower or "vidcloud" in url_lower or "rabbitstream" in url_lower:
         configs_refs.append({'Referer': 'https://megaplay.buzz/', 'Origin': 'https://megaplay.buzz'})
     
-    # VLC/MPV mimicking for TV streams (helps bypass browser-based throttling)
+    # VLC/MPV mimicking and domain referer cycling for TV streams
     if source == 'tv':
+        try:
+            domain_host = url.split("://")[-1].split("/")[0]
+        except Exception:
+            domain_host = ""
+        
+        configs_refs.append({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'Referer': f'https://{domain_host}/' if domain_host else 'https://famelack.com/',
+            'Origin': f'https://{domain_host}' if domain_host else 'https://famelack.com',
+            'Accept': '*/*',
+            'Connection': 'keep-alive'
+        })
+        configs_refs.append({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'Referer': 'https://famelack.com/',
+            'Origin': 'https://famelack.com',
+            'Accept': '*/*',
+            'Connection': 'keep-alive'
+        })
         configs_refs.append({
             'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18',
             'Accept': '*/*',
@@ -373,16 +392,6 @@ def get_source_headers(url: str, source: str = None) -> list[dict]:
         configs_refs.append({
             'User-Agent': 'mpv 0.35.1',
             'Accept': '*/*',
-            'Connection': 'keep-alive'
-        })
-        # Browser-compatible fallback for restrictive providers
-        configs_refs.append({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': '*/*',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Sec-Fetch-Dest': 'empty',
-            'Sec-Fetch-Mode': 'cors',
-            'Sec-Fetch-Site': 'cross-site',
             'Connection': 'keep-alive'
         })
 
