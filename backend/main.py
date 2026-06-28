@@ -18,14 +18,43 @@ if sys.platform == 'win32':
 
 app = FastAPI(title="MovieBox Web App", description="API for MovieBox Web App")
 
-# Configure CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origin_regex="https?://.*",  # Allow all HTTP/HTTPS origins dynamically with credentials support
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+from fastapi import Request, Response
+
+@app.middleware("http")
+async def override_cors_headers(request: Request, call_next):
+    if request.method == "OPTIONS":
+        origin = request.headers.get("Origin", "*")
+        return Response(
+            status_code=204,
+            headers={
+                "Access-Control-Allow-Origin": origin,
+                "Access-Control-Allow-Credentials": "true",
+                "Access-Control-Allow-Headers": "*",
+                "Access-Control-Allow-Methods": "GET, OPTIONS, POST, PUT, DELETE",
+                "Cross-Origin-Resource-Policy": "cross-origin",
+            }
+        )
+
+    response = await call_next(request)
+    origin = request.headers.get("Origin", "*")
+    cors_keys = [
+        "access-control-allow-origin",
+        "access-control-allow-credentials",
+        "access-control-allow-headers",
+        "access-control-allow-methods",
+        "access-control-expose-headers"
+    ]
+    for key in list(response.headers.keys()):
+        if key.lower() in cors_keys:
+            del response.headers[key]
+            
+    response.headers["Access-Control-Allow-Origin"] = origin
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS, POST, PUT, DELETE"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    response.headers["Cross-Origin-Resource-Policy"] = "cross-origin"
+    
+    return response
 
 app.include_router(api_router, prefix="/api")
 
