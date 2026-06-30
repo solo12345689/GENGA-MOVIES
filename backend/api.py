@@ -555,39 +555,47 @@ async def parse_tv_playlist(url: str):
 @router.get("/tv/resolve-youtube/{yt_id}")
 async def resolve_youtube_hls(yt_id: str):
     """
-    Uses local yt-dlp to resolve a direct YouTube HLS (.m3u8) URL.
-    This replaces unstable third-party proxies like ythls.armelin.one.
+    Uses yt-dlp library to resolve a direct YouTube HLS (.m3u8) URL.
+    This works on both local and Render environments without needing an external binary.
     """
     try:
-        # Command: yt-dlp -g -f best http://youtube.com/watch?v=VIDEO_ID
-        url = f"https://www.youtube.com/watch?v={yt_id}" if len(yt_id) == 11 else f"https://www.youtube.com/channel/{yt_id}/live"
-        
-        # Use --no-warnings to keep stdout clean
-        process = await asyncio.create_subprocess_exec(
-            "yt-dlp", "-g", "-f", "best", "--no-warnings", "--no-check-certificate", url,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-        stdout, stderr = await process.communicate()
-        
-        if process.returncode == 0:
-            lines = stdout.decode().strip().splitlines()
-            # The URL is usually the last line of stdout
-            stream_url = lines[-1].strip() if lines else ""
-            if stream_url.startswith("http"):
-                return {"url": stream_url, "type": "hls"}
-            else:
-                return {"error": f"Invalid URL format: {stream_url}"}
+        if len(yt_id) == 11:
+            url = f"https://www.youtube.com/watch?v={yt_id}"
+        elif yt_id.startswith("UC") or yt_id.startswith("HC") or yt_id.startswith("I"):
+            url = f"https://www.youtube.com/channel/{yt_id}/live"
         else:
-            error = stderr.decode().strip()
-            print(f"[YT-DLP ERROR] {error}")
-            return {"error": error}
-    except FileNotFoundError:
-        print("[YT-DLP] yt-dlp not found in system PATH")
-        return {"error": "yt-dlp not installed or not in PATH. Please install it on the backend server."}
+            url = f"https://www.youtube.com/@{yt_id}/live" if not yt_id.startswith("http") else yt_id
+            
+        print(f"[YT-DLP] Resolving URL via python library (threaded): {url}")
+        
+        def _get_yt_url():
+            import yt_dlp
+            ydl_opts = {
+                'format': 'best',
+                'quiet': True,
+                'no_warnings': True,
+                'nocheckcertificate': True,
+                'extract_flat': False
+            }
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+                return info.get('url')
+            
+        try:
+            stream_url = await asyncio.to_thread(_get_yt_url)
+            
+            if stream_url and stream_url.startswith("http"):
+                print(f"[YT-DLP] Resolved stream URL successfully.")
+                return {"url": stream_url, "type": "hls" if ".m3u8" in stream_url else "mp4"}
+            else:
+                return {"error": "Invalid or no URL returned."}
+        except Exception as thread_e:
+            return {"error": f"Extraction error: {str(thread_e)}"}
+            
     except Exception as e:
-        print(f"[YT-DLP FATAL] {e}")
-        return {"error": str(e)}
+        error_msg = str(e) or repr(e)
+        print(f"[YT-DLP FATAL] {error_msg}")
+        return {"error": error_msg}
 
 @router.get("/tv/category/{category}")
 async def get_tv_channels_by_category(category: str):
