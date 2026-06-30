@@ -1187,9 +1187,11 @@ async def stream(
         search_instance = None
         max_retries = 2
         
+        is_homepage_item = False
         if id and id in search_cache:
             # Use cached item directly
             cached = search_cache[id]
+            is_homepage_item = cached.get("is_homepage", False)
             target_item = cached["item"]
             search_instance = cached["search_instance"]
             print(f"[STREAM] Using cached item: {getattr(target_item, 'title', target_item.get('title', 'Unknown') if isinstance(target_item, dict) else 'Unknown')}")
@@ -1310,7 +1312,13 @@ async def stream(
         if mode == "url":
             # Return a proxy URL that routes through our backend
             # This bypasses 403 Forbidden errors from streaming providers
-            proxy_url = f"/api/proxy-stream?url={quote(str(media_file.url))}"
+            if is_homepage_item:
+                is_hls = ".m3u8" in str(media_file.url).lower()
+                proxy_name = "hls_proxy.php" if is_hls else "video_proxy.php"
+                proxy_url = f"https://video-proxy-jis5.onrender.com/{proxy_name}?url={quote(str(media_file.url))}"
+                print(f"[STREAM] Routing homepage item stream through Render PHP proxy: {proxy_url[:60]}...")
+            else:
+                proxy_url = f"/api/proxy-stream?url={quote(str(media_file.url))}"
             
             # Extract subtitles
             subtitles = []
