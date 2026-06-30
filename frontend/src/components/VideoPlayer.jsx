@@ -618,22 +618,20 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                 fontFamily: 'monospace'
             }}
         >
-            {useVideoJS ? (
+            {(url && (url.includes('youtube.com') || url.includes('youtu.be'))) ? (
+                <YouTubeIframePlayer url={url} source={source} />
+            ) : useVideoJS ? (
                 <div ref={videojsRef} style={{ width: '100%', height: '100%', position: 'absolute', inset: 0, zIndex: 1 }} />
             ) : type === 'embed' ? (
-                (url && (url.includes('youtube.com') || url.includes('youtu.be'))) ? (
-                    <YouTubeIframePlayer url={url} source={source} />
-                ) : (
-                    <iframe
-                        src={url}
-                        style={{ width: '100%', height: '100%', border: 'none' }}
-                        allowFullScreen
-                        allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-                        frameBorder="0"
-                        scrolling="no"
-                        title="Video Player"
-                    />
-                )
+                <iframe
+                    src={url}
+                    style={{ width: '100%', height: '100%', border: 'none' }}
+                    allowFullScreen
+                    allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+                    frameBorder="0"
+                    scrolling="no"
+                    title="Video Player"
+                />
             ) : (
                 <video
                     ref={videoRef}
