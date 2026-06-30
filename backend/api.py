@@ -575,7 +575,12 @@ async def resolve_youtube_hls(yt_id: str):
                 'quiet': True,
                 'no_warnings': True,
                 'nocheckcertificate': True,
-                'extract_flat': False
+                'extract_flat': False,
+                'extractor_args': {
+                    'youtube': {
+                        'player_client': ['android', 'ios']
+                    }
+                }
             }
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
