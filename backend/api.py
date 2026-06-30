@@ -578,7 +578,7 @@ async def resolve_youtube_hls(yt_id: str):
                 'extract_flat': False,
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android', 'ios']
+                        'player_client': ['tv_embedded', 'tv', 'android', 'ios']
                     }
                 }
             }
