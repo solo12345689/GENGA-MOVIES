@@ -1,27 +1,14 @@
 import enum
-import moviebox_api.v1.constants as const
-
-class PatchedSubjectType(enum.IntEnum):
-    ALL = 0
-    MOVIES = 1
-    TV_SERIES = 2
-    SHORT_VIDEO_3 = 3
-    SHORT_VIDEO_4 = 4
-    EDUCATION = 5
-    MUSIC = 6
-    ANIME = 7
-    SPORTS_8 = 8
-    UNKNOWN = 9
-
-const.SubjectType = PatchedSubjectType
+if not hasattr(enum, 'StrEnum'):
+    class StrEnum(str, enum.Enum):
+        pass
+    enum.StrEnum = StrEnum
 
 from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect, Response, Request, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Optional, Any
-from moviebox_api.v1 import Session, Search, MovieAuto, TVSeriesDetails, Homepage
-SubjectType = PatchedSubjectType
-from moviebox_api.v3.core import Search as SearchV3, ItemDetails as ItemDetailsV3, MovieBoxHttpClient, Homepage as HomepageV3
+from moviebox_api.v1 import Session, Search, SubjectType, MovieAuto, TVSeriesDetails, Homepage
 from moviebox_api.v1.download import (
     MediaFileDownloader, 
     DownloadableMovieFilesDetail, 
@@ -49,6 +36,8 @@ import shutil
 import httpx
 import traceback
 from urllib.parse import quote
+import yt_dlp
+
 
 # --- Monkeypatch for Pydantic Validation Error ---
 def unwrap_annotation(annotation):
@@ -90,111 +79,6 @@ def patch_moviebox_models():
 # Apply patch immediately
 patch_moviebox_models()
 
-def ensure_v1_item(item):
-    """
-    Converts any item (V3 ResultsSubjectModel or dict) into a V1 SearchResultsItem 
-    compatible with V1 download classes.
-    """
-    if isinstance(item, SearchResultsItem):
-        return item
-        
-    # Extract properties
-    subject_id = None
-    detail_path = ""
-    title = "Video"
-    
-    if isinstance(item, dict):
-        subject_id = item.get('subject_id') or item.get('subjectId') or item.get('id')
-        detail_path = item.get('detail_url') or item.get('detailPath') or ""
-        title = item.get('title') or "Video"
-    else:
-        subject_id = getattr(item, 'subject_id', getattr(item, 'subjectId', getattr(item, 'id', None)))
-        detail_path = getattr(item, 'detail_url', getattr(item, 'detailPath', ''))
-        title = getattr(item, 'title', 'Video')
-        
-    # Convert to string and sanitize
-    detail_path = str(detail_path) if detail_path else ""
-    if detail_path and '/' in detail_path:
-        detail_path = detail_path.split('/')[-1]
-        
-    return SearchResultsItem.construct(
-        subjectId=str(subject_id) if subject_id else "",
-        detailPath=detail_path,
-        title=title
-    )
-
-async def resolve_moviebox_media_file(target_item: Any, season: Optional[int] = None, episode: Optional[int] = None, quality: str = "BEST") -> Any:
-    """
-    Resolves the best quality media file using V3 APIs directly, bypassing buggy V1 classes.
-    """
-    from moviebox_api.v3.models.downloadables import RootDownloadableFilesDetailModel
-    from moviebox_api.v3.constants import CustomResolutionType
-    
-    # 1. Resolve subject_id
-    subject_id = None
-    if isinstance(target_item, dict):
-        subject_id = target_item.get('subject_id') or target_item.get('subjectId') or target_item.get('id')
-    else:
-        subject_id = getattr(target_item, 'subject_id', getattr(target_item, 'subjectId', getattr(target_item, 'id', None)))
-        
-    if not subject_id:
-        raise ValueError("Could not resolve subject_id for resource lookup")
-        
-    # Map quality to enum value
-    res_type = CustomResolutionType.BEST
-    if quality == "WORST":
-        res_type = CustomResolutionType.WORST
-    elif quality == "720P":
-        res_type = CustomResolutionType._720P
-    elif quality == "480P":
-        res_type = CustomResolutionType._480P
-    elif quality == "360P":
-        res_type = CustomResolutionType._360P
-        
-    res_val = CustomResolutionType.convert_to_default_resolution(res_type).value
-    
-    params = {
-        "subjectId": str(subject_id),
-        "resolution": str(res_val),
-        "page": "1",
-        "perPage": "20"
-    }
-    if season is not None:
-        params["se"] = str(season)
-    if episode is not None:
-        params["ep"] = str(episode)
-        
-    async with MovieBoxHttpClient() as client:
-        res = await client.get_from_api("/wefeed-mobile-bff/subject-api/resource", params=params)
-        
-    model = RootDownloadableFilesDetailModel.model_validate(res)
-    if not model.list:
-        raise ValueError("No downloadable files returned in list")
-        
-    # Filter files
-    files = model.list
-    if season is not None and episode is not None:
-        files = [f for f in files if f.season == int(season) and f.episode == int(episode)]
-        if not files:
-            raise ValueError(f"No downloadable files found for Season {season} Episode {episode}")
-            
-    # Sort files to find the desired one
-    if quality == "BEST":
-        files.sort(key=lambda x: x.resolution, reverse=True)
-        return files[0]
-    elif quality == "WORST":
-        files.sort(key=lambda x: x.resolution)
-        return files[0]
-    else:
-        # Try to find exact resolution match
-        target_res = int(quality.replace("P", ""))
-        exact_matches = [f for f in files if f.resolution == target_res]
-        if exact_matches:
-            return exact_matches[0]
-        # Fallback to best available
-        files.sort(key=lambda x: x.resolution, reverse=True)
-        return files[0]
-
 router = APIRouter()
 
 
@@ -221,7 +105,6 @@ def get_http_client() -> httpx.AsyncClient:
         _global_http_async_client = httpx.AsyncClient(
             timeout=httpx.Timeout(60.0, connect=10.0),
             follow_redirects=True,
-            verify=False,
             limits=httpx.Limits(max_connections=500, max_keepalive_connections=50),
             headers=DEFAULT_HEADERS
         )
@@ -329,7 +212,6 @@ def get_source_headers(url: str, source: str = None) -> list[dict]:
     Returns a LIST of dictionary headers to try.
     Provides fallbacks for 403 Forbidden scenarios by cycling through possible Referers.
     """
-    url = str(url)
     base_headers = DEFAULT_HEADERS.copy()
     
     # 2. Exhaustive Referer Cycling
@@ -363,27 +245,8 @@ def get_source_headers(url: str, source: str = None) -> list[dict]:
     if "anilist" in url_lower or "megacloud" in url_lower or "vidcloud" in url_lower or "rabbitstream" in url_lower:
         configs_refs.append({'Referer': 'https://megaplay.buzz/', 'Origin': 'https://megaplay.buzz'})
     
-    # VLC/MPV mimicking and domain referer cycling for TV streams
+    # VLC/MPV mimicking for TV streams (helps bypass browser-based throttling)
     if source == 'tv':
-        try:
-            domain_host = url.split("://")[-1].split("/")[0]
-        except Exception:
-            domain_host = ""
-        
-        configs_refs.append({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-            'Referer': f'https://{domain_host}/' if domain_host else 'https://famelack.com/',
-            'Origin': f'https://{domain_host}' if domain_host else 'https://famelack.com',
-            'Accept': '*/*',
-            'Connection': 'keep-alive'
-        })
-        configs_refs.append({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-            'Referer': 'https://famelack.com/',
-            'Origin': 'https://famelack.com',
-            'Accept': '*/*',
-            'Connection': 'keep-alive'
-        })
         configs_refs.append({
             'User-Agent': 'VLC/3.0.18 LibVLC/3.0.18',
             'Accept': '*/*',
@@ -392,6 +255,16 @@ def get_source_headers(url: str, source: str = None) -> list[dict]:
         configs_refs.append({
             'User-Agent': 'mpv 0.35.1',
             'Accept': '*/*',
+            'Connection': 'keep-alive'
+        })
+        # Browser-compatible fallback for restrictive providers
+        configs_refs.append({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': '*/*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Sec-Fetch-Dest': 'empty',
+            'Sec-Fetch-Mode': 'cors',
+            'Sec-Fetch-Site': 'cross-site',
             'Connection': 'keep-alive'
         })
 
@@ -491,13 +364,11 @@ async def determine_item_type(item: Any, content_type_filter: str = "all") -> st
     """
     item_type = "movie"  # Default
     
-    # 1. Check explicit subjectType / subject_type from library model
-    subject_type_val = getattr(item, 'subject_type', getattr(item, 'subjectType', None))
-    if subject_type_val is not None:
-        # Check both enum class instances and raw integer comparisons
-        if subject_type_val == SubjectType.TV_SERIES or str(subject_type_val) == '2' or (hasattr(subject_type_val, 'value') and subject_type_val.value == 2):
+    # 1. Check explicit subjectType from library model
+    if hasattr(item, 'subjectType'):
+        if item.subjectType == SubjectType.TV_SERIES:
             item_type = "series"
-        elif subject_type_val == SubjectType.MOVIES or str(subject_type_val) == '1' or (hasattr(subject_type_val, 'value') and subject_type_val.value == 1):
+        elif item.subjectType == SubjectType.MOVIES:
             item_type = "movie"
     
     # 2. Refine based on frontend content_type filter
@@ -610,47 +481,45 @@ async def search(query: str, page: int = 1, content_type: str = "all") -> dict:
             # moviebox_api doesn't have ANIME type, so use TV_SERIES
             subject_type = SubjectType.TV_SERIES
             
-        async with MovieBoxHttpClient() as client:
-            search_instance = SearchV3(client_session=client, query=query, page=page, subject_type=subject_type)
-            results_model = await search_instance.get_content_model()
-            
-            items = []
-            if hasattr(results_model, 'items'):
-                for item in results_model.items:
-                    sub_id = str(getattr(item, 'subject_id', getattr(item, 'subjectId', getattr(item, 'id', ''))))
-                    item_id = f"moviebox_{sub_id}" if sub_id else str(uuid.uuid4())
-                    
-                    # Use async helper to determine type and poster
-                    item_type = await determine_item_type(item, content_type)
-                    poster_url = await extract_item_poster(item)
-                    
-                    # Cache the results
-                    search_cache[item_id] = {
-                        "item": item,
-                        "search_instance": None,  # No longer need to cache the search instance since details uses ItemDetailsV3
-                        "type": item_type
-                    }
+        search_instance = Search(session=session, query=query, page=page, subject_type=subject_type)
+        results_model = await search_instance.get_content_model()
+        
+        items = []
+        if hasattr(results_model, 'items'):
+            for item in results_model.items:
+                item_id = str(uuid.uuid4())
                 
-                    # Improved Year Extraction
-                    year = getattr(item, 'year', None)
-                    if not year:
-                        year = getattr(item, 'release_date', None)
-                    if not year:
-                        year = getattr(item, 'released', None)
-                    if not year:
-                        year = getattr(item, 'premiered', None)
-                    
-                    # Format year if it's a full date string
-                    if year and isinstance(year, str) and len(year) >= 4:
-                        year = year[:4]
+                # Use async helper to determine type and poster
+                item_type = await determine_item_type(item, content_type)
+                poster_url = await extract_item_poster(item)
+                
+                # Cache the results
+                search_cache[item_id] = {
+                    "item": item,
+                    "search_instance": search_instance,
+                    "type": item_type
+                }
+                
+                # Improved Year Extraction
+                year = getattr(item, 'year', None)
+                if not year:
+                    year = getattr(item, 'release_date', None)
+                if not year:
+                    year = getattr(item, 'released', None)
+                if not year:
+                    year = getattr(item, 'premiered', None)
+                
+                # Format year if it's a full date string
+                if year and isinstance(year, str) and len(year) >= 4:
+                    year = year[:4]
 
-                    items.append({
-                        "id": item_id,
-                        "title": getattr(item, 'title', 'Unknown'),
-                        "year": year,
-                        "poster_url": poster_url,
-                        "type": item_type
-                    })
+                items.append({
+                    "id": item_id,
+                    "title": getattr(item, 'title', 'Unknown'),
+                    "year": year,
+                    "poster_url": poster_url,
+                    "type": item_type
+                })
         
         return {"results": items}
     except UnicodeDecodeError as e:
@@ -743,13 +612,8 @@ async def warmup_session() -> None:
     """
     print("Warming up session...")
     try:
-        async with MovieBoxHttpClient() as client:
-            search_instance = SearchV3(client_session=client, query="test")
-            await search_instance.get_content_model()
-        
-        # Anilist warmup
-        asyncio.create_task(AnilistService.warmup())
-        
+        search_instance = Search(session=session, query="test")
+        await search_instance.get_content_model()
         print("Session warmed up successfully.")
     except Exception as e:
         print(f"Warmup failed: {e}")
@@ -757,127 +621,126 @@ async def warmup_session() -> None:
 @router.get("/homepage")
 async def get_homepage_content() -> dict:
     """
-    Fetches trending and featured content for the homepage using the MovieBox V3 API.
+    Fetches trending and featured content for the homepage using the global session.
     """
     try:
-        print("Fetching homepage via moviebox_api V3...")
-        async with MovieBoxHttpClient() as client:
-            homepage = HomepageV3(client)
-            raw_response = await homepage.get_content()
+        print("Fetching homepage via moviebox_api using global session...")
+        # Use GLOBAL session
+        homepage = Homepage(session=session)
+        
+        # Get raw content
+        raw_response = await homepage.get_content()
+        
+        # Data is usually in 'data' key or root
+        raw_data = raw_response.get('data', raw_response)
         
         results = []
-        items = raw_response.get('items', [])
         
-        for group in items:
-            group_title = group.get('title')
-            if not group_title:
-                continue
+        # Process operatingList (Main source for movies/banners)
+        if 'operatingList' in raw_data and raw_data['operatingList']:
+            for group in raw_data['operatingList']:
+                group_title = group.get('title')
+                if not group_title: continue
                 
-            # Process standard subjects and banners
-            items_source = []
-            
-            # 1. Subjects
-            if group.get('subjects'):
-                items_source.extend(group['subjects'])
+                items_source = []
+                if 'subjects' in group and group['subjects']:
+                    items_source = group['subjects']
+                elif 'banner' in group and group.get('banner') and 'items' in group['banner']:
+                    items_source = group['banner']['items']
+                    if group_title == "Banner": group_title = "Featured"
                 
-            # 2. Banners
-            if group.get('banner') and isinstance(group['banner'], dict) and group['banner'].get('banners'):
-                for banner in group['banner']['banners']:
-                    if banner.get('subject'):
-                        # Use the nested subject but fallback/override poster from banner
-                        sub = banner['subject'].copy()
-                        if 'image' in banner and banner['image']:
-                            sub['cover'] = banner['image']
-                        items_source.append(sub)
-                    else:
-                        items_source.append(banner)
-            
-            if not items_source:
-                continue
+                if not items_source: continue
                 
-            if group_title == "Banner":
-                group_title = "Featured"
-                
-            group_results = []
-            for item in items_source:
-                try:
-                    # Extract basic info
-                    sid = item.get('subjectId') or item.get('subject_id') or item.get('id')
-                    if not sid or str(sid) == "0":
+                group_results = []
+                for item in items_source:
+                    try:
+                        # Extract basic info
+                        sid = item.get('subjectId') or item.get('id')
+                        # For banners, id is often "0" but subjectId is valid
+                        if sid == "0" and 'subjectId' in item:
+                            sid = item['subjectId']
+                            
+                        # Extract poster
+                        poster_url = ""
+                        if 'cover' in item and isinstance(item['cover'], dict):
+                            poster_url = item['cover'].get('url', '')
+                        elif 'image' in item and isinstance(item['image'], dict):
+                            poster_url = item['image'].get('url', '')
+                            
+                        # Extract Title
+                        title = item.get('title', '')
+                        
+                        # Extract Year
+                        date_str = item.get('releaseDate', '')
+                        year = date_str[:4] if date_str else "N/A"
+                        
+                        # Extract Rating
+                        rating = str(item.get('imdbRatingValue', 'N/A'))
+                        
+                        if sid and title and sid != "0":
+                            # Store in search_cache for details fetching
+                            # Homepage items don't have all fields required by SearchResultsItem
+                            # So we cache them as dictionaries and handle them specially
+                            
+                            # Use the actual subjectType from API
+                            # 1=MOVIES, 2=TV_SERIES, 3=ANIME (likely), 6=MUSIC
+                            subject_type = item.get('subjectType', 1)  # Default to movie if missing
+                            
+                            # Determine content type
+                            # STRICTER ANIME CHECK: Only if explicitly type 3 or has "anime" in text
+                            # "Hindi" and "Urdu" checks were causing false positives for Indian movies.
+                            normalized_title = title.lower()
+                            is_anime = (subject_type == 3 or 
+                                       'anime' in normalized_title or
+                                       'myanimelist' in normalized_title)
+                            
+                            if is_anime:
+                                it_type = "anime"
+                            elif subject_type == 2:
+                                it_type = "series"
+                            else:
+                                it_type = "movie"
+
+                            
+                            # Cache as a simple dictionary - we'll do a fresh search if details are needed
+                            search_cache[str(sid)] = {
+                                "item": {
+                                    "id": str(sid),
+                                    "title": title,
+                                    "poster_url": poster_url,
+                                    "year": year,
+                                    "rating": rating,
+                                    "type": it_type,
+                                    "subjectType": subject_type,
+                                    "detailPath": item.get('detailPath')
+                                },
+                                "search_instance": None,  # Will create on-demand
+                                "type": it_type,
+                                "is_homepage": True,
+                                "needs_search": True  # Flag to trigger fresh search in details endpoint
+                            }
+                            
+                            group_results.append({
+                                "id": str(sid),
+                                "title": title,
+                                "year": year,
+                                "type": it_type,
+                                "poster_url": poster_url,
+                                "rating": rating
+                            })
+                    except Exception as item_err:
+                        print(f"Skipping malformed homepage item: {item_err}")
                         continue
                         
-                    # Extract poster
-                    poster_url = ""
-                    cover = item.get('cover') or item.get('image')
-                    if isinstance(cover, dict):
-                        poster_url = cover.get('url', '')
-                        
-                    # Extract Title
-                    title = item.get('title') or item.get('content') or ''
-                    if not title:
-                        continue
-                        
-                    # Extract Year
-                    date_str = item.get('releaseDate') or item.get('release_date') or ''
-                    year = str(date_str)[:4] if date_str else "N/A"
-                    
-                    # Extract Rating
-                    rating = str(item.get('imdbRatingValue') or item.get('imdbRate') or 'N/A')
-                    
-                    # Use subjectType (default to 1)
-                    subject_type_raw = item.get('subjectType') or item.get('subject_type', 1)
-                    subject_type_val = int(subject_type_raw.value) if hasattr(subject_type_raw, 'value') else int(subject_type_raw)
-                    
-                    # Determine type
-                    if subject_type_val in [3, 7]:
-                        it_type = "anime"
-                    elif subject_type_val == 2:
-                        it_type = "series"
-                    else:
-                        it_type = "movie"
-                        
-                    # Cache in memory
-                    search_cache[str(sid)] = {
-                        "item": {
-                            "id": str(sid),
-                            "title": title,
-                            "poster_url": poster_url,
-                            "year": year,
-                            "rating": rating,
-                            "type": it_type,
-                            "subjectType": subject_type_val,
-                            "detailPath": item.get('detailPath'),
-                            "source": "moviebox"
-                        },
-                        "search_instance": None,
-                        "type": it_type,
-                        "is_homepage": True,
-                        "needs_search": True
-                    }
-                    
-                    group_results.append({
-                        "id": str(sid),
-                        "title": title,
-                        "year": year,
-                        "type": it_type,
-                        "poster_url": poster_url,
-                        "rating": rating,
-                        "source": "moviebox"
+                if group_results:
+                    results.append({
+                        "title": group_title,
+                        "items": group_results
                     })
-                except Exception as item_err:
-                    print(f"Skipping malformed homepage item: {item_err}")
-                    continue
                     
-            if group_results:
-                # Clean up any trailing / leading question marks in titles (V3 sometimes includes "?Cinema" etc)
-                clean_title = group_title.strip("? \t\r\n")
-                results.append({
-                    "title": clean_title,
-                    "items": group_results
-                })
-                
-        print(f"Homepage fetch success (V3). Returning {len(results)} groups.")
+        print(f"Homepage fetch success. Returning {len(results)} groups.")
         return {"groups": results}
+
     except Exception as e:
         print(f"Error in /api/homepage: {e}")
         import traceback
@@ -890,9 +753,8 @@ async def debug_search(query: str) -> dict:
     Debug endpoint to inspect the raw structure of a search result item.
     """
     try:
-        async with MovieBoxHttpClient() as client:
-            search_instance = SearchV3(client_session=client, query=query)
-            results_model = await search_instance.get_content_model()
+        search_instance = Search(session=session, query=query)
+        results_model = await search_instance.get_content_model()
         
         if hasattr(results_model, 'items') and results_model.items:
             item = results_model.items[0]
@@ -904,120 +766,144 @@ async def debug_search(query: str) -> dict:
         return {"error": str(e)}
 
 @router.get("/details/{item_id}")
-async def details(item_id: str) -> dict:
+async def details(item_id: str, type: str = 'movie') -> dict:
     """
     Retrieves detailed information (plot, rating, seasons) for a specific item.
     """
     if item_id not in search_cache:
-        if item_id.startswith("moviebox_") or (item_id.isdigit() and len(item_id) >= 18):
-            sub_id = item_id.replace("moviebox_", "")
-            search_cache[item_id] = {
-                "item": {
-                    "id": item_id,
-                    "subject_id": sub_id,
-                    "type": "movie"
-                },
-                "type": "movie"
-            }
-        else:
-            raise HTTPException(status_code=404, detail="Item not found in cache. Please search again.")
+        search_cache[item_id] = {
+            "item": {"id": item_id, "title": "", "subjectType": 2 if type == "series" else (3 if type == "anime" else 1)},
+            "search_instance": None,
+            "type": type,
+            "is_homepage": True,
+            "needs_search": True
+        }
     
     cached = search_cache[item_id]
     item = cached["item"]
-    item_type = cached.get("type", "movie")
+    search_instance = cached.get("search_instance")
+    item_type = cached.get("type", type)
     
     try:
-        subject_id = None
-        if isinstance(item, dict):
-            subject_id = item.get('subject_id') or item.get('subjectId') or item.get('id')
+        item_fields = cached.get("item", {})
+        if isinstance(item_fields, dict):
+            detail_path = item_fields.get("detailPath")
+            item_title = item_fields.get("title", "")
         else:
-            subject_id = getattr(item, 'subject_id', getattr(item, 'subjectId', getattr(item, 'id', None)))
-            
-        if not subject_id:
-            raise ValueError("Could not resolve subject_id for item details")
+            detail_path = getattr(item_fields, "detailPath", None)
+            item_title = getattr(item_fields, "title", "")
 
-        async with MovieBoxHttpClient() as client:
-            details_provider = ItemDetailsV3(client_session=client, include_seasons=True)
-            
-            tasks = [details_provider.get_content_model(subject_id=str(subject_id))]
-            
-            # Only add MAL search if it's an anime
-            mal_task_idx = -1
-            if item_type == "anime":
-                title = getattr(item, 'title', '')
-                if not title and isinstance(item, dict):
-                    title = item.get('title', '')
-                tasks.append(MALService.search_mal_id(title))
-                mal_task_idx = 1
-                
-            results_parallel = await asyncio.gather(*tasks, return_exceptions=True)
-            
-            details_model = results_parallel[0]
-            if isinstance(details_model, Exception):
-                print(f"[RETRY] First details fetch failed: {details_model}. Retrying...")
-                details_model = await details_provider.get_content_model(subject_id=str(subject_id))
-                
-            mal_id = None
-            if mal_task_idx != -1:
-                mal_res = results_parallel[mal_task_idx]
-                if not isinstance(mal_res, Exception):
-                    mal_id = mal_res
-            
+        needs_lookup = cached.get("needs_search", False) or not detail_path or detail_path in ["movie", "tv"]
+        
+        if needs_lookup and item_title:
+            print(f"[LOOKUP-PATH] Performing title lookup for item: {item_title}")
+            raw_stype = item_fields.get('subjectType') if isinstance(item_fields, dict) else getattr(item, 'subjectType', None)
+            if raw_stype == 1: subject_type = SubjectType.MOVIES
+            elif raw_stype == 2: subject_type = SubjectType.TV_SERIES
+            elif raw_stype == 3: subject_type = SubjectType.ALL
+            else:
+                if item_type == "anime": subject_type = SubjectType.ALL
+                elif item_type == "series": subject_type = SubjectType.TV_SERIES
+                else: subject_type = SubjectType.MOVIES
 
+            from moviebox_api.v1 import Search
+            s_inst = Search(session=session, query=item_title, subject_type=subject_type)
+            try:
+                s_res = await s_inst.get_content_model()
+                real_item = None
+                if s_res and hasattr(s_res, 'items') and s_res.items:
+                    for candidate in s_res.items:
+                        cand_id = str(getattr(candidate, 'subjectId', getattr(candidate, 'id', '')))
+                        if cand_id == str(item_id):
+                            real_item = candidate
+                            break
+                    if not real_item:
+                        real_item = s_res.items[0]
+                if real_item:
+                    item = real_item
+                    search_instance = s_inst
+                    search_cache[item_id]["item"] = item
+                    search_cache[item_id]["search_instance"] = search_instance
+                    search_cache[item_id]["needs_search"] = False
+                    print(f"[LOOKUP-PATH] Resolved real detailPath: {getattr(real_item, 'detailPath', 'None')}")
+            except Exception as lookup_err:
+                print(f"[LOOKUP-PATH] Title lookup failed: {lookup_err}")
+
+        if not search_instance or not hasattr(search_instance, 'get_item_details'):
+            class MockSearchItem(SearchResultsItem):
+                def __init__(self, fields_dict, sid, stype):
+                    object.__setattr__(self, 'id', sid)
+                    object.__setattr__(self, 'subjectId', sid)
+                    object.__setattr__(self, 'subjectType', stype)
+                    dp = fields_dict.get('detailPath') if isinstance(fields_dict, dict) else getattr(fields_dict, 'detailPath', None)
+                    object.__setattr__(self, 'detailPath', dp or ("movie" if stype == 1 else "tv"))
+                    if isinstance(fields_dict, dict):
+                        for k, v in fields_dict.items():
+                            if not hasattr(self, k): object.__setattr__(self, k, v)
+            
+            raw_stype = item_fields.get('subjectType') if isinstance(item_fields, dict) else getattr(item, 'subjectType', 1)
+            subject_type = SubjectType.MOVIES if raw_stype == 1 else (SubjectType.TV_SERIES if raw_stype == 2 else SubjectType.ALL)
+            if not isinstance(item, SearchResultsItem):
+                item = MockSearchItem(item_fields, item_id, raw_stype)
+            from moviebox_api.v1 import Search
+            search_instance = Search(session=session, query='', subject_type=subject_type)
+
+        
+        # Use the search instance to get details for this item
+        details_provider = search_instance.get_item_details(item)
+        
+        # PARALLELIZE: Fetch details and MAL ID at the same time
+        tasks = [details_provider.get_content_model()]
+        
+        # Only add MAL search if it's an anime
+        mal_task_idx = -1
+        if item_type == "anime":
+            title = getattr(item, 'title', '')
+            tasks.append(MALService.search_mal_id(title))
+            mal_task_idx = 1
+            
+        results_parallel = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        details_model = results_parallel[0]
+        if isinstance(details_model, Exception):
+            print(f"[RETRY] First details fetch failed: {details_model}. Retrying...")
+            details_model = await details_provider.get_content_model()
+            
+        mal_id = None
+        if mal_task_idx != -1:
+            mal_res = results_parallel[mal_task_idx]
+            if not isinstance(mal_res, Exception):
+                mal_id = mal_res
         
         # Extract IMDB rating if available
         imdb_rating = None
         imdb_rating_value = None
         
         # Try to get rating value from details_model first
-        rating_attr = None
-        if hasattr(details_model, 'imdb_rating_value'):
-            rating_attr = 'imdb_rating_value'
-        elif hasattr(details_model, 'imdbRatingValue'):
-            rating_attr = 'imdbRatingValue'
-            
-        if rating_attr:
-            value = getattr(details_model, rating_attr)
+        if hasattr(details_model, 'imdbRatingValue'):
+            value = getattr(details_model, 'imdbRatingValue')
             if value:
                 imdb_rating_value = float(value)
                 imdb_rating = f"{value}/10"
-                print(f"[DEBUG] Found rating in details_model.{rating_attr}: {imdb_rating}")
+                print(f"[DEBUG] Found rating in details_model.imdbRatingValue: {imdb_rating}")
         
         # Fallback: Try to get from resData
         if not imdb_rating_value and hasattr(details_model, 'resData'):
             resData = details_model.resData
-            res_rating_attr = None
-            if hasattr(resData, 'imdb_rating_value'):
-                res_rating_attr = 'imdb_rating_value'
-            elif hasattr(resData, 'imdbRatingValue'):
-                res_rating_attr = 'imdbRatingValue'
-                
-            if res_rating_attr:
-                value = getattr(resData, res_rating_attr)
+            if hasattr(resData, 'imdbRatingValue'):
+                value = getattr(resData, 'imdbRatingValue')
                 if value:
                     imdb_rating_value = float(value)
                     imdb_rating = f"{value}/10"
-                    print(f"[DEBUG] Found rating in resData.{res_rating_attr}: {imdb_rating}")
+                    print(f"[DEBUG] Found rating in resData.imdbRatingValue: {imdb_rating}")
         
         # Fallback: Try to get from the original search item
-        if not imdb_rating_value:
-            item_rating_attr = None
-            if hasattr(item, 'imdb_rating_value'):
-                item_rating_attr = 'imdb_rating_value'
-            elif hasattr(item, 'imdbRatingValue'):
-                item_rating_attr = 'imdbRatingValue'
-            elif isinstance(item, dict):
-                if 'imdb_rating_value' in item:
-                    item_rating_attr = 'imdb_rating_value'
-                elif 'imdbRatingValue' in item:
-                    item_rating_attr = 'imdbRatingValue'
-                    
-            if item_rating_attr:
-                value = item.get(item_rating_attr) if isinstance(item, dict) else getattr(item, item_rating_attr)
-                if value:
-                    imdb_rating_value = float(value)
-                    imdb_rating = f"{value}/10"
-                    print(f"[DEBUG] Found rating in item.{item_rating_attr}: {imdb_rating}")
+        if not imdb_rating_value and hasattr(item, 'imdbRatingValue'):
+            value = getattr(item, 'imdbRatingValue')
+            if value:
+                imdb_rating_value = float(value)
+                imdb_rating = f"{value}/10"
+                print(f"[DEBUG] Found rating in item.imdbRatingValue: {imdb_rating}")
         
         print(f"[DEBUG] Final rating: {imdb_rating}, rating_value: {imdb_rating_value}")
         
@@ -1090,11 +976,8 @@ async def details(item_id: str) -> dict:
             elif hasattr(details_model, 'resource') and hasattr(details_model.resource, 'seasons'):
                 seasons_list = details_model.resource.seasons
             # Path 3: details_model.seasons
-            elif hasattr(details_model, 'seasons') and details_model.seasons:
-                if hasattr(details_model.seasons, 'seasons'):
-                    seasons_list = details_model.seasons.seasons
-                else:
-                    seasons_list = details_model.seasons
+            elif hasattr(details_model, 'seasons'):
+                seasons_list = details_model.seasons
             # Path 4: details_model.item.seasons
             elif hasattr(details_model, 'item') and hasattr(details_model.item, 'seasons'):
                 seasons_list = details_model.item.seasons
@@ -1108,10 +991,10 @@ async def details(item_id: str) -> dict:
                 for season in seasons_list:
                     if isinstance(season, dict):
                         s_num = season.get('se', season.get('number', season.get('season_number', 0)))
-                        m_ep = season.get('max_ep', season.get('maxEp', season.get('max_episodes', season.get('episode_count', season.get('episodeCount', 0)))))
+                        m_ep = season.get('maxEp', season.get('max_episodes', season.get('episode_count', season.get('episodeCount', 0))))
                     else:
                         s_num = getattr(season, 'se', getattr(season, 'number', getattr(season, 'season_number', 0)))
-                        m_ep = getattr(season, 'max_ep', getattr(season, 'maxEp', getattr(season, 'max_episodes', getattr(season, 'episode_count', getattr(season, 'episodeCount', 0)))))
+                        m_ep = getattr(season, 'maxEp', getattr(season, 'max_episodes', getattr(season, 'episode_count', getattr(season, 'episodeCount', 0))))
                     
                     if s_num is not None:
                         seasons_data.append({
@@ -1197,9 +1080,8 @@ async def download_task(
             await manager.broadcast({"status": "searching", "message": f"Searching for {query}..."})
             
             subject_type = SubjectType.TV_SERIES if season is not None else SubjectType.ALL
-            async with MovieBoxHttpClient() as client:
-                search_instance = SearchV3(client_session=client, query=query, subject_type=subject_type)
-                results = await search_instance.get_content_model()
+            search_instance = Search(session=session, query=query, subject_type=subject_type)
+            results = await search_instance.get_content_model()
             
             if not results.items:
                 await manager.broadcast({"status": "error", "message": "No results found"})
@@ -1214,7 +1096,17 @@ async def download_task(
         # 2. Get Files
         await manager.broadcast({"status": "resolving", "message": "Resolving files..."})
         
-        media_file = await resolve_moviebox_media_file(item, season=season, episode=episode, quality="BEST")
+        media_file = None
+        if season is not None and episode is not None:
+             # TV Series
+             files_provider = DownloadableTVSeriesFilesDetail(session=session, item=item)
+             files_metadata = await files_provider.get_content_model(season=season, episode=episode)
+             media_file = resolve_media_file_to_be_downloaded("BEST", files_metadata)
+        else:
+             # Movie
+             files_provider = DownloadableMovieFilesDetail(session=session, item=item)
+             files_metadata = await files_provider.get_content_model()
+             media_file = resolve_media_file_to_be_downloaded("BEST", files_metadata)
         
         # 4. Download
         downloader = MediaFileDownloader()
@@ -1282,19 +1174,6 @@ async def stream(
         search_instance = None
         max_retries = 2
         
-        if id and id not in search_cache:
-            if id.startswith("moviebox_") or (id.isdigit() and len(id) >= 18):
-                sub_id = id.replace("moviebox_", "")
-                search_cache[id] = {
-                    "item": {
-                        "id": id,
-                        "subject_id": sub_id,
-                        "title": query or "Video"
-                    },
-                    "type": content_type,
-                    "needs_search": True
-                }
-
         if id and id in search_cache:
             # Use cached item directly
             cached = search_cache[id]
@@ -1312,9 +1191,8 @@ async def stream(
                     subject_type = SubjectType.TV_SERIES
                 else:
                     subject_type = SubjectType.MOVIES
-                async with MovieBoxHttpClient() as client:
-                    search_instance = SearchV3(client_session=client, query=target_item['title'], subject_type=subject_type)
-                    results = await search_instance.get_content_model()
+                search_instance = Search(session=session, query=target_item['title'], subject_type=subject_type)
+                results = await search_instance.get_content_model()
                 
                 if not results.items:
                     raise HTTPException(status_code=404, detail="Content not found via search")
@@ -1325,6 +1203,7 @@ async def stream(
                 for search_item in results.items:
                     if str(getattr(search_item, 'id', '')) == str(original_id) or str(getattr(search_item, 'subjectId', '')) == str(original_id):
                         matched_item = search_item
+
                         break
                 
                 # If no ID match, fall back to first result (but log warning)
@@ -1335,7 +1214,7 @@ async def stream(
                 
                 # Update cache with proper SearchResultsItem
                 search_cache[id]["item"] = target_item
-                search_cache[id]["search_instance"] = None
+                search_cache[id]["search_instance"] = search_instance
                 search_cache[id]["needs_search"] = False
 
         else:
@@ -1348,9 +1227,8 @@ async def stream(
 
             for attempt in range(max_retries + 1):
                 try:
-                    async with MovieBoxHttpClient() as client:
-                        search_instance = SearchV3(client_session=client, query=query, subject_type=subject_type)
-                        results = await search_instance.get_content_model()
+                    search_instance = Search(session=session, query=query, subject_type=subject_type)
+                    results = await search_instance.get_content_model()
                     
                     if not results.items:
                         if attempt < max_retries:
@@ -1370,19 +1248,47 @@ async def stream(
                     raise e
 
             
-        # 4. Resolve Media File with V3 APIs directly
+        # 4. Resolve Media File with encoding error handling
         media_file = None
+        files_metadata = None
+        
+        # We only need to fetch files_metadata ONCE, not for every quality
         for res_attempt in range(max_retries + 1):
             try:
-                media_file = await resolve_moviebox_media_file(target_item, season=season, episode=episode, quality="BEST")
-                if media_file and media_file.url:
+                if season is not None and episode is not None:
+                    # TV Series / Anime
+                    files_provider = DownloadableTVSeriesFilesDetail(session=session, item=target_item)
+                    files_metadata = await files_provider.get_content_model(season=season, episode=episode)
+                else:
+                    # Movie
+                    files_provider = DownloadableMovieFilesDetail(session=session, item=target_item)
+                    files_metadata = await files_provider.get_content_model()
+                
+                if files_metadata:
                     break
             except Exception as res_err:
                 if res_attempt < max_retries:
                     print(f"[STREAM] Metadata fetch attempt {res_attempt + 1} failed: {res_err}. Retrying...")
                     await asyncio.sleep(1)
                     continue
-                raise HTTPException(status_code=404, detail="Playable stream URL not found")
+                raise res_err
+
+        # Now try to find the best quality from the single files_metadata
+        quality_options = ["BEST", "WORST", "720P", "480P", "360P"]
+        
+        if files_metadata:
+            for quality in quality_options:
+                try:
+                    media_file = resolve_media_file_to_be_downloaded(quality, files_metadata)
+                    if media_file and media_file.url:
+                        print(f"[SUCCESS] Resolved media file with quality: {quality}")
+                        break
+                except UnicodeDecodeError as e:
+                    print(f"[ENCODING ERROR] Quality {quality} failed with encoding error: {e}")
+                    continue
+                except Exception as e:
+                    print(f"[ERROR] Quality {quality} failed: {e}")
+                    continue
              
         if not media_file or not media_file.url:
             raise HTTPException(status_code=404, detail="Playable stream URL not found")
@@ -1393,38 +1299,17 @@ async def stream(
             # This bypasses 403 Forbidden errors from streaming providers
             proxy_url = f"/api/proxy-stream?url={quote(str(media_file.url))}"
             
-            # Extract subtitles using V3 details
+            # Extract subtitles
             subtitles = []
-            try:
-                subject_id = None
-                if isinstance(target_item, dict):
-                    subject_id = target_item.get('subject_id') or target_item.get('subjectId') or target_item.get('id')
-                else:
-                    subject_id = getattr(target_item, 'subject_id', getattr(target_item, 'subjectId', getattr(target_item, 'id', None)))
-                if subject_id:
-                    async with MovieBoxHttpClient() as client:
-                        details_provider = ItemDetailsV3(client_session=client, include_seasons=True)
-                        details_model = await details_provider.get_content_model(subject_id=str(subject_id))
-                        if hasattr(details_model, 'subtitles') and details_model.subtitles:
-                            # Note: V3 returns subtitles list. If details model has subtitles, let's map them
-                            # (usually V3 returns direct URLs in details model subtitles or play_info)
-                            pass
-                
-                # Fallback to media_file's ext_captions if present
-                if hasattr(media_file, 'ext_captions') and media_file.ext_captions:
-                    for caption in media_file.ext_captions:
-                        url = caption.get('url') if isinstance(caption, dict) else getattr(caption, 'url', None)
-                        lan = caption.get('lan') if isinstance(caption, dict) else getattr(caption, 'lan', None)
-                        lan_name = caption.get('lanName') if isinstance(caption, dict) else getattr(caption, 'lanName', None)
-                        if url:
-                            proxied_sub_url = f"/api/proxy-stream?url={quote(str(url))}&source=moviebox"
-                            subtitles.append({
-                                "lang": lan_name or lan or "Unknown",
-                                "language": lan or "en",
-                                "url": proxied_sub_url
-                            })
-            except Exception as sub_err:
-                print(f"[SUBTITLE ERROR] Failed to fetch subtitles: {sub_err}")
+            if files_metadata and hasattr(files_metadata, 'captions'):
+                for caption in files_metadata.captions:
+                    # Proxy the subtitle URL to avoid CORS/Forbidden issues
+                    proxied_sub_url = f"/api/proxy-stream?url={quote(str(caption.url))}&source=moviebox"
+                    subtitles.append({
+                        "lang": caption.lanName,
+                        "language": caption.lan,
+                        "url": proxied_sub_url
+                    })
             
             return {
                 "status": "success", 
@@ -1489,8 +1374,6 @@ async def stream(
         subprocess.Popen(cmd)
         
         return {"status": "success", "message": "Streaming started locally"}
-    except HTTPException as e:
-        raise e
     except Exception as e:
         print(f"Streaming error: {e}")
         import traceback
@@ -1499,13 +1382,11 @@ async def stream(
 
 @router.get("/moviebox/download")
 async def moviebox_download(
-    request: Request,
     query: str, 
     id: Optional[str] = None, 
     content_type: str = "all", 
     season: Optional[int] = None, 
-    episode: Optional[int] = None,
-    check_only: bool = False
+    episode: Optional[int] = None
 ):
     """
     Direct video download for MovieBox items. 
@@ -1516,20 +1397,6 @@ async def moviebox_download(
         target_item = None
         search_instance = None
         
-        if id and id not in search_cache:
-            if id.startswith("moviebox_") or (id.isdigit() and len(id) >= 18):
-                sub_id = id.replace("moviebox_", "")
-                search_cache[id] = {
-                    "item": {
-                        "id": id,
-                        "subject_id": sub_id,
-                        "title": query or "Video"
-                    },
-                    "type": content_type,
-                    "search_instance": None,
-                    "needs_search": True
-                }
-
         if id and id in search_cache:
             cached = search_cache[id]
             target_item = cached["item"]
@@ -1542,9 +1409,8 @@ async def moviebox_download(
                     subject_type = SubjectType.TV_SERIES
                 else:
                     subject_type = SubjectType.MOVIES
-                async with MovieBoxHttpClient() as client:
-                    search_instance = SearchV3(client_session=client, query=target_item['title'], subject_type=subject_type)
-                    results = await search_instance.get_content_model()
+                search_instance = Search(session=session, query=target_item['title'], subject_type=subject_type)
+                results = await search_instance.get_content_model()
                 if results.items:
                     original_id = target_item['id']
                     matched_item = None
@@ -1554,7 +1420,7 @@ async def moviebox_download(
                             break
                     target_item = matched_item or results.items[0]
                     search_cache[id]["item"] = target_item
-                    search_cache[id]["search_instance"] = None
+                    search_cache[id]["search_instance"] = search_instance
                     search_cache[id]["needs_search"] = False
         else:
             subject_type = SubjectType.ALL
@@ -1562,9 +1428,8 @@ async def moviebox_download(
                 subject_type = SubjectType.MOVIES
             elif content_type.lower() in ["series", "anime"]:
                 subject_type = SubjectType.TV_SERIES
-            async with MovieBoxHttpClient() as client:
-                search_instance = SearchV3(client_session=client, query=query, subject_type=subject_type)
-                results = await search_instance.get_content_model()
+            search_instance = Search(session=session, query=query, subject_type=subject_type)
+            results = await search_instance.get_content_model()
             if not results.items:
                 raise HTTPException(status_code=404, detail="Content not found")
             target_item = results.items[0]
@@ -1575,63 +1440,209 @@ async def moviebox_download(
         
         for quality in quality_options:
             try:
-                media_file = await resolve_moviebox_media_file(target_item, season=season, episode=episode, quality=quality)
+                if season is not None and episode is not None:
+                    files_provider = DownloadableTVSeriesFilesDetail(session=session, item=target_item)
+                    files_metadata = await files_provider.get_content_model(season=season, episode=episode)
+                else:
+                    files_provider = DownloadableMovieFilesDetail(session=session, item=target_item)
+                    files_metadata = await files_provider.get_content_model()
+                
+                media_file = resolve_media_file_to_be_downloaded(quality, files_metadata)
                 if media_file and media_file.url:
                     break
-            except Exception as e:
-                print(f"[DOWNLOAD RESOLUTION ERROR] Quality {quality} resolution attempt failed: {e}")
+            except:
                 continue
                 
         if not media_file or not media_file.url:
             raise HTTPException(status_code=404, detail="Downloadable stream URL not found")
 
-        if check_only:
-            return {"status": "available"}
-
-        # 3. Proxy the download directly using the same connection-pooling range-supporting logic as proxy-stream
-        import re
-        from starlette.background import BackgroundTask
-        
+        # 3. Proxy the download
         filename = f"{getattr(target_item, 'title', 'video')}.mp4"
         if season is not None and episode is not None:
             filename = f"{getattr(target_item, 'title', 'video')} S{season}E{episode}.mp4"
-        filename = re.sub(r'[/\\?%*:|"<>]', '-', filename)
-
-        # Cycle through headers until success
+        
+        # Sanitize filename
+        filename = filename.replace("/", "_").replace("\\", "_")
+        
+        # We reuse get_source_headers to get correct credentials for the CDN
         candidates = get_source_headers(str(media_file.url), "moviebox")
-        client_range = request.headers.get('range')
-        client = get_http_client()
+        headers = candidates[0]
+        
+        # We MUST NOT use 'async with' because StreamingResponse needs the client open!
+        client = httpx.AsyncClient(verify=False, follow_redirects=True, timeout=60.0)
+        req = client.build_request("GET", str(media_file.url), headers=headers)
+        resp = await client.send(req, stream=True, follow_redirects=True)
+        
+        if resp.status_code >= 400:
+            await resp.aclose()
+            await client.aclose()
+            raise HTTPException(status_code=resp.status_code, detail=f"CDN returned {resp.status_code}")
 
+        res_headers = {
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Type": resp.headers.get("Content-Type", "video/mp4"),
+            "Access-Control-Allow-Origin": "*"
+        }
+        if "Content-Length" in resp.headers:
+            res_headers["Content-Length"] = resp.headers["Content-Length"]
+
+        from starlette.background import BackgroundTask
+        async def cleanup():
+            await resp.aclose()
+            await client.aclose()
+
+        return StreamingResponse(
+            resp.aiter_raw(),
+            status_code=resp.status_code,
+            headers=res_headers,
+            background=BackgroundTask(cleanup)
+        )
+
+    except Exception as e:
+        print(f"[DOWNLOAD ERROR] {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/proxy-stream")
+async def proxy_stream(request: Request, url: str, source: str = None):
+    """
+    Proxies a stream URL through the backend in a single pass.
+    Bypasses 403s and supports range requests via browser headers.
+    """
+    # Cycle through headers until success
+    candidates = get_source_headers(url, source)
+    
+    # Forward Range from browser
+    client_range = request.headers.get('range')
+    
+    # User Request: Fix Format Error (Client closing too early)
+    # We must NOT use 'async with' because StreamingResponse needs the client open!
+    client = httpx.AsyncClient(verify=False, follow_redirects=True)
+    
+    try:
         last_error = None
         for headers in candidates:
             if client_range:
                 headers['Range'] = client_range
 
             try:
-                req = client.build_request("GET", str(media_file.url), headers=headers)
-                resp = await client.send(req, stream=True, follow_redirects=True)
+                # Check if this is an HLS request
+                is_m3u8 = url.split("?")[0].endswith(".m3u8")
+                
+                if is_m3u8:
+                    # For playlists, we download and REWRITE absolute URLs to proxy through US
+                    resp = await client.get(url, headers=headers, follow_redirects=True, timeout=15.0)
+                    if resp.status_code != 200:
+                        last_error = f"Source returned {resp.status_code}"
+                        continue
+                    
+                    content = resp.text
+                    base_url = str(resp.url).rsplit('/', 1)[0]
+                    lines = content.splitlines()
+                    new_lines = []
+                    
+                    proxy_base = f"{request.url.scheme}://{request.url.netloc}/api/proxy-stream"
+                    
+                    for line in lines:
+                        line = line.strip()
+                        if not line:
+                            new_lines.append(line)
+                            continue
+                        
+                        if line.startswith("#"):
+                            if "URI=" in line:
+                                import re
+                                def wrap_uri(match):
+                                    uri = match.group(2)
+                                    if not uri.startswith("http"):
+                                        uri = f"{base_url}/{uri}"
+                                    return f'{match.group(1)}="{proxy_base}?url={quote(uri)}&source={source or ""}"'
+                                line = re.sub(r'(URI)=["\']([^"\']+)["\']', wrap_uri, line)
+                            new_lines.append(line)
+                        else:
+                            target_url = line
+                            if not target_url.startswith("http"):
+                                target_url = f"{base_url}/{target_url}"
+                            proxied_url = f"{proxy_base}?url={quote(target_url)}&source={source or ''}"
+                            new_lines.append(proxied_url)
+                    
+                    rewritten_content = "\n".join(new_lines)
+                    
+                    # Close client since we are done
+                    await client.aclose()
+                    
+                    return Response(
+                        content=rewritten_content,
+                        media_type="application/vnd.apple.mpegurl",
+                        headers={
+                            "Access-Control-Allow-Origin": "*",
+                            "X-Proxy-Status": "Rewritten-M3U8"
+                        }
+                    )
+
+                # Not M3U8 -> Standard Proxy
+                is_srt = ".srt" in url.lower()
+                if is_srt:
+                    # Use regular GET for subtitles (more robust for CloudFront)
+                    resp = await client.get(url, headers=headers, follow_redirects=True, timeout=15.0)
+                else:
+                    req = client.build_request("GET", url, headers=headers)
+                    resp = await client.send(req, stream=True, follow_redirects=True)
                 
                 if resp.status_code >= 400:
-                    print(f"[DOWNLOAD PROXY ERROR] {resp.status_code} for {str(media_file.url)[:50]}")
                     await resp.aclose()
                     last_error = f"Source returned {resp.status_code}"
                     continue
                 
                 # Success!
+                
+                # Intercept SRT for conversion to VTT (Browsers don't support SRT natively in tracks)
+                is_srt = ".srt" in url.lower() or "application/x-subrip" in resp.headers.get("Content-Type", "").lower()
+                
+                if is_srt:
+                    try:
+                        print(f"[SUBTITLE] Processing {url[:100]}")
+                        content = await resp.aread()
+                        try:
+                            text = content.decode('utf-8')
+                        except:
+                            text = content.decode('latin-1', errors='replace')
+                        
+                        vtt_text = srt_to_vtt(text)
+                        await resp.aclose()
+                        await client.aclose()
+                        
+                        print(f"[SUBTITLE] Successfully converted {url[:50]} to VTT")
+                        return Response(
+                            content=vtt_text,
+                            media_type="text/vtt",
+                            headers={
+                                "Access-Control-Allow-Origin": "*",
+                                "X-Proxy-Status": "Converted-SRT-to-VTT"
+                            }
+                        )
+                    except Exception as sub_e:
+                        print(f"[SUBTITLE ERROR] Conversion failed: {sub_e}")
+                        traceback.print_exc()
+                        # Fallback: if conversion fails, return raw if possible or raise
+                        raise HTTPException(status_code=500, detail=f"Subtitle conversion error: {str(sub_e)}")
+                
                 excluded_headers = ["content-encoding", "content-length", "transfer-encoding", "connection", "keep-alive", "content-disposition"]
                 res_headers = {k: v for k, v in resp.headers.items() if k.lower() not in excluded_headers}
                 res_headers.update({
                     "Access-Control-Allow-Origin": "*",
                     "Connection": "keep-alive",
-                    "Content-Disposition": f'attachment; filename="{filename}"',
-                    "Content-Type": "application/octet-stream",
-                    "X-Proxy-Status": "Direct-Download"
+                    "X-Proxy-Status": "One-Shot"
                 })
                 if "Content-Length" in resp.headers:
                     res_headers["Content-Length"] = resp.headers["Content-Length"]
 
+                from starlette.background import BackgroundTask
+                
                 async def cleanup():
                     await resp.aclose()
+                    await client.aclose()
 
                 return StreamingResponse(
                     resp.aiter_raw(),
@@ -1641,30 +1652,39 @@ async def moviebox_download(
                 )
 
             except Exception as e:
-                print(f"[DOWNLOAD PROXY ATTEMPT FAILED] {e} for {str(media_file.url)[:50]}")
+                print(f"[PROXY ATTEMPT FAILED] {e} for {url[:50]}")
                 last_error = str(e)
                 continue
+                
+        # If we exit loop without returning
+        await client.aclose()
+        raise HTTPException(status_code=502, detail=f"Proxy failed: {last_error or 'Unknown error'}")
 
-        raise HTTPException(status_code=502, detail=f"Proxy failed: {last_error}")
-
-
-    except HTTPException as e:
-        raise e
+    except HTTPException:
+        # Re-raise HTTPExceptions as-is to preserve status codes (avoid 500)
+        raise
     except Exception as e:
-        print(f"[DOWNLOAD ERROR] {e}")
-        import traceback
+        # Fallback closure for actual crashes
+        if 'client' in locals():
+            try: await client.aclose()
+            except: pass
+        print(f"[PROXY FATAL] {e}")
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
+
 
 # --- Anilist & MegaPlay Section ---
 
 @router.get("/anime/home")
 async def get_anime_home():
     try:
-        trending = await AnilistService.get_trending(per_page=20)
+        trending = await AnilistService.get_trending(per_page=50)
+        top_100 = await AnilistService.get_top_100(per_page=100)
         
         return [
-            {"title": "Trending Now", "items": trending}
+            {"title": "Trending Now", "items": trending},
+            {"title": "Top 100 Anime", "items": top_100}
         ]
     except Exception as e:
         print(f"Anilist Home error: {e}")
@@ -1705,48 +1725,25 @@ async def get_anime_episodes(anime_id: str):
         if not info: 
             return {"status": 404, "data": {"episodes": []}}
         
-        # Calculate how many episodes have actually released
-        # Default to 0, then try to find the best estimate
-        count = 0
-        
-        ep_count = info.get('episodes_count') or 0
-        next_ep = info.get('next_episode')
-        streaming_count = info.get('streaming_episodes_count', 0)
-        schedule_count = info.get('aired_episodes_from_schedule', 0)
+        total_planned = info.get('episodes_count')
+        next_ep_num = info.get('next_ep_num')
         status = info.get('status')
         
-        count = 0
-        
-        # 1. Start with the most reliable historical data
-        count = max(schedule_count, streaming_count)
-        
-        # 2. If it's FINISHED, use total episodes
-        if status == 'FINISHED' and ep_count > 0:
-            count = max(count, ep_count)
+        # Determine ONLY ALREADY AIRED EPISODES
+        if next_ep_num:
+            # next_ep_num is the episode number that WILL air next, so latest aired is next_ep_num - 1
+            count = next_ep_num - 1
+        elif status == 'FINISHED':
+            count = total_planned or 1
+        elif status == 'NOT_YET_RELEASED':
+            count = 0
+        else:
+            count = total_planned or 1
             
-        # 3. If it's RELEASING, use next_ep - 1
-        if status == 'RELEASING' and next_ep and next_ep > 1:
-            count = max(count, next_ep - 1)
-            
-        # 4. Final safety fallbacks
-        if not count or count < 1:
-            if status == 'FINISHED' and ep_count > 0:
-                count = ep_count
-            elif status == 'RELEASING':
-                count = ep_count if (ep_count and ep_count > 0) else 1
-            else:
-                count = ep_count if (ep_count and ep_count > 0) else 1
-
-        # Final absolute floor
-        if not count or count < 1:
-            count = 1
-
-        print(f"[Anilist Episodes] ID: {anime_id} | Status: {status} | Final Count: {count} (Sched: {schedule_count}, Stream: {streaming_count}, Next: {next_ep}, Total: {ep_count})")
-        if count <= 1:
-            print(f"[Anilist Episodes] LOW COUNT DEBUG - Full Info: {info}")
+        count = max(0, int(count or 0))
         
         episodes = []
-        for i in range(1, int(count) + 1):
+        for i in range(1, count + 1):
             episodes.append({
                 "number": i,
                 "episodeId": str(i),
@@ -1754,18 +1751,207 @@ async def get_anime_episodes(anime_id: str):
             })
         return {"status": 200, "data": {"episodes": episodes}}
     except Exception as e:
-        print(f"[API ERROR] get_anime_episodes failed for {anime_id}: {e}")
-        import traceback
-        traceback.print_exc()
-        return {"status": 200, "data": {"episodes": [], "error": str(e)}}
+        print(f"Anilist Episodes error: {e}")
+        return {"status": 200, "data": {"episodes": []}}
 
 # Removed anime/servers as MegaPlay uses direct embed
 
+@router.get("/iframe-proxy")
+async def iframe_proxy(url: str):
+    """
+    Serves a minimal HTML page containing the target iframe.
+    Includes AGGRESSIVE ad-blocking to prevent ALL redirects.
+    """
+    html_content = f'''<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Video Player</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        html, body {{ margin: 0; padding: 0; width: 100%; height: 100%; background: black; overflow: hidden; }}
+        .iframe-container {{ width: 100%; height: 100%; position: relative; }}
+        iframe {{ width: 100%; height: 100%; border: none; }}
+        /* Hide any ad overlays */
+        .ad, .ads, .advert, .advertisement, .popup, .overlay, [class*="ad-"], [class*="popup"], 
+        [id*="ad-"], [id*="popup"], [class*="sponsor"], [class*="banner"] {{ display: none !important; }}
+    </style>
+    <script>
+        // AGGRESSIVE AD-BLOCKER v2.0
+        (function() {{
+            'use strict';
+            console.log("[AdBlock] STRICT MODE ACTIVE");
+            
+            var ALLOWED = ['megaplay.buzz', 'megacloud.tv', 'megacloud.blog', 'anilist.co', 'localhost', '127.0.0.1'];
+            
+            function isAllowed(urlStr) {{
+                try {{
+                    var u = new URL(urlStr, window.location.href);
+                    return ALLOWED.some(function(d) {{ return u.hostname.indexOf(d) !== -1; }});
+                }} catch(e) {{ return false; }}
+            }}
+            
+            // 1. BLOCK window.open
+            var _open = window.open;
+            window.open = function(url) {{
+                if (url && isAllowed(url)) return _open.apply(window, arguments);
+                console.log("[AdBlock] Blocked window.open:", url);
+                return null;
+            }};
+            
+            // 2. BLOCK location changes
+            // 2. BLOCK location changes (Safe method)
+            // Cannot redefine window.location directly in modern browsers
+            window.addEventListener('beforeunload', function(e) {{
+                // heuristic: if we didn't initiate a click on an allowed link, it might be a redirect
+                // But this is hard to detect perfectly. 
+                // For now, relies on click hijacking (below) to stop new tabs.
+            }});
+            
+            // 3. BLOCK top/parent navigation
+            try {{
+                if (window.top !== window) {{
+                    Object.defineProperty(window, 'top', {{ get: function() {{ return window; }} }});
+                    Object.defineProperty(window, 'parent', {{ get: function() {{ return window; }} }});
+                }}
+            }} catch(e) {{}}
+            
+            // 4. BLOCK ALL click events on suspicious elements
+            document.addEventListener('click', function(e) {{
+                var t = e.target;
+                
+                // Block clicks on invisible overlays (ad trick)
+                var style = window.getComputedStyle(t);
+                if (style.opacity === '0' || style.visibility === 'hidden' || 
+                    (style.position === 'fixed' && parseInt(style.zIndex) > 1000)) {{
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                    console.log("[AdBlock] Blocked invisible overlay click");
+                    return false;
+                }}
+                
+                // Block external links
+                while (t && t.tagName !== 'A') {{ t = t.parentElement; }}
+                if (t && t.href && !isAllowed(t.href)) {{
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                    console.log("[AdBlock] Blocked link:", t.href);
+                    return false;
+                }}
+            }}, true);
+            
+            // 5. BLOCK mousedown/mouseup (some ads use these)
+            ['mousedown', 'mouseup', 'pointerdown', 'pointerup'].forEach(function(evt) {{
+                document.addEventListener(evt, function(e) {{
+                    var t = e.target;
+                    while (t && t.tagName !== 'A') {{ t = t.parentElement; }}
+                    if (t && t.href && !isAllowed(t.href)) {{
+                        e.preventDefault();
+                        e.stopPropagation();
+                        e.stopImmediatePropagation();
+                        return false;
+                    }}
+                }}, true);
+            }});
+            
+            // 6. BLOCK form submissions to external sites
+            document.addEventListener('submit', function(e) {{
+                var form = e.target;
+                if (form.action && !isAllowed(form.action)) {{
+                    e.preventDefault();
+                    console.log("[AdBlock] Blocked form submit:", form.action);
+                    return false;
+                }}
+            }}, true);
+            
+            // 7. INTERCEPT and BLOCK setTimeout/setInterval redirects
+            var _setTimeout = window.setTimeout;
+            var _setInterval = window.setInterval;
+            window.setTimeout = function(fn, delay) {{
+                if (typeof fn === 'string' && (fn.includes('location') || fn.includes('open') || fn.includes('href'))) {{
+                    console.log("[AdBlock] Blocked setTimeout redirect");
+                    return 0;
+                }}
+                return _setTimeout.apply(window, arguments);
+            }};
+            window.setInterval = function(fn, delay) {{
+                if (typeof fn === 'string' && (fn.includes('location') || fn.includes('open') || fn.includes('href'))) {{
+                    console.log("[AdBlock] Blocked setInterval redirect");
+                    return 0;
+                }}
+                return _setInterval.apply(window, arguments);
+            }};
+            
+            // 8. BLOCK beforeunload (prevents "are you sure" popups)
+            window.onbeforeunload = null;
+            window.addEventListener('beforeunload', function(e) {{
+                delete e.returnValue;
+            }});
 
-
-
+            // 9. ANTI-DEBUGGER PROTECTION (Prevents UI freezing)
+            var originalFunction = window.Function;
+            window.Function = function(str) {{
+                if (str && str.indexOf('debugger') !== -1) {{
+                    console.log("[AdBlock] Stripping debugger...");
+                    str = str.replace(/debugger/g, ' ');
+                }}
+                return originalFunction(str);
+            }};
+            var originalEval = window.eval;
+            window.eval = function(str) {{
+                if (str && typeof str === 'string' && str.indexOf('debugger') !== -1) {{
+                    console.log("[AdBlock] Stripped debugger from eval");
+                    str = str.replace(/debugger/g, ' ');
+                }}
+                return originalEval(str);
+            }};
+            
+            // 9. Remove ad elements on load
+            function removeAds() {{
+                var selectors = ['.ad', '.ads', '.advert', '.popup', '.overlay', '[class*="ad-"]', 
+                                 '[class*="popup"]', '[id*="ad-"]', '[id*="popup"]', 'iframe[src*="ads"]'];
+                selectors.forEach(function(sel) {{
+                    document.querySelectorAll(sel).forEach(function(el) {{
+                        if (!el.src || !isAllowed(el.src)) {{
+                            el.remove();
+                        }}
+                    }});
+                }});
+            }}
+            document.addEventListener('DOMContentLoaded', removeAds);
+            setInterval(removeAds, 2000);
+            
+            // 10. BLOCK postMessage redirects
+            window.addEventListener('message', function(e) {{
+                if (e.data && typeof e.data === 'string') {{
+                    if (e.data.includes('redirect') || e.data.includes('location') || e.data.includes('http')) {{
+                        console.log("[AdBlock] Blocked postMessage:", e.data.substring(0, 100));
+                        e.stopImmediatePropagation();
+                    }}
+                }}
+            }}, true);
+            
+            console.log("[AdBlock] All protections loaded successfully");
+        }})();
+    </script>
+</head>
+<body>
+    <div class="iframe-container">
+        <iframe 
+            src="{url}"
+            frameborder="0"
+            scrolling="no"
+            allowfullscreen
+            allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+            style="width:100%;height:100%;border:none;">
+        </iframe>
+    </div>
+</body>
+</html>'''
     
-
+    return Response(content=html_content, media_type="text/html")
 
 @router.get("/anime/sources")
 async def get_anime_sources(episode_id: str, anime_id: str = None, category: str = "sub"):
@@ -1811,75 +1997,53 @@ async def cinecli_details(movie_id: str) -> dict:
 
 
 @router.get("/iframe-proxy")
-async def iframe_proxy(url: str):
+async def iframe_proxy(url: str, request: Request):
     """
-    Returns a clean HTML wrapper for the video player.
-    Preserves original scripts and provides ad-blocking + event monitoring.
+    Proxies an iframe page (like Megaplay) to bypass Referer checks.
+    Injects <base> tag to ensure relative links (JS/CSS) work.
     """
-    html_content = f'''<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Anime Player</title>
-<style>
-  html, body {{ margin:0; height:100%; background:#000; overflow:hidden; }}
-  #player {{ position:fixed; inset:0; width:100%; height:100%; border:0; }}
-</style>
-</head>
-<body>
-<iframe
-  id="player"
-  src="{url}"
-  allow="autoplay; fullscreen; picture-in-picture"
-  allowfullscreen>
-</iframe>
+    client = get_http_client()
+    
+    # Get proper headers (referer spoofing)
+    headers = {
+        'User-Agent': DEFAULT_HEADERS['User-Agent'],
+        'Referer': 'https://hianime.to/',
+        'Origin': 'https://hianime.to'
+    }
+    
+    # Specific handling for known providers
+    if "megaplay.buzz" in url:
+        headers['Referer'] = 'https://megaplay.buzz/'
+        headers['Origin'] = 'https://megaplay.buzz'
+        
+    try:
+        resp = await client.get(url, headers=headers, follow_redirects=True)
+        content = resp.text
+        
+        # Inject <base> tag right after <head>
+        base_to_inject = f'<base href="{url}">'
+        if "<head>" in content:
+            content = content.replace("<head>", f"<head>{base_to_inject}", 1)
+        # Fallback for upper case
+        elif "<HEAD>" in content:
+            content = content.replace("<HEAD>", f"<HEAD>{base_to_inject}", 1)
+        else:
+            # If no head, just prepend (browsers are lenient)
+            content = base_to_inject + content
+            
+        return Response(content=content, media_type="text/html")
+        
+    except Exception as e:
+        print(f"Iframe proxy failed: {e}")
+        return Response(content=f"Proxy Error: {e}", status_code=500)
 
-<script>
-// 1. AD-BLOCKER (Safe Mode) - Prevents basic redirects
-(function() {{
-    var ALLOWED = ['megaplay.buzz', 'megacloud.tv', 'megacloud.blog', 'anilist.co', 'localhost', '127.0.0.1'];
-    function isAllowed(uStr) {{ try {{ var u = new URL(uStr, window.location.href); return ALLOWED.some(d => u.hostname.includes(d)); }} catch(e) {{ return false; }} }}
-    
-    var _open = window.open;
-    window.open = function(u) {{ if (u && isAllowed(u)) return _open.apply(window, arguments); return null; }};
-    
-    document.addEventListener('click', function(e) {{
-        var t = e.target; while (t && t.tagName !== 'A') t = t.parentElement;
-        if (t && t.href && !isAllowed(t.href)) {{ e.preventDefault(); e.stopPropagation(); return false; }}
-    }}, true);
-}})();
-
-// 2. EVENT LISTENER - Monitor player state
-window.addEventListener("message", function (event) {{
-  if (event.origin !== "https://megaplay.buzz") return;
-  let data = event.data;
-  if (typeof data === "string") {{ try {{ data = JSON.parse(data); }} catch {{ return; }} }}
-  if (data.event === "complete") {{ console.log("[MegaPlay] Episode finished"); }}
-  if (data.event === "error") {{ console.log("[MegaPlay] Playback error"); }}
-}});
-</script>
-</body>
-</html>'''
-    
-    return Response(
-        content=html_content, 
-        media_type="text/html",
-        headers={
-            "Referrer-Policy": "strict-origin-when-cross-origin",
-            "X-Frame-Options": "ALLOWALL",
-            "Content-Security-Policy": "frame-ancestors *"
-        }
-    )
-    
 
 @router.get("/proxy-stream")
-async def proxy_stream(request: Request, url: str, source: str = None, download: bool = False, filename: str = "video.mp4"):
+async def proxy_stream(request: Request, url: str, source: str = None):
     """
     Proxies a stream URL through the backend in a single pass.
     Bypasses 403s and supports range requests via browser headers.
     """
-
     # Cycle through headers until success
     candidates = get_source_headers(url, source)
     
@@ -1892,16 +2056,18 @@ async def proxy_stream(request: Request, url: str, source: str = None, download:
     try:
         last_error = None
         for headers in candidates:
-            req_headers = headers.copy()
-            is_m3u8 = url.split("?")[0].lower().endswith(".m3u8")
-            if client_range and not is_m3u8:
-                req_headers['Range'] = client_range
+            if client_range:
+                headers['Range'] = client_range
 
             try:
+                # Check if this is an HLS request
+                # Combine robust checks: URL extension OR Content-Type (from previous check, but here we check URL first optimization)
+                is_m3u8 = url.split("?")[0].endswith(".m3u8")
+                
                 if is_m3u8:
                     # For playlists, we download and REWRITE absolute URLs to proxy through US
-                    resp = await client.get(url, headers=req_headers, follow_redirects=True, timeout=15.0)
-                    if resp.status_code not in [200, 206]:
+                    resp = await client.get(url, headers=headers, follow_redirects=True, timeout=15.0)
+                    if resp.status_code != 200:
                         last_error = f"Source returned {resp.status_code}"
                         continue
                     
@@ -1911,10 +2077,7 @@ async def proxy_stream(request: Request, url: str, source: str = None, download:
                     new_lines = []
                     
                     # Use the endpoint that this function is mounted on
-                    scheme = request.headers.get("x-forwarded-proto", request.url.scheme)
-                    if "onrender.com" in str(request.url.netloc):
-                        scheme = "https"
-                    proxy_base = f"{scheme}://{request.url.netloc}/api/proxy-stream"
+                    proxy_base = f"{request.url.scheme}://{request.url.netloc}/api/proxy-stream"
                     
                     for line in lines:
                         line = line.strip()
@@ -1948,8 +2111,7 @@ async def proxy_stream(request: Request, url: str, source: str = None, download:
                         content=rewritten_content,
                         media_type="application/vnd.apple.mpegurl",
                         headers={
-                            "Cross-Origin-Resource-Policy": "cross-origin",
-                            "Cache-Control": "no-cache, no-store, must-revalidate",
+                            "Access-Control-Allow-Origin": "*",
                             "X-Proxy-Status": "Rewritten-M3U8"
                         }
                     )
@@ -1958,15 +2120,14 @@ async def proxy_stream(request: Request, url: str, source: str = None, download:
                 is_srt = ".srt" in url.lower()
                 if is_srt:
                     # Use regular GET for subtitles (worked in standalone test)
-                    resp = await client.get(url, headers=req_headers, follow_redirects=True, timeout=15.0)
+                    resp = await client.get(url, headers=headers, follow_redirects=True, timeout=15.0)
                 else:
-                    req = client.build_request("GET", url, headers=req_headers)
+                    req = client.build_request("GET", url, headers=headers)
                     resp = await client.send(req, stream=True, follow_redirects=True)
                 
                 # Check if Content-Type indicates M3U8 even if extension didn't (Second Chance)
                 ct = resp.headers.get("Content-Type", "").lower()
-                is_ts_file = url.split("?")[0].lower().endswith(".ts")
-                if not is_ts_file and ("mpegurl" in ct or "m3u8" in ct):
+                if "mpegurl" in ct or "m3u8" in ct:
                     # It IS M3U8, but we started streaming it.
                     # We need to read it and rewrite.
                     content = await resp.read() # Read all
@@ -1976,10 +2137,7 @@ async def proxy_stream(request: Request, url: str, source: str = None, download:
                     base_url = str(resp.url).rsplit('/', 1)[0]
                     lines = text.splitlines()
                     new_lines = []
-                    scheme = request.headers.get("x-forwarded-proto", request.url.scheme)
-                    if "onrender.com" in str(request.url.netloc):
-                        scheme = "https"
-                    proxy_base = f"{scheme}://{request.url.netloc}/api/proxy-stream"
+                    proxy_base = f"{request.url.scheme}://{request.url.netloc}/api/proxy-stream"
                     
                     import re
                     for line in lines:
@@ -2011,8 +2169,7 @@ async def proxy_stream(request: Request, url: str, source: str = None, download:
                         content=rewritten_content,
                         media_type="application/vnd.apple.mpegurl",
                         headers={
-                            "Cross-Origin-Resource-Policy": "cross-origin",
-                            "Cache-Control": "no-cache, no-store, must-revalidate",
+                            "Access-Control-Allow-Origin": "*",
                             "X-Proxy-Status": "Rewritten-M3U8-CT"
                         }
                     )
@@ -2024,28 +2181,13 @@ async def proxy_stream(request: Request, url: str, source: str = None, download:
                     continue
                 
                 # Success!
-                excluded_headers = [
-                    "content-encoding", "content-length", "transfer-encoding", 
-                    "connection", "keep-alive", "content-disposition", 
-                    "cross-origin-resource-policy",
-                    "access-control-allow-origin", "access-control-allow-credentials",
-                    "access-control-allow-headers", "access-control-allow-methods",
-                    "access-control-expose-headers",
-                    "cache-control", "etag", "expires", "last-modified"
-                ]
+                excluded_headers = ["content-encoding", "content-length", "transfer-encoding", "connection", "keep-alive", "content-disposition"]
                 res_headers = {k: v for k, v in resp.headers.items() if k.lower() not in excluded_headers}
                 res_headers.update({
-                    "Cross-Origin-Resource-Policy": "cross-origin",
+                    "Access-Control-Allow-Origin": "*",
                     "Connection": "keep-alive",
-                    "Cache-Control": "no-cache, no-store, must-revalidate",
                     "X-Proxy-Status": "One-Shot"
                 })
-                if download:
-                    res_headers["Content-Disposition"] = f'attachment; filename="{filename}"'
-                    res_headers["Content-Type"] = "application/octet-stream"
-                elif url.split("?")[0].lower().endswith(".ts"):
-                    res_headers["Content-Type"] = "video/mp2t"
-                    
                 if "Content-Length" in resp.headers:
                     res_headers["Content-Length"] = resp.headers["Content-Length"]
 
@@ -2071,27 +2213,16 @@ async def proxy_stream(request: Request, url: str, source: str = None, download:
         # If we exit loop without returning
         # No need to close the global client
 
-        return Response(
-            content=json.dumps({"detail": f"Proxy failed: {last_error}"}),
-            status_code=502,
-            media_type="application/json",
-            headers={
-                "Cross-Origin-Resource-Policy": "cross-origin"
-            }
-        )
+        raise HTTPException(status_code=502, detail=f"Proxy failed: {last_error}")
 
     except Exception as e:
+        # Fallback closure
+        # No need to close the global client
+
         print(f"[PROXY FATAL] {e}")
         import traceback
         traceback.print_exc()
-        return Response(
-            content=json.dumps({"detail": str(e)}),
-            status_code=500,
-            media_type="application/json",
-            headers={
-                "Cross-Origin-Resource-Policy": "cross-origin"
-            }
-        )
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/proxy/download")
 async def proxy_download(url: str, filename: str = "download.mp4"):
@@ -2170,14 +2301,75 @@ async def manga_pdf(chapter_id: str):
 
 @router.get("/manga/download/{chapter_id:path}")
 async def manga_download(chapter_id: str, title: str = "chapter"):
-    zip_buffer = await MangaService.create_chapter_zip(chapter_id, title)
-    if not zip_buffer:
-        raise HTTPException(status_code=500, detail="Failed to create ZIP")
-    
+    safe_title = title.replace("/", "_").replace('"', '').replace("'", "").strip()
+
+    async def zip_generator():
+        import os as _os
+        import threading as _threading
+        import zipfile as _zipfile
+        import httpx as _httpx
+
+        # Fetch page URLs here — HTTP headers already sent so save dialog is already open
+        pages = await MangaService.get_pages(chapter_id)
+        if not pages:
+            return
+
+        # Pipe: write end → zipfile writer in thread; read end → HTTP response
+        rd, wr = _os.pipe()
+        reader   = _os.fdopen(rd, 'rb')
+        writer_raw = _os.fdopen(wr, 'wb')
+
+        def build_zip():
+            """Run in a daemon thread: download pages and write into the ZIP pipe."""
+            try:
+                # ZIP_STORED + non-seekable stream → Python uses data descriptors (no seek needed)
+                with _zipfile.ZipFile(writer_raw, 'w', _zipfile.ZIP_STORED) as zf:
+                    for i, page in enumerate(pages):
+                        try:
+                            resp = _httpx.get(
+                                page['img'],
+                                headers=page.get('headerForImage', {}),
+                                timeout=30.0,
+                                follow_redirects=True
+                            )
+                            if resp.status_code == 200:
+                                url  = page['img']
+                                ext  = url.split('.')[-1].split('?')[0] if '.' in url else 'jpg'
+                                if len(ext) > 4:
+                                    ext = 'jpg'
+                                zf.writestr(f"page_{i+1:03d}.{ext}", resp.content)
+                        except Exception as page_err:
+                            print(f"[MANGA ZIP] Page {i+1} error: {page_err}")
+            except Exception as fatal:
+                print(f"[MANGA ZIP] Fatal error: {fatal}")
+            finally:
+                try:
+                    writer_raw.close()
+                except Exception:
+                    pass
+
+        # Start the background zip builder — response headers already sent by now
+        t = _threading.Thread(target=build_zip, daemon=True)
+        t.start()
+
+        # Yield chunks from the read end of the pipe
+        loop = asyncio.get_event_loop()
+        try:
+            while True:
+                chunk = await loop.run_in_executor(None, reader.read, 65536)
+                if not chunk:
+                    break
+                yield chunk
+        finally:
+            try:
+                reader.close()
+            except Exception:
+                pass
+
     return StreamingResponse(
-        zip_buffer,
+        zip_generator(),
         media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{title.replace("/", "_")}.zip"'}
+        headers={"Content-Disposition": f'attachment; filename="{safe_title}.zip"'}
     )
 
 @router.get("/manga/save-local/{chapter_id:path}")
@@ -2187,8 +2379,6 @@ async def manga_save_local(chapter_id: str, manga_title: str, chapter_title: str
         raise HTTPException(status_code=500, detail=result["message"])
     return result
 
-TRANSPARENT_SVG = b'<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>'
-
 @router.get("/manga/image-proxy")
 async def manga_image_proxy(url: str, referer: str = "https://mangapill.com/"):
     """
@@ -2196,7 +2386,7 @@ async def manga_image_proxy(url: str, referer: str = "https://mangapill.com/"):
     Adds CORS and CORP headers to ensure browsers allow embedding.
     """
     if not url or url == "null":
-        return Response(content=TRANSPARENT_SVG, media_type="image/svg+xml")
+        return Response(content="Invalid URL", status_code=400)
         
     headers = {
         "Referer": referer,
@@ -2204,17 +2394,10 @@ async def manga_image_proxy(url: str, referer: str = "https://mangapill.com/"):
     }
     client = get_http_client()
     try:
-        resp = await client.get(url, headers=headers, follow_redirects=True, timeout=10.0)
+        resp = await client.get(url, headers=headers, follow_redirects=True, timeout=15.0)
         if resp.status_code != 200:
-            return Response(
-                content=TRANSPARENT_SVG,
-                media_type="image/svg+xml",
-                headers={
-                    "Cache-Control": "public, max-age=86400",
-                    "Access-Control-Allow-Origin": "*",
-                    "Cross-Origin-Resource-Policy": "cross-origin"
-                }
-            )
+            print(f"[IMAGE PROXY] Failed to fetch {url[:50]}... Status: {resp.status_code}")
+            return Response(content=f"Error {resp.status_code}", status_code=resp.status_code)
         
         return Response(
             content=resp.content,
@@ -2227,15 +2410,8 @@ async def manga_image_proxy(url: str, referer: str = "https://mangapill.com/"):
             }
         )
     except Exception as e:
-        return Response(
-            content=TRANSPARENT_SVG,
-            media_type="image/svg+xml",
-            headers={
-                "Cache-Control": "public, max-age=3600",
-                "Access-Control-Allow-Origin": "*",
-                "Cross-Origin-Resource-Policy": "cross-origin"
-            }
-        )
+        print(f"[IMAGE PROXY FATAL] {e} for {url[:50]}")
+        return Response(content=str(e), status_code=500)
 
 @router.get("/image-proxy")
 async def generic_image_proxy(url: str, referer: str = None):
@@ -2415,3 +2591,29 @@ async def get_music_info(seokey: str, type: Optional[str] = "music"):
     except Exception as e:
         print(f"[Music] Info error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# --- News Proxy Endpoints for Node Bridge ---
+@router.get("/news/ann/info")
+async def get_news_info(id: str):
+    try:
+        client = get_http_client()
+        resp = await client.get(f"http://localhost:3001/news/ann/info?id={id}")
+        if resp.status_code == 200:
+            return resp.json()
+        raise HTTPException(status_code=resp.status_code, detail="Node bridge error")
+    except Exception as e:
+        print(f"[News Proxy] Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/news/ann/recent-feeds")
+async def get_news_recent_feeds():
+    try:
+        client = get_http_client()
+        resp = await client.get(f"http://localhost:3001/news/ann/recent-feeds")
+        if resp.status_code == 200:
+            return resp.json()
+        raise HTTPException(status_code=resp.status_code, detail="Node bridge error")
+    except Exception as e:
+        print(f"[News Proxy] Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
