@@ -5,3 +5,7 @@ requests
 httpx
 websockets
 yt-dlp
+throttlebuster
+beautifulsoup4
+aiofiles
+tqdm
