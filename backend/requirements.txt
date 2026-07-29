@@ -1,6 +1,5 @@
 fastapi
 uvicorn[standard]
-moviebox-api
 pydantic
 requests
 httpx
