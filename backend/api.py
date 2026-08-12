@@ -1211,6 +1211,7 @@ async def download(
 
 @router.post("/stream")
 async def stream(
+    request: Request,
     query: str, 
     id: Optional[str] = None, 
     content_type: str = "all", 
@@ -1352,14 +1353,15 @@ async def stream(
         if mode == "url":
             # Return a proxy URL that routes through our backend
             # This bypasses 403 Forbidden errors from streaming providers
-            proxy_url = f"/api/proxy-stream?url={quote(str(media_file.url))}"
+            proxy_base = f"{request.url.scheme}://{request.url.netloc}/api/proxy-stream"
+            proxy_url = f"{proxy_base}?url={quote(str(media_file.url))}&source=moviebox"
             
             # Extract subtitles
             subtitles = []
             if files_metadata and hasattr(files_metadata, 'captions'):
                 for caption in files_metadata.captions:
                     # Proxy the subtitle URL to avoid CORS/Forbidden issues
-                    proxied_sub_url = f"/api/proxy-stream?url={quote(str(caption.url))}&source=moviebox"
+                    proxied_sub_url = f"{proxy_base}?url={quote(str(caption.url))}&source=moviebox"
                     subtitles.append({
                         "lang": caption.lanName,
                         "language": caption.lan,
