@@ -16,7 +16,7 @@ import RadioPlayer from './components/RadioPlayer';
 import './styles/index.css';
 
 // Define available backends
-const CLOUD_BASE = 'https://genga-movies.onrender.com';
+const CLOUD_BASE = 'https://genga.onrender.com';
 const NEWS_API_BASE = 'https://api-consumet-org-x46x.onrender.com';
 
 
@@ -31,7 +31,9 @@ function App() {
 
     const [localServerURL, setLocalServerURL] = useState(() => {
         const saved = localStorage.getItem('moviebox_local_ip');
-        return saved !== null ? saved : 'http://localhost:8000';
+        if (saved !== null) return saved;
+        const isLocalHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        return isLocalHost ? 'http://localhost:8000' : CLOUD_BASE;
     });
 
     const [showManualIP, setShowManualIP] = useState(false);
@@ -65,8 +67,11 @@ function App() {
     // Simplified connection logic
     useEffect(() => {
         const savedIP = localStorage.getItem('moviebox_local_ip');
-        if (!savedIP) {
-            localStorage.setItem('moviebox_local_ip', 'http://localhost:8000');
+        const isLocalHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        if (!savedIP || (savedIP === 'http://localhost:8000' && !isLocalHost)) {
+            const defaultIP = isLocalHost ? 'http://localhost:8000' : CLOUD_BASE;
+            localStorage.setItem('moviebox_local_ip', defaultIP);
+            setLocalServerURL(defaultIP);
         }
     }, []);
 
