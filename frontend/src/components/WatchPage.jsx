@@ -36,6 +36,7 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
     const [manualId, setManualId] = useState('');
     // Retry counter to re-trigger stream fetch without full page reload
     const [retryCounter, setRetryCounter] = useState(0);
+    const lastFetchedRef = useRef({ id: '', season: null, episode: null, episodeId: '', source: '', retryCounter: 0, animeLanguage: '' });
 
     // Mobile Responsiveness
     // Detect Smart TV user agents to avoid mobile-stacked layout on TV devices
@@ -215,6 +216,40 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
 
     // Fetch Stream URL
     useEffect(() => {
+        const isMB = activeSource === 'moviebox';
+        const isAni = activeSource === 'anilist';
+        if (isAni && !fullDetails.episodeId) {
+            return;
+        }
+
+        const hasChanged = 
+            lastFetchedRef.current.source !== activeSource ||
+            lastFetchedRef.current.retryCounter !== retryCounter ||
+            lastFetchedRef.current.animeLanguage !== animeLanguage ||
+            (isMB && (
+                lastFetchedRef.current.id !== item.id ||
+                lastFetchedRef.current.season !== currentSeason ||
+                lastFetchedRef.current.episode !== currentEpisode
+            )) ||
+            (isAni && (
+                lastFetchedRef.current.episodeId !== fullDetails.episodeId
+            )) ||
+            (!isMB && !isAni && lastFetchedRef.current.id !== item.id);
+
+        if (!hasChanged) {
+            return;
+        }
+
+        lastFetchedRef.current = {
+            id: item.id,
+            season: currentSeason,
+            episode: currentEpisode,
+            episodeId: fullDetails.episodeId || '',
+            source: activeSource,
+            retryCounter,
+            animeLanguage
+        };
+
         const abortController = new AbortController();
         const timeoutId = setTimeout(() => abortController.abort(), 20000); // 20s timeout
 
