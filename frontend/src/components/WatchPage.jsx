@@ -346,7 +346,7 @@ const WatchPage = ({ item, initialSeason, initialEpisode, API_BASE, onBack, prel
                             finalUrl = `${API_BASE}${finalUrl}`;
                         }
                         setStreamUrl(finalUrl);
-                        setStreamType('hls');
+                        setStreamType(finalUrl.includes('.m3u8') ? 'hls' : 'mp4');
                         if (data.subtitles) {
                             setSubtitles(data.subtitles.map(s => ({
                                 ...s,

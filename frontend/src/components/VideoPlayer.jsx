@@ -246,7 +246,7 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
         };
 
         const setupSource = () => {
-            const isHls = type === 'hls' || activeUrl.includes('.m3u8') || activeUrl.includes('proxy-stream');
+            const isHls = (type === 'hls' || activeUrl.includes('.m3u8')) && !activeUrl.includes('.mp4');
             if (isHls) {
                 if (video.canPlayType('application/vnd.apple.mpegurl')) {
                     // Safari native HLS
@@ -342,7 +342,7 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                 fluid: false,
                 sources: [{
                     src: activeUrl,
-                    type: type === 'hls' || source === 'tv' || activeUrl.includes('.m3u8') || activeUrl.includes('proxy-stream') ? 'application/x-mpegURL' : 'video/mp4'
+                    type: (type === 'hls' || source === 'tv' || activeUrl.includes('.m3u8')) && !activeUrl.includes('.mp4') ? 'application/x-mpegURL' : 'video/mp4'
                 }]
             });
 
