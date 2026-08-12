@@ -117,11 +117,13 @@ class Session:
                     verify=False
                 )
                 resp = await do_request(p_client)
-                if resp.status_code == 200:
+                if resp.status_code == 200 and "text/html" not in resp.headers.get("Content-Type", "").lower():
                     use_client.cookies.update(p_client.cookies)
                     return resp
                 else:
-                    raise Exception(f"Proxy returned status {resp.status_code}")
+                    await resp.aclose()
+                    await p_client.aclose()
+                    raise Exception(f"Proxy returned invalid content or status {resp.status_code}")
             except Exception:
                 if api.active_proxy:
                     failed_ip = api.active_proxy.replace("http://", "")
@@ -131,10 +133,10 @@ class Session:
         # 2. Direct Optimistic Request attempt
         try:
             resp = await do_request(use_client)
-            if resp.status_code == 200:
+            if resp.status_code == 200 and "text/html" not in resp.headers.get("Content-Type", "").lower():
                 return resp
-            if resp.status_code in [403, 401, 406]:
-                raise httpx.HTTPStatusError("Blocked by MovieBox", request=resp.request, response=resp)
+            await resp.aclose()
+            raise httpx.HTTPStatusError("Blocked or invalid direct response", request=resp.request, response=resp)
         except (httpx.HTTPError, httpx.HTTPStatusError):
             pass
 
@@ -151,12 +153,14 @@ class Session:
                         verify=False
                     )
                     resp = await do_request(p_client)
-                    if resp.status_code == 200:
+                    if resp.status_code == 200 and "text/html" not in resp.headers.get("Content-Type", "").lower():
                         api.active_proxy = p_url  # Cache successful proxy
                         use_client.cookies.update(p_client.cookies)
                         return resp
                     else:
-                        raise Exception(f"Proxy returned status {resp.status_code}")
+                        await resp.aclose()
+                        await p_client.aclose()
+                        raise Exception(f"Proxy returned invalid content or status {resp.status_code}")
                 except Exception:
                     failed_ip = p_url.replace("http://", "")
                     api.proxies_list = [p for p in api.proxies_list if p != failed_ip]
