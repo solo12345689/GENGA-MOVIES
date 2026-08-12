@@ -86,7 +86,8 @@ class Session:
 
     async def _request_with_fallback(self, method: str, url: str, **kwargs) -> Response:
         """
-        Executes direct HTTP requests to the MovieBox API without proxy fallbacks.
+        Executes HTTP requests. Optimistically tries direct first, and
+        falls back to rotated public proxies if blocked (403, 401, 406 or exception).
         """
         use_client = kwargs.pop('use_client', self._client)
         
@@ -103,6 +104,69 @@ class Session:
             else:
                 return await c.post(url, **kwargs)
 
+        import api
+        
+        # 1. Try utilizing the cached working proxy first
+        if api.active_proxy:
+            try:
+                p_client = httpx.AsyncClient(
+                    headers=use_client.headers,
+                    cookies=use_client.cookies,
+                    proxy=api.active_proxy,
+                    timeout=self._timeout,
+                    verify=False
+                )
+                resp = await do_request(p_client)
+                if resp.status_code == 200 and "text/html" not in resp.headers.get("Content-Type", "").lower():
+                    use_client.cookies.update(p_client.cookies)
+                    return resp
+                else:
+                    await resp.aclose()
+                    await p_client.aclose()
+                    raise Exception(f"Proxy returned invalid content or status {resp.status_code}")
+            except Exception:
+                if api.active_proxy:
+                    failed_ip = api.active_proxy.replace("http://", "")
+                    api.proxies_list = [p for p in api.proxies_list if p != failed_ip]
+                    api.active_proxy = None
+
+        # 2. Direct Optimistic Request attempt
+        try:
+            resp = await do_request(use_client)
+            if resp.status_code == 200 and "text/html" not in resp.headers.get("Content-Type", "").lower():
+                return resp
+            await resp.aclose()
+            raise httpx.HTTPStatusError("Blocked or invalid direct response", request=resp.request, response=resp)
+        except (httpx.HTTPError, httpx.HTTPStatusError):
+            pass
+
+        # 3. Fallback retry loop via rotated public proxies
+        for _ in range(5):
+            p_url = await api.get_proxy_url()
+            if p_url:
+                try:
+                    p_client = httpx.AsyncClient(
+                        headers=use_client.headers,
+                        cookies=use_client.cookies,
+                        proxy=p_url,
+                        timeout=self._timeout,
+                        verify=False
+                    )
+                    resp = await do_request(p_client)
+                    if resp.status_code == 200 and "text/html" not in resp.headers.get("Content-Type", "").lower():
+                        api.active_proxy = p_url  # Cache successful proxy
+                        use_client.cookies.update(p_client.cookies)
+                        return resp
+                    else:
+                        await resp.aclose()
+                        await p_client.aclose()
+                        raise Exception(f"Proxy returned invalid content or status {resp.status_code}")
+                except Exception:
+                    failed_ip = p_url.replace("http://", "")
+                    api.proxies_list = [p for p in api.proxies_list if p != failed_ip]
+                    api.active_proxy = None
+
+        # Last resort: try direct one more time to raise exception
         return await do_request(use_client)
 
     async def get(self, url: str, params: dict = {}, **kwargs) -> Response:
