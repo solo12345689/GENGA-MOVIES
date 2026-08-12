@@ -120,6 +120,8 @@ class Session:
                 if resp.status_code == 200:
                     use_client.cookies.update(p_client.cookies)
                     return resp
+                else:
+                    raise Exception(f"Proxy returned status {resp.status_code}")
             except Exception:
                 if api.active_proxy:
                     failed_ip = api.active_proxy.replace("http://", "")
@@ -153,6 +155,8 @@ class Session:
                         api.active_proxy = p_url  # Cache successful proxy
                         use_client.cookies.update(p_client.cookies)
                         return resp
+                    else:
+                        raise Exception(f"Proxy returned status {resp.status_code}")
                 except Exception:
                     failed_ip = p_url.replace("http://", "")
                     api.proxies_list = [p for p in api.proxies_list if p != failed_ip]
