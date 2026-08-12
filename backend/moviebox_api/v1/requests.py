@@ -141,7 +141,7 @@ class Session:
             pass
 
         # 3. Fallback retry loop via rotated public proxies
-        for _ in range(5):
+        for _ in range(10):
             p_url = await api.get_proxy_url()
             if p_url:
                 try:

@@ -573,8 +573,12 @@ const VideoPlayer = ({ url, type = 'hls', title, subtitles = [], onClose, onNext
                 setIsFullscreen(true);
             }
             // iOS Safari Fallback
-            else if (video.webkitEnterFullscreen) {
-                video.webkitEnterFullscreen();
+            else if (video && video.webkitEnterFullscreen) {
+                try {
+                    video.webkitEnterFullscreen();
+                } catch (err) {
+                    console.error("webkitEnterFullscreen failed:", err);
+                }
             }
         } else {
             if (document.exitFullscreen) {

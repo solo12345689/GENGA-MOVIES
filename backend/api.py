@@ -92,10 +92,10 @@ async def get_proxy_url():
     now = time.time()
     if not proxies_list or (now - last_proxy_fetch_time > 300):
         try:
-            # Fetch high-speed Elite proxies in US, Germany, UK, and Canada
+            # Fetch high-speed Elite proxies in US, Germany, UK, Canada, Singapore, HK, Netherlands, France, Japan
             async with httpx.AsyncClient(timeout=5.0) as client:
                 res = await client.get(
-                    "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=5000&country=US,DE,GB,CA&ssl=yes&anonymity=elite"
+                    "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=5000&country=US,DE,GB,CA,SG,HK,NL,FR,JP&ssl=yes&anonymity=elite"
                 )
                 proxies = [p.strip() for p in res.text.split("\r\n") if p.strip()]
                 if proxies:
