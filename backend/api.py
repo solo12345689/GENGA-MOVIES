@@ -1935,6 +1935,7 @@ async def proxy_stream(request: Request, url: str, source: str = None):
     Proxies a stream URL through the backend in a single pass.
     Bypasses 403s and supports range requests via browser headers.
     """
+    global active_proxy, proxies_list
     # Cycle through headers until success
     candidates = get_source_headers(url, source)
     client_range = request.headers.get('range')
